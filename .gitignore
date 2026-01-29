@@ -20,3 +20,4 @@ out/
 .settings
 .classpath
 .factorypath
+/logs

@@ -4,26 +4,54 @@ plugins {
     id 'application'
 }
 
-version "1.0"
-group "com.example"
+version "1.0.0-SNAPSHOT"
+group "com.github.joschi.javametadata"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation("com.google.code.gson:gson:2.10.1")
+    // Jackson JSON processing
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.16.1"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.16.1"
+    
+    // HTTP Client
+    implementation "org.apache.httpcomponents.client5:httpclient5:5.3.1"
 
-    implementation("org.slf4j:slf4j-api:2.0.7")
-    implementation("ch.qos.logback:logback-core:1.4.7")
-    implementation("ch.qos.logback:logback-classic:1.4.7")
+    // Logging API used by distro implementations (binding can be added by consumers/runtime).
+    implementation "org.slf4j:slf4j-api:2.0.7"
+    implementation "ch.qos.logback:logback-classic:1.4.14"
+    
+    // Command Line Parsing
+    implementation "info.picocli:picocli:4.7.5"
+    
+    // Testing
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"
 }
 
 application {
-    mainClass = 'com.example.Main'
+    mainClass = 'com.github.joschi.javametadata.Main'
 }
 
 java {
     sourceCompatibility = JavaVersion.toVersion('21')
     targetCompatibility = JavaVersion.toVersion('21')
 }
+
+tasks.register('standaloneJar', Jar) {
+    archiveClassifier = 'standalone'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    with jar
+}
+
+build.dependsOn standaloneJar
