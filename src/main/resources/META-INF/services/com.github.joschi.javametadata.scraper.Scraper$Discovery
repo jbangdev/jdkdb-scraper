@@ -22,7 +22,9 @@ com.github.joschi.javametadata.scraper.vendors.BishengScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.RedhatScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.GraalVmLegacyScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.GraalVmCeScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.GraalVmCeEaScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.GraalVmCommunityScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.GraalVmCommunityEaScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.IbmScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.JavaSeRiScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.JetbrainsScraper$Discovery
