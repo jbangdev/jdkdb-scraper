@@ -22,7 +22,7 @@ public class JetbrainsScraper extends BaseScraper {
             "^jbr(sdk)?(?:_\\w+)?-([0-9][0-9\\+._]{1,})-(linux-musl|linux|osx|macos|windows)-(aarch64|x64|x86)(?:-\\w+)?-(b[0-9\\+.]{1,})(?:_\\w+)?\\.(tar\\.gz|zip|pkg)$");
     
     private static final Pattern BODY_PATTERN = Pattern.compile(
-            "\\|\\s*(?:\\*\\*)?(?<description>[^|]+?)(?:\\*\\*)?\\s*\\|\\s*\\[(?<file>[^\\]]+)\\]\\((?<url>https:[^\\)]+)\\)\\s*\\|\\s*\\[checksum\\]\\((?<checksum_url>https:[^\\)]+)\\)");
+            "\\|\\s*(?:\\*\\*)?(?<description>[^|]+?)(?:\\*\\*)?\\s*\\|\\s*\\[(?<file>[^\\]]+)\\]\\((?<url>[^\\)]+)\\)\\s*\\|\\s*\\[checksum\\]\\((?<checksumUrl>[^\\)]+)\\)");
 
     public JetbrainsScraper(Path metadataDir, Path checksumDir, Logger logger) {
         super(metadataDir, checksumDir, logger);
