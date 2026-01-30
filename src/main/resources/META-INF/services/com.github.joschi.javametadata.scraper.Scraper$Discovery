@@ -25,3 +25,7 @@ com.github.joschi.javametadata.scraper.vendors.IbmScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.JavaSeRiScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.JetbrainsScraper$Discovery
 com.github.joschi.javametadata.scraper.vendors.MandrelScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.GluonGraalVmScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.LibericaNativeScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.OpenLogicScraper$Discovery
+com.github.joschi.javametadata.scraper.vendors.ZuluPrimeScraper$Discovery
