@@ -1,4 +1,4 @@
-# jdkDB
+# jdkdb-scraper - JDK Metadata DB Scraper
 
 A Java-based application for scraping JDK metadata from various vendors. This project replaces the original bash scripts with a robust, parallel Java implementation.
 

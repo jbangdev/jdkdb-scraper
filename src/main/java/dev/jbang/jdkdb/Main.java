@@ -149,6 +149,13 @@ public class Main implements Callable<Integer> {
 					}
 				}
 
+				// Allow time for async logging to flush before printing summary
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+
 				// Print summary
 				System.out.println();
 				System.out.println("Execution Summary");

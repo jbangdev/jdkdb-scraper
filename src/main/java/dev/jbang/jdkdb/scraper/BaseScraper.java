@@ -71,6 +71,11 @@ public abstract class BaseScraper implements Scraper {
 		logger.fine(message);
 	}
 
+	/** Log a progress message */
+	protected void fine(String message) {
+		logger.finer(message);
+	}
+
 	/** Log successful processing of single metadata item */
 	protected void success(String filename) {
 		logger.info("Processed " + filename);
