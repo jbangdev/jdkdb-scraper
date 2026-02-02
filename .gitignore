@@ -21,3 +21,5 @@ out/
 .classpath
 .factorypath
 /logs
+*.code-workspace
+.vscode/
