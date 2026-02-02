@@ -32,21 +32,25 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 		log("Fetching releases from " + releasesUrl);
 		String json = httpUtils.downloadString(releasesUrl);
 
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
-		if (releases.isArray()) {
-			log("Found " + releases.size() + " releases");
-
-			for (JsonNode release : releases) {
-				try {
-					List<JdkMetadata> metadata = processRelease(release);
-					allMetadata.addAll(metadata);
-				} catch (Exception e) {
-					String tagName =
-							release.has("tag_name") ? release.get("tag_name").asText() : "unknown";
-					log("Failed to process release " + tagName + ": " + e.getMessage());
+		try {
+			if (releases.isArray()) {
+				log("Found " + releases.size() + " releases");
+				for (JsonNode release : releases) {
+					try {
+						List<JdkMetadata> metadata = processRelease(release);
+						allMetadata.addAll(metadata);
+					} catch (Exception e) {
+						String tagName = release.has("tag_name")
+								? release.get("tag_name").asText()
+								: "unknown";
+						log("Failed to process release " + tagName + ": " + e.getMessage());
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

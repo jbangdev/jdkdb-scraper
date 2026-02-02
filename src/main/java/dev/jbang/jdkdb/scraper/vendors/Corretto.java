@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,20 +38,24 @@ public class Corretto extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		// Fetch releases from all Corretto repositories
-		for (String repo : CORRETTO_REPOS) {
-			log("Processing repository: " + repo);
+		try {
+			// Fetch releases from all Corretto repositories
+			for (String repo : CORRETTO_REPOS) {
+				log("Processing repository: " + repo);
 
-			String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, repo);
-			String json = httpUtils.downloadString(releasesUrl);
-			JsonNode releases = objectMapper.readTree(json);
+				String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, repo);
+				String json = httpUtils.downloadString(releasesUrl);
+				JsonNode releases = readJson(json);
 
-			if (releases.isArray()) {
-				for (JsonNode release : releases) {
-					String version = release.get("tag_name").asText();
-					processVersion(version, allMetadata);
+				if (releases.isArray()) {
+					for (JsonNode release : releases) {
+						String version = release.get("tag_name").asText();
+						processVersion(version, allMetadata);
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -81,6 +87,8 @@ public class Corretto extends BaseScraper {
 						String filename = buildFilename(version, os, arch, ext, imageType);
 						try {
 							downloadVersion(filename, version, os, arch, ext, imageType, allMetadata);
+						} catch (InterruptedProgressException | TooManyFailuresException e) {
+							throw e;
 						} catch (Exception e) {
 							fail(filename, e);
 						}

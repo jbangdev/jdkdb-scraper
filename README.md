@@ -149,8 +149,37 @@ public class NewScraper extends BaseScraper {
 
 	@Override
 	protected List<JdkMetadata> scrape() throws Exception {
-		// Implementation here
-		return new ArrayList<>();
+		List<JdkMetadata> allMetadata = new ArrayList<>();
+
+		try {
+			// Figure out what items to scrape here...
+			var allItems = ...;
+			for (item in allItems) {
+				try {
+					JdkMetadata metadata = scrapeItem(item);
+					allMetadata.add(metadata);
+				} catch (InterruptedProgressException|TooManyFailuresException e) {
+					// We don't want these exceptions to mark the item as failed
+					throw e;
+				} catch (Exception e) {
+					// For recoverable problems we call fail():
+					fail(filename, e);
+				}
+			}
+		} catch (InterruptedProgressException ex) {
+			// When we receive this exception we stop scraping
+			// but we return whatever is already processed
+		}
+
+		return allMetadata;
+	}
+
+	private void scrapeItem(...) throws Exception {
+		// Here we scrape a single item
+		JdkMetadata metadata = ...;
+		// For each successful item created we call:
+		saveMetadataFile(metadata);
+		success(filename);
 	}
 
 	// ServiceLoader discovery

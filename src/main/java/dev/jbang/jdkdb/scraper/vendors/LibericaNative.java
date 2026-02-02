@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -30,7 +32,7 @@ public class LibericaNative extends BaseScraper {
 
 		log("Fetching releases from " + apiUrl);
 		String json = httpUtils.downloadString(apiUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found");
@@ -39,27 +41,33 @@ public class LibericaNative extends BaseScraper {
 
 		log("Found " + releases.size() + " potential releases");
 
-		for (JsonNode release : releases) {
-			JsonNode downloadUrl = release.get("downloadUrl");
-			if (downloadUrl == null || !downloadUrl.isTextual()) {
-				return null;
-			}
-
-			String url = downloadUrl.asText();
-
-			// Get additional info from API response
-			JsonNode releaseTypeNode = release.get("releaseType");
-			String apiReleaseType = releaseTypeNode != null ? releaseTypeNode.asText() : "GA";
-			String releaseType = apiReleaseType.equalsIgnoreCase("EA") ? "ea" : "ga";
-
-			try {
-				JdkMetadata metadata = processRelease(url, releaseType);
-				if (metadata != null) {
-					allMetadata.add(metadata);
+		try {
+			for (JsonNode release : releases) {
+				JsonNode downloadUrl = release.get("downloadUrl");
+				if (downloadUrl == null || !downloadUrl.isTextual()) {
+					return null;
 				}
-			} catch (Exception e) {
-				fail(url, e);
+
+				String url = downloadUrl.asText();
+
+				// Get additional info from API response
+				JsonNode releaseTypeNode = release.get("releaseType");
+				String apiReleaseType = releaseTypeNode != null ? releaseTypeNode.asText() : "GA";
+				String releaseType = apiReleaseType.equalsIgnoreCase("EA") ? "ea" : "ga";
+
+				try {
+					JdkMetadata metadata = processRelease(url, releaseType);
+					if (metadata != null) {
+						allMetadata.add(metadata);
+					}
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					fail(url, e);
+				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

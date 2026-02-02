@@ -1,10 +1,34 @@
 package dev.jbang.jdkdb.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.List;
 import java.util.Objects;
 
 /** Represents JDK metadata for a specific release */
+@JsonPropertyOrder({
+	"vendor",
+	"filename",
+	"release_type",
+	"version",
+	"java_version",
+	"jvm_impl",
+	"os",
+	"architecture",
+	"file_type",
+	"image_type",
+	"features",
+	"url",
+	"md5",
+	"md5_file",
+	"sha1",
+	"sha1_file",
+	"sha256",
+	"sha256_file",
+	"sha512",
+	"sha512_file",
+	"size"
+})
 public class JdkMetadata {
 	private String vendor;
 	private String filename;

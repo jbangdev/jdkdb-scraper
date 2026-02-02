@@ -2,8 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -38,43 +40,49 @@ public class Ibm extends BaseScraper {
 
 		log("Found " + jdkVersions.size() + " JDK versions");
 
-		for (String jdkVersion : jdkVersions) {
-			log("Processing JDK version: " + jdkVersion);
+		try {
+			for (String jdkVersion : jdkVersions) {
+				log("Processing JDK version: " + jdkVersion);
 
-			// Fetch architecture list
-			String archUrl = BASE_URL + jdkVersion + "/linux/";
-			String archHtml = httpUtils.downloadString(archUrl);
+				// Fetch architecture list
+				String archUrl = BASE_URL + jdkVersion + "/linux/";
+				String archHtml = httpUtils.downloadString(archUrl);
 
-			Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
-			List<String> architectures = new ArrayList<>();
-			while (archMatcher.find()) {
-				architectures.add(archMatcher.group(1));
-			}
+				Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
+				List<String> architectures = new ArrayList<>();
+				while (archMatcher.find()) {
+					architectures.add(archMatcher.group(1));
+				}
 
-			for (String architecture : architectures) {
-				log("Processing architecture: " + architecture);
+				for (String architecture : architectures) {
+					log("Processing architecture: " + architecture);
 
-				// Fetch file list
-				String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
-				String filesHtml = httpUtils.downloadString(filesUrl);
+					// Fetch file list
+					String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
+					String filesHtml = httpUtils.downloadString(filesUrl);
 
-				Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
-				while (fileMatcher.find()) {
-					String ibmFile = fileMatcher.group(1);
+					Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
+					while (fileMatcher.find()) {
+						String ibmFile = fileMatcher.group(1);
 
-					// Skip SFJ files
-					if (ibmFile.contains("sfj")) {
-						log("Ignoring " + ibmFile);
-						continue;
-					}
+						// Skip SFJ files
+						if (ibmFile.contains("sfj")) {
+							log("Ignoring " + ibmFile);
+							continue;
+						}
 
-					try {
-						processFile(ibmFile, jdkVersion, architecture, allMetadata);
-					} catch (Exception e) {
-						log("Failed to process " + ibmFile + ": " + e.getMessage());
+						try {
+							processFile(ibmFile, jdkVersion, architecture, allMetadata);
+						} catch (InterruptedProgressException | TooManyFailuresException e) {
+							throw e;
+						} catch (Exception e) {
+							log("Failed to process " + ibmFile + ": " + e.getMessage());
+						}
 					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

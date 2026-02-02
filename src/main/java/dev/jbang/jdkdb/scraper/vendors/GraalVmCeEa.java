@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -34,53 +36,59 @@ public class GraalVmCeEa extends BaseScraper {
 		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, GITHUB_REPO);
 
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found");
 			return allMetadata;
 		}
 
-		for (JsonNode release : releases) {
-			// Only process prereleases (EA releases)
-			boolean isPrerelease = release.path("prerelease").asBoolean(false);
-			if (!isPrerelease) {
-				continue;
-			}
-
-			String tagName = release.path("tag_name").asText();
-
-			// Exclude Community releases (which start with "jdk")
-			if (tagName.startsWith("jdk")) {
-				continue;
-			}
-
-			log("Processing EA release: " + tagName);
-
-			JsonNode assets = release.path("assets");
-			if (!assets.isArray()) {
-				continue;
-			}
-
-			for (JsonNode asset : assets) {
-				String assetName = asset.path("name").asText();
-
-				if (!assetName.startsWith("graalvm-ce")
-						|| (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
+		try {
+			for (JsonNode release : releases) {
+				// Only process prereleases (EA releases)
+				boolean isPrerelease = release.path("prerelease").asBoolean(false);
+				if (!isPrerelease) {
 					continue;
 				}
 
-				if (metadataExists(assetName)) {
-					log("Skipping " + assetName + " (already exists)");
+				String tagName = release.path("tag_name").asText();
+
+				// Exclude Community releases (which start with "jdk")
+				if (tagName.startsWith("jdk")) {
 					continue;
 				}
 
-				try {
-					processAsset(tagName, assetName, allMetadata);
-				} catch (Exception e) {
-					log("Failed to process " + assetName + ": " + e.getMessage());
+				log("Processing EA release: " + tagName);
+
+				JsonNode assets = release.path("assets");
+				if (!assets.isArray()) {
+					continue;
+				}
+
+				for (JsonNode asset : assets) {
+					String assetName = asset.path("name").asText();
+
+					if (!assetName.startsWith("graalvm-ce")
+							|| (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
+						continue;
+					}
+
+					if (metadataExists(assetName)) {
+						log("Skipping " + assetName + " (already exists)");
+						continue;
+					}
+
+					try {
+						processAsset(tagName, assetName, allMetadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
+					} catch (Exception e) {
+						log("Failed to process " + assetName + ": " + e.getMessage());
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

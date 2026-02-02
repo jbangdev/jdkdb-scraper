@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -51,9 +53,13 @@ public class Trava extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		for (ProjectConfig project : PROJECTS) {
-			log("Processing Trava " + project.javaVersion());
-			allMetadata.addAll(scrapeProject(project));
+		try {
+			for (ProjectConfig project : PROJECTS) {
+				log("Processing Trava " + project.javaVersion());
+				allMetadata.addAll(scrapeProject(project));
+			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -66,7 +72,7 @@ public class Trava extends BaseScraper {
 		String releasesUrl =
 				String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, project.repo());
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found for " + project.repo());
@@ -101,6 +107,8 @@ public class Trava extends BaseScraper {
 					if (contentType.startsWith("application")) {
 						try {
 							processAsset(project, tagName, assetName, version, metadata);
+						} catch (InterruptedProgressException | TooManyFailuresException e) {
+							throw e;
 						} catch (Exception e) {
 							log("Failed to process " + assetName + ": " + e.getMessage());
 						}

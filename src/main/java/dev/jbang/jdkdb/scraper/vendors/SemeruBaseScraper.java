@@ -3,7 +3,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -34,10 +36,14 @@ public abstract class SemeruBaseScraper extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		// Process each Java version
-		for (String javaVersion : getJavaVersions()) {
-			log("Processing " + getVendor() + " version: " + javaVersion);
-			allMetadata.addAll(scrapeVersion(javaVersion));
+		try {
+			// Process each Java version
+			for (String javaVersion : getJavaVersions()) {
+				log("Processing " + getVendor() + " version: " + javaVersion);
+				allMetadata.addAll(scrapeVersion(javaVersion));
+			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -50,7 +56,7 @@ public abstract class SemeruBaseScraper extends BaseScraper {
 		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, ORG, repo);
 
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found for version " + javaVersion);
@@ -105,6 +111,8 @@ public abstract class SemeruBaseScraper extends BaseScraper {
 				if (metadata != null) {
 					metadataList.add(metadata);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
 			} catch (Exception e) {
 				fail(assetName, e);
 			}

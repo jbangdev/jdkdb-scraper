@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -31,9 +33,13 @@ public class TemurinEa extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		for (int version : EA_VERSIONS) {
-			log("Checking EA releases for Java " + version);
-			allMetadata.addAll(scrapeVersion(version));
+		try {
+			for (int version : EA_VERSIONS) {
+				log("Checking EA releases for Java " + version);
+				allMetadata.addAll(scrapeVersion(version));
+			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -47,7 +53,7 @@ public class TemurinEa extends BaseScraper {
 
 		log("Fetching releases from " + releasesUrl);
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found for version " + javaVersion);
@@ -101,6 +107,8 @@ public class TemurinEa extends BaseScraper {
 				if (metadata != null) {
 					metadataList.add(metadata);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
 			} catch (Exception e) {
 				fail(filename, e);
 			}

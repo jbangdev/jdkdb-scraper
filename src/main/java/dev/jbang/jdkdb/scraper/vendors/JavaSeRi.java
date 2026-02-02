@@ -2,8 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -51,15 +53,21 @@ public class JavaSeRi extends BaseScraper {
 
 		log("Found " + urls.size() + " files to process");
 
-		// Process each URL
-		for (String url : urls) {
-			String filename = url.substring(url.lastIndexOf('/') + 1);
+		try {
+			// Process each URL
+			for (String url : urls) {
+				String filename = url.substring(url.lastIndexOf('/') + 1);
 
-			try {
-				processFile(url, filename, allMetadata);
-			} catch (Exception e) {
-				fail(filename, e);
+				try {
+					processFile(url, filename, allMetadata);
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					fail(filename, e);
+				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

@@ -3,7 +3,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,38 +41,44 @@ public abstract class GraalVmBaseScraper extends BaseScraper {
 		String releasesUrl =
 				String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGithubOrg(), getGithubRepo());
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found");
 			return allMetadata;
 		}
 
-		for (JsonNode release : releases) {
-			String tagName = release.get("tag_name").asText();
+		try {
+			for (JsonNode release : releases) {
+				String tagName = release.get("tag_name").asText();
 
-			if (!shouldProcessTag(tagName)) {
-				continue;
-			}
+				if (!shouldProcessTag(tagName)) {
+					continue;
+				}
 
-			log("Processing release: " + tagName);
+				log("Processing release: " + tagName);
 
-			JsonNode assets = release.get("assets");
-			if (assets != null && assets.isArray()) {
-				for (JsonNode asset : assets) {
-					String assetName = asset.get("name").asText();
+				JsonNode assets = release.get("assets");
+				if (assets != null && assets.isArray()) {
+					for (JsonNode asset : assets) {
+						String assetName = asset.get("name").asText();
 
-					if (!shouldProcessAsset(assetName)) {
-						continue;
-					}
+						if (!shouldProcessAsset(assetName)) {
+							continue;
+						}
 
-					try {
-						processAsset(tagName, assetName, allMetadata);
-					} catch (Exception e) {
-						log("Failed to process " + assetName + ": " + e.getMessage());
+						try {
+							processAsset(tagName, assetName, allMetadata);
+						} catch (InterruptedProgressException | TooManyFailuresException e) {
+							throw e;
+						} catch (Exception e) {
+							log("Failed to process " + assetName + ": " + e.getMessage());
+						}
 					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

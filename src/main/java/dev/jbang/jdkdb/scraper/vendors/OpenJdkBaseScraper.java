@@ -2,7 +2,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -42,26 +44,32 @@ public abstract class OpenJdkBaseScraper extends BaseScraper {
 
 		log("Found " + downloadUrls.size() + " download URLs");
 
-		// Process each download URL
-		for (String url : downloadUrls) {
-			String filename = extractFilename(url);
-			if (filename == null) {
-				continue;
-			}
-
-			if (metadataExists(filename)) {
-				log("Skipping " + filename + " (already exists)");
-				continue;
-			}
-
-			try {
-				JdkMetadata metadata = processFile(filename, url);
-				if (metadata != null) {
-					allMetadata.add(metadata);
+		try {
+			// Process each download URL
+			for (String url : downloadUrls) {
+				String filename = extractFilename(url);
+				if (filename == null) {
+					continue;
 				}
-			} catch (Exception e) {
-				fail(filename, e);
+
+				if (metadataExists(filename)) {
+					log("Skipping " + filename + " (already exists)");
+					continue;
+				}
+
+				try {
+					JdkMetadata metadata = processFile(filename, url);
+					if (metadata != null) {
+						allMetadata.add(metadata);
+					}
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					fail(filename, e);
+				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

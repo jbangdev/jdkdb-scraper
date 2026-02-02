@@ -1,5 +1,9 @@
 package dev.jbang.jdkdb.scraper;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.util.DefaultIndenter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.jbang.jdkdb.model.JdkMetadata;
@@ -16,7 +20,6 @@ public abstract class BaseScraper implements Scraper {
 	protected final Path metadataDir;
 	protected final Path checksumDir;
 	protected final Logger logger;
-	protected final ObjectMapper objectMapper;
 	protected final HttpUtils httpUtils;
 	protected final boolean fromStart;
 	protected final int maxFailureCount;
@@ -32,9 +35,6 @@ public abstract class BaseScraper implements Scraper {
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
 		this.limitProgress = config.limitProgress();
-		this.objectMapper = new ObjectMapper()
-				.enable(SerializationFeature.INDENT_OUTPUT)
-				.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 		this.httpUtils = new HttpUtils();
 	}
 
@@ -88,8 +88,13 @@ public abstract class BaseScraper implements Scraper {
 	protected void fail(String message, Exception error) {
 		logger.severe("Failed " + message + ": " + error.getMessage());
 		if (failureCount > 0 && ++failureCount >= maxFailureCount) {
-			throw new InterruptedProgressException("Too many failures, aborting");
+			throw new TooManyFailuresException("Too many failures, aborting");
 		}
+	}
+
+	protected JsonNode readJson(String json) throws IOException {
+		ObjectMapper objectMapper = new ObjectMapper();
+		return objectMapper.readTree(json);
 	}
 
 	/** Check if metadata file already exists */
@@ -104,7 +109,12 @@ public abstract class BaseScraper implements Scraper {
 	/** Save individual metadata to file */
 	protected void saveMetadataFile(JdkMetadata metadata) throws IOException {
 		Path metadataFile = metadataDir.resolve(metadata.getFilename() + ".json");
-		objectMapper.writeValue(metadataFile.toFile(), metadata);
+		try (var writer = Files.newBufferedWriter(metadataFile)) {
+			ObjectMapper objectMapper = new ObjectMapper().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
+			objectMapper.writeValue(writer, metadata);
+			// This is to ensure we write the files exactly as the original code did
+			writer.write("\n");
+		}
 	}
 
 	/** Save all metadata and create combined all.json file */
@@ -117,7 +127,22 @@ public abstract class BaseScraper implements Scraper {
 		// Create all.json
 		if (!metadataList.isEmpty()) {
 			Path allJsonPath = metadataDir.resolve("all.json");
-			objectMapper.writeValue(allJsonPath.toFile(), metadataList);
+
+			DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
+			DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
+			printer.indentObjectsWith(indenter);
+			printer.indentArraysWith(indenter);
+
+			try (var writer = Files.newBufferedWriter(allJsonPath)) {
+				ObjectMapper objectMapper = new ObjectMapper()
+						.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false)
+						.enable(SerializationFeature.INDENT_OUTPUT)
+						.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+						.setDefaultPrettyPrinter(printer);
+				objectMapper.writeValue(writer, metadataList);
+				// This is to ensure we write the files exactly as the original code did
+				writer.write("\n");
+			}
 			log("Created all.json with " + metadataList.size() + " entries");
 		}
 	}
@@ -155,7 +180,7 @@ public abstract class BaseScraper implements Scraper {
 	/** Save checksum to file */
 	private void saveChecksumFile(String filename, String algorithm, String checksum) throws IOException {
 		Path checksumFile = checksumDir.resolve(filename + "." + algorithm);
-		Files.writeString(checksumFile, checksum + "  " + filename + System.lineSeparator());
+		Files.writeString(checksumFile, checksum + "  " + filename + "\n");
 	}
 
 	/** Normalize OS name */

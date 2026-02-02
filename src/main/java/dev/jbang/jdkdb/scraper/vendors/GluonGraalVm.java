@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -60,6 +62,8 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 				if (metadata != null) {
 					metadataList.add(metadata);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
 			} catch (Exception e) {
 				fail(assetName, e);
 			}

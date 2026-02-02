@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +26,7 @@ public class Temurin extends BaseScraper {
 		// Get list of available releases
 		log("Fetching available releases");
 		String releasesJson = httpUtils.downloadString(API_BASE + "/info/available_releases");
-		JsonNode releasesData = objectMapper.readTree(releasesJson);
+		JsonNode releasesData = readJson(releasesJson);
 		JsonNode availableReleases = releasesData.get("available_releases");
 
 		if (availableReleases == null || !availableReleases.isArray()) {
@@ -32,30 +34,34 @@ public class Temurin extends BaseScraper {
 			return allMetadata;
 		}
 
-		// Process each release version
-		for (JsonNode releaseNode : availableReleases) {
-			int release = releaseNode.asInt();
-			log("Processing release: " + release);
+		try {
+			// Process each release version
+			for (JsonNode releaseNode : availableReleases) {
+				int release = releaseNode.asInt();
+				log("Processing release: " + release);
 
-			// Fetch assets for this release with pagination
-			int page = 0;
-			boolean hasMore = true;
+				// Fetch assets for this release with pagination
+				int page = 0;
+				boolean hasMore = true;
 
-			while (hasMore) {
-				String assetsUrl = String.format(
-						"%s/assets/feature_releases/%d/ga?page=%d&page_size=50&project=jdk&sort_order=ASC&vendor=adoptium",
-						API_BASE, release, page);
+				while (hasMore) {
+					String assetsUrl = String.format(
+							"%s/assets/feature_releases/%d/ga?page=%d&page_size=50&project=jdk&sort_order=ASC&vendor=adoptium",
+							API_BASE, release, page);
 
-				String assetsJson = httpUtils.downloadString(assetsUrl);
-				JsonNode assets = objectMapper.readTree(assetsJson);
+					String assetsJson = httpUtils.downloadString(assetsUrl);
+					JsonNode assets = readJson(assetsJson);
 
-				if (assets.isArray() && assets.size() > 0) {
-					processAssets(assets, allMetadata);
-					page++;
-				} else {
-					hasMore = false;
+					if (assets.isArray() && assets.size() > 0) {
+						processAssets(assets, allMetadata);
+						page++;
+					} else {
+						hasMore = false;
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -72,6 +78,8 @@ public class Temurin extends BaseScraper {
 				for (JsonNode binary : binaries) {
 					try {
 						processBinary(binary, version, javaVersion, allMetadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
 					} catch (Exception e) {
 						String filename =
 								binary.has("package") && binary.get("package").has("name")

@@ -2,8 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,23 +37,29 @@ public class ZuluPrime extends BaseScraper {
 
 		log("Found " + props.size() + " entries in properties file");
 
-		for (String key : props.stringPropertyNames()) {
-			String url = props.getProperty(key);
-			String filename = url.substring(url.lastIndexOf('/') + 1);
+		try {
+			for (String key : props.stringPropertyNames()) {
+				String url = props.getProperty(key);
+				String filename = url.substring(url.lastIndexOf('/') + 1);
 
-			if (metadataExists(filename)) {
-				log("Skipping " + filename + " (already exists)");
-				continue;
-			}
-
-			try {
-				JdkMetadata metadata = processFile(filename, url);
-				if (metadata != null) {
-					allMetadata.add(metadata);
+				if (metadataExists(filename)) {
+					log("Skipping " + filename + " (already exists)");
+					continue;
 				}
-			} catch (Exception e) {
-				fail(filename, e);
+
+				try {
+					JdkMetadata metadata = processFile(filename, url);
+					if (metadata != null) {
+						allMetadata.add(metadata);
+					}
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					fail(filename, e);
+				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

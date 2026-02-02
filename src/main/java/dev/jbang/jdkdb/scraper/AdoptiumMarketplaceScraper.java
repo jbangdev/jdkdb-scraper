@@ -61,7 +61,7 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 		// Get list of available releases
 		log("Fetching available releases");
 		String releasesJson = httpUtils.downloadString(getApiBase() + getAvailableReleasesPath());
-		JsonNode releasesData = objectMapper.readTree(releasesJson);
+		JsonNode releasesData = readJson(releasesJson);
 		JsonNode availableReleases = releasesData.get("available_releases");
 
 		if (availableReleases == null || !availableReleases.isArray()) {
@@ -69,30 +69,34 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 			return allMetadata;
 		}
 
-		// Process each release version
-		for (JsonNode releaseNode : availableReleases) {
-			int release = releaseNode.asInt();
-			log("Processing release: " + release);
+		try {
+			// Process each release version
+			for (JsonNode releaseNode : availableReleases) {
+				int release = releaseNode.asInt();
+				log("Processing release: " + release);
 
-			// Fetch assets for this release with pagination
-			int page = 0;
-			boolean hasMore = true;
+				// Fetch assets for this release with pagination
+				int page = 0;
+				boolean hasMore = true;
 
-			while (hasMore) {
-				String assetsUrl = String.format(
-						"%s%s?page=%d&page_size=20&sort_order=ASC",
-						getApiBase(), String.format(getAssetsPathTemplate(), release), page);
+				while (hasMore) {
+					String assetsUrl = String.format(
+							"%s%s?page=%d&page_size=20&sort_order=ASC",
+							getApiBase(), String.format(getAssetsPathTemplate(), release), page);
 
-				String assetsJson = httpUtils.downloadString(assetsUrl);
-				JsonNode assets = objectMapper.readTree(assetsJson);
+					String assetsJson = httpUtils.downloadString(assetsUrl);
+					JsonNode assets = readJson(assetsJson);
 
-				if (assets.isArray() && assets.size() > 0) {
-					processAssets(assets, allMetadata);
-					page++;
-				} else {
-					hasMore = false;
+					if (assets.isArray() && assets.size() > 0) {
+						processAssets(assets, allMetadata);
+						page++;
+					} else {
+						hasMore = false;
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -108,6 +112,8 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 				for (JsonNode binary : binaries) {
 					try {
 						processBinary(binary, version, javaVersion, allMetadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
 					} catch (Exception e) {
 						String filename =
 								binary.has("package") && binary.get("package").has("name")

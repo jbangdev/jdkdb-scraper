@@ -2,8 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -30,10 +32,14 @@ public class OracleGraalVm extends BaseScraper {
 
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		// Scrape archive releases for various major versions
-		int[] archiveVersions = {17, 20, 21, 22, 23, 24};
-		for (int version : archiveVersions) {
-			allMetadata.addAll(scrapeArchive(version));
+		try {
+			// Scrape archive releases for various major versions
+			int[] archiveVersions = {17, 20, 21, 22, 23, 24};
+			for (int version : archiveVersions) {
+				allMetadata.addAll(scrapeArchive(version));
+			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -71,6 +77,8 @@ public class OracleGraalVm extends BaseScraper {
 				if (jdkMetadata != null) {
 					metadata.add(jdkMetadata);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
 			} catch (Exception e) {
 				fail(filename, e);
 			}

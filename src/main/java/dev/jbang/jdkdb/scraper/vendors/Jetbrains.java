@@ -3,8 +3,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -34,34 +36,40 @@ public class Jetbrains extends BaseScraper {
 		log("Fetching releases from GitHub");
 		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, GITHUB_REPO);
 		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = objectMapper.readTree(json);
+		JsonNode releases = readJson(json);
 
 		if (!releases.isArray()) {
 			log("No releases found");
 			return allMetadata;
 		}
 
-		for (JsonNode release : releases) {
-			String tagName = release.get("tag_name").asText();
-			boolean prerelease = release.get("prerelease").asBoolean();
-			String releaseType = prerelease ? "ea" : "ga";
-			String body = release.get("body").asText("");
+		try {
+			for (JsonNode release : releases) {
+				String tagName = release.get("tag_name").asText();
+				boolean prerelease = release.get("prerelease").asBoolean();
+				String releaseType = prerelease ? "ea" : "ga";
+				String body = release.get("body").asText("");
 
-			log("Processing release: " + tagName);
+				log("Processing release: " + tagName);
 
-			// Parse assets from the body
-			Matcher matcher = BODY_PATTERN.matcher(body);
-			while (matcher.find()) {
-				String description = matcher.group("description");
-				String file = matcher.group("file");
-				String url = matcher.group("url");
+				// Parse assets from the body
+				Matcher matcher = BODY_PATTERN.matcher(body);
+				while (matcher.find()) {
+					String description = matcher.group("description");
+					String file = matcher.group("file");
+					String url = matcher.group("url");
 
-				try {
-					processAsset(file, url, releaseType, description, allMetadata);
-				} catch (Exception e) {
-					log("Failed to process " + file + ": " + e.getMessage());
+					try {
+						processAsset(file, url, releaseType, description, allMetadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
+					} catch (Exception e) {
+						log("Failed to process " + file + ": " + e.getMessage());
+					}
 				}
 			}
+		} catch (InterruptedProgressException e) {
+			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

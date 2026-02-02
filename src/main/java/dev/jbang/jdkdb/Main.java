@@ -121,16 +121,21 @@ public class Main implements Callable<Integer> {
 					Future<ScraperResult> future = executor.submit(() -> {
 						String scraperName = scraperEntry.getKey();
 						reporter.report(ProgressEvent.started(scraperName));
-						ScraperResult result = scraperEntry.getValue().call();
-						if (result.success()) {
-							reporter.report(ProgressEvent.completed(scraperName));
-						} else {
-							reporter.report(ProgressEvent.failed(
-									scraperName,
-									result.error() != null ? result.error().getMessage() : "Unknown error",
-									result.error()));
+						try {
+							ScraperResult result = scraperEntry.getValue().call();
+							if (result.success()) {
+								reporter.report(ProgressEvent.completed(scraperName));
+							} else {
+								reporter.report(ProgressEvent.failed(
+										scraperName,
+										result.error() != null ? result.error().getMessage() : "Unknown error",
+										result.error()));
+							}
+							return result;
+						} catch (Exception e) {
+							reporter.report(ProgressEvent.failed(scraperName, e.getMessage(), e));
+							return ScraperResult.failure(e);
 						}
-						return result;
 					});
 					futures.add(future);
 				}
