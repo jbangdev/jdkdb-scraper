@@ -6,7 +6,7 @@ plugins {
 }
 
 version "1.0.0-SNAPSHOT"
-group "com.github.joschi.javametadata"
+group "dev.jbang.jdkdb"
 
 repositories {
 	mavenCentral()
@@ -32,7 +32,7 @@ dependencies {
 }
 
 application {
-	mainClass = 'com.github.joschi.javametadata.Main'
+	mainClass = 'dev.jbang.jdkdb.Main'
 }
 
 java {

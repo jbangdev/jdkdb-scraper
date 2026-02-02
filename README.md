@@ -1,6 +1,8 @@
-# Java Metadata Scraper
+# jdkDB
 
 A Java-based application for scraping JDK metadata from various vendors. This project replaces the original bash scripts with a robust, parallel Java implementation.
+
+This project is based on [Joschi's Java Metadata project](https://github.com/joschi/java-metadata) and incorporates ideas from the [Foojay's Disco API project](https://github.com/foojayio/discoapi).
 
 ## Features
 
