@@ -10,17 +10,19 @@ public class ScraperFactory {
     private final Path metadataDir;
     private final Path checksumDir;
     private final ProgressReporter reporter;
+    private final boolean fromStart;
 
     public static ScraperFactory create(
-            Path metadataDir, Path checksumDir, ProgressReporter reporter) {
-        return new ScraperFactory(metadataDir, checksumDir, reporter);
+            Path metadataDir, Path checksumDir, ProgressReporter reporter, boolean fromStart) {
+        return new ScraperFactory(metadataDir, checksumDir, reporter, fromStart);
     }
 
     private ScraperFactory(
-            Path metadataDir, Path checksumDir, ProgressReporter reporter) {
+            Path metadataDir, Path checksumDir, ProgressReporter reporter, boolean fromStart) {
         this.metadataDir = metadataDir;
         this.checksumDir = checksumDir;
         this.reporter = reporter;
+        this.fromStart = fromStart;
     }
 
     /** Create all available scrapers using ServiceLoader */
@@ -37,7 +39,8 @@ public class ScraperFactory {
             ScraperConfig config = new ScraperConfig(
                     metadataVendorDir.resolve(vendor),
                     checksumDir.resolve(vendor),
-                    ProgressReporterLogger.forScraper(name, reporter));
+                    ProgressReporterLogger.forScraper(name, reporter),
+                    fromStart);
 
             Scraper scraper = discovery.create(config);
             scrapers.add(scraper);
@@ -56,7 +59,8 @@ public class ScraperFactory {
             ScraperConfig config = new ScraperConfig(
                     metadataDir.resolve("vendor").resolve(vendor),
                     checksumDir.resolve(vendor),
-                    ProgressReporterLogger.forScraper(scraperName, reporter));
+                    ProgressReporterLogger.forScraper(scraperName, reporter),
+                    fromStart);
             return discovery.create(config);
         } else {
             throw new IllegalArgumentException("Unknown scraper ID: " + scraperName);

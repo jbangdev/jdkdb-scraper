@@ -53,6 +53,11 @@ public class Main implements Callable<Integer> {
             defaultValue = "-1")
     private int maxThreads;
 
+    @Option(
+            names = {"--from-start"},
+            description = "Ignore existing metadata files and scrape all items from the start")
+    private boolean fromStart;
+
     @Override
     public Integer call() throws Exception {
         // Handle list command
@@ -76,7 +81,7 @@ public class Main implements Callable<Integer> {
             reporter.start();
 
             // Create scrapers
-            var fact = ScraperFactory.create(metadataDir, checksumDir, reporter);
+            var fact = ScraperFactory.create(metadataDir, checksumDir, reporter, fromStart);
             if (scraperIds == null) {
                 scraperIds = new ArrayList<>(ScraperFactory.getAvailableScraperDiscoveries().keySet());
             }

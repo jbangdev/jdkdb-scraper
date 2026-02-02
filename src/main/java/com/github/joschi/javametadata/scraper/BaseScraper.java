@@ -18,11 +18,13 @@ public abstract class BaseScraper implements Scraper {
     protected final Logger logger;
     protected final ObjectMapper objectMapper;
     protected final HttpUtils httpUtils;
+    protected final boolean fromStart;
 
     public BaseScraper(ScraperConfig config) {
         this.metadataDir = config.metadataDir();
         this.checksumDir = config.checksumDir();
         this.logger = config.logger();
+        this.fromStart = config.fromStart();
         this.objectMapper =
                 new ObjectMapper()
                         .enable(SerializationFeature.INDENT_OUTPUT)
@@ -65,6 +67,9 @@ public abstract class BaseScraper implements Scraper {
 
     /** Check if metadata file already exists */
     protected boolean metadataExists(String filename) {
+        if (fromStart) {
+            return false;
+        }
         Path metadataFile = metadataDir.resolve(filename + ".json");
         return Files.exists(metadataFile);
     }

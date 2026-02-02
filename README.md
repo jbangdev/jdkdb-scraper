@@ -57,8 +57,8 @@ java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar --help
 ## Command Line Options
 
 ```
-Usage: java-metadata-scraper [-hlV] [-c=<checksumDir>] [-m=<metadataDir>]
-                              [-s=<scraperIds>[,<scraperIds>...]]...
+Usage: java-metadata-scraper [-hlV] [--from-start] [-c=<checksumDir>]
+                              [-m=<metadataDir>] [-s=<scraperIds>[,<scraperIds>...]]...
                               [-t=<maxThreads>]
 
 Scrapes JDK metadata from various vendors
@@ -75,6 +75,8 @@ Options:
   -t, --threads=<maxThreads>
                         Maximum number of parallel scraper threads (default: number
                         of processors)
+      --from-start      Ignore existing metadata files and scrape all items from the
+                        start
   -h, --help            Show this help message and exit.
   -V, --version         Print version information and exit.
 ```
