@@ -148,7 +148,7 @@ public abstract class BaseScraper implements Scraper {
 	}
 
 	/** Download a file and compute its hashes */
-	protected DownloadResult downloadFile(String url, String filename) throws IOException {
+	protected DownloadResult downloadFile(String url, String filename) throws IOException, InterruptedException {
 		Path tempFile = Files.createTempFile("jdk-metadata-", "-" + filename);
 
 		try {
