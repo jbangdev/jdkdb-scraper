@@ -1,14 +1,11 @@
 package dev.jbang.jdkdb.scraper;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.util.HashUtils;
 import dev.jbang.jdkdb.util.HttpUtils;
+import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,7 +51,7 @@ public abstract class BaseScraper implements Scraper {
 			var metadataList = scrape();
 
 			// Save all metadata
-			saveMetadata(metadataList);
+			MetadataUtils.saveMetadata(metadataDir, metadataList);
 
 			log("Completed successfully. Processed " + metadataList.size() + " items");
 
@@ -108,38 +105,7 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Save individual metadata to file */
 	protected void saveMetadataFile(JdkMetadata metadata) throws IOException {
-		Path metadataFile = metadataDir.resolve(metadata.getFilename() + ".json");
-		try (var writer = Files.newBufferedWriter(metadataFile)) {
-			ObjectMapper objectMapper = new ObjectMapper().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
-			objectMapper.writeValue(writer, metadata);
-			// This is to ensure we write the files exactly as the original code did
-			writer.write("\n");
-		}
-	}
-
-	/** Save all metadata and create combined all.json file */
-	protected void saveMetadata(List<JdkMetadata> metadataList) throws IOException {
-		// Create all.json
-		if (!metadataList.isEmpty()) {
-			Path allJsonPath = metadataDir.resolve("all.json");
-
-			DefaultPrettyPrinter printer = new DefaultPrettyPrinter();
-			DefaultIndenter indenter = new DefaultIndenter("  ", "\n");
-			printer.indentObjectsWith(indenter);
-			printer.indentArraysWith(indenter);
-
-			try (var writer = Files.newBufferedWriter(allJsonPath)) {
-				ObjectMapper objectMapper = new ObjectMapper()
-						.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false)
-						.enable(SerializationFeature.INDENT_OUTPUT)
-						.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
-						.setDefaultPrettyPrinter(printer);
-				objectMapper.writeValue(writer, metadataList);
-				// This is to ensure we write the files exactly as the original code did
-				writer.write("\n");
-			}
-			log("Created all.json with " + metadataList.size() + " entries");
-		}
+		MetadataUtils.saveMetadataFile(metadataDir, metadata);
 	}
 
 	/** Download a file and compute its hashes */
