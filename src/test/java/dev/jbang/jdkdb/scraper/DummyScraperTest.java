@@ -66,24 +66,6 @@ class DummyScraperTest {
 	}
 
 	@Test
-	void testScraperSavesMetadataFiles() throws Exception {
-		// Given
-		List<JdkMetadata> metadata = createTestMetadata(2);
-		DummyScraper scraper = new DummyScraper(config, metadata);
-
-		// When
-		scraper.call();
-
-		// Then
-		assertThat(metadataDir.resolve("all.json")).exists();
-
-		// Verify all.json contains all metadata
-		String allJson = Files.readString(metadataDir.resolve("all.json"));
-		assertThat(allJson).contains("test-jdk-0");
-		assertThat(allJson).contains("test-jdk-1");
-	}
-
-	@Test
 	void testScraperHandlesException() {
 		// Given
 		DummyScraper scraper = new DummyScraper(config, new ArrayList<>(), true, "Test failure");

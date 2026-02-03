@@ -5,10 +5,14 @@ import dev.jbang.jdkdb.reporting.ProgressReporter;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
 import dev.jbang.jdkdb.scraper.ScraperResult;
+import dev.jbang.jdkdb.util.MetadataUtils;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.*;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -93,15 +97,20 @@ public class Main implements Callable<Integer> {
 
 			// Create scrapers
 			var fact = ScraperFactory.create(metadataDir, checksumDir, reporter, fromStart, maxFailures, limitProgress);
+			var allDiscoveries = ScraperFactory.getAvailableScraperDiscoveries();
 			if (scraperIds == null) {
-				scraperIds = new ArrayList<>(
-						ScraperFactory.getAvailableScraperDiscoveries().keySet());
+				scraperIds = new ArrayList<>(allDiscoveries.keySet());
 			}
 			var scrapers = new HashMap<String, Scraper>();
+			var affectedVendors = new HashSet<String>();
 			for (var scraperId : scraperIds) {
 				scrapers.put(scraperId, fact.createScraper(scraperId));
+				// Track which vendor this scraper affects
+				var discovery = allDiscoveries.get(scraperId);
+				if (discovery != null) {
+					affectedVendors.add(discovery.vendor());
+				}
 			}
-
 			if (scraperIds != null && !scraperIds.isEmpty()) {
 				System.out.println("Running specific scrapers: " + String.join(", ", scraperIds));
 			} else {
@@ -191,12 +200,51 @@ public class Main implements Callable<Integer> {
 				System.out.println();
 				System.out.println("All scrapers completed in " + duration + " seconds");
 
+				// Generate all.json files for affected vendor directories only
+				System.out.println();
+				System.out.println("Generating all.json files for affected vendor directories...");
+				try {
+					generateAllJsonFiles(metadataDir, affectedVendors);
+					System.out.println("Successfully generated all.json files");
+				} catch (Exception e) {
+					System.err.println("Failed to generate all.json files: " + e.getMessage());
+					e.printStackTrace();
+				}
+
 				return failed > 0 ? 1 : 0;
 			}
 		} catch (Exception e) {
 			System.err.println("Error: " + e.getMessage());
 			e.printStackTrace();
 			return 1;
+		}
+	}
+
+	/**
+	 * Generate all.json files for affected vendor directories. This method only generates all.json
+	 * for vendors that were involved in the scrapers that ran.
+	 *
+	 * @param metadataDir The metadata directory
+	 * @param affectedVendors Set of vendor names that were affected by the scrapers that ran
+	 */
+	private void generateAllJsonFiles(Path metadataDir, Set<String> affectedVendors) throws Exception {
+		Path vendorDir = metadataDir.resolve("vendor");
+		if (!Files.exists(vendorDir) || !Files.isDirectory(vendorDir)) {
+			System.out.println("No vendor directory found, skipping all.json generation");
+			return;
+		}
+
+		// Generate all.json only for affected vendors
+		for (String vendorName : affectedVendors) {
+			Path vendorPath = vendorDir.resolve(vendorName);
+			if (Files.exists(vendorPath) && Files.isDirectory(vendorPath)) {
+				try {
+					System.out.println("  Generating all.json for vendor: " + vendorName);
+					MetadataUtils.generateAllJsonFromDirectory(vendorPath);
+				} catch (Exception e) {
+					System.err.println("    Failed for vendor " + vendorName + ": " + e.getMessage());
+				}
+			}
 		}
 	}
 

@@ -50,9 +50,6 @@ public abstract class BaseScraper implements Scraper {
 			// Execute the scraping logic
 			var metadataList = scrape();
 
-			// Save all metadata
-			MetadataUtils.saveMetadata(metadataDir, metadataList);
-
 			log("Completed successfully. Processed " + metadataList.size() + " items");
 
 			return ScraperResult.success(metadataList.size());

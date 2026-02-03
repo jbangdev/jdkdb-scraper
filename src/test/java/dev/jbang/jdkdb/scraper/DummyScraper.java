@@ -34,6 +34,10 @@ public class DummyScraper extends BaseScraper {
 		if (shouldThrowException) {
 			throw new RuntimeException(exceptionMessage != null ? exceptionMessage : "Test exception");
 		}
+		// Save individual metadata files like real scrapers do
+		for (JdkMetadata metadata : metadataToReturn) {
+			saveMetadataFile(metadata);
+		}
 		return metadataToReturn;
 	}
 
