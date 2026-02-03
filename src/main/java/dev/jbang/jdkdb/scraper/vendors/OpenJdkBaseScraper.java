@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 /** Base scraper for OpenJDK releases from jdk.java.net */
 public abstract class OpenJdkBaseScraper extends BaseScraper {
-	private static final String VENDOR = "openjdk";
+	protected static final String VENDOR = "openjdk";
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^openjdk-([0-9]{1,}[^_]*)_(linux|osx|macos|windows)-(aarch64|x64-musl|x64)_bin\\.(tar\\.gz|zip)$");
 	private static final Pattern URL_PATTERN =

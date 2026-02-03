@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
@@ -12,12 +12,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Base class for IBM Semeru scrapers (both Open and Certified editions) */
-public abstract class SemeruBaseScraper extends BaseScraper {
-	private static final String ORG = "ibmruntimes";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
+public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);
+	}
+
+	@Override
+	protected String getGitHubOrg() {
+		return "ibmruntimes";
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		List<String> repos = new ArrayList<>();
+		for (String version : getJavaVersions()) {
+			repos.add("semeru" + version + "-binaries");
+		}
+		return repos;
 	}
 
 	/** Get the list of Java versions to scrape */
@@ -33,44 +45,7 @@ public abstract class SemeruBaseScraper extends BaseScraper {
 	protected abstract List<String> getAdditionalFeatures();
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			// Process each Java version
-			for (String javaVersion : getJavaVersions()) {
-				log("Processing " + getVendor() + " version: " + javaVersion);
-				allMetadata.addAll(scrapeVersion(javaVersion));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
-		return allMetadata;
-	}
-
-	private List<JdkMetadata> scrapeVersion(String javaVersion) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
-		String repo = "semeru" + javaVersion + "-binaries";
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, ORG, repo);
-
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
-
-		if (!releases.isArray()) {
-			log("No releases found for version " + javaVersion);
-			return metadataList;
-		}
-
-		for (JsonNode release : releases) {
-			metadataList.addAll(processRelease(release, javaVersion));
-		}
-
-		return metadataList;
-	}
-
-	private List<JdkMetadata> processRelease(JsonNode release, String javaVersion) throws Exception {
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> metadataList = new ArrayList<>();
 
 		String tagName = release.get("tag_name").asText();

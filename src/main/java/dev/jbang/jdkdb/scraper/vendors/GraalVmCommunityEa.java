@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,11 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for GraalVM Community Early Access releases from graalvm-ce-dev-builds repository */
-public class GraalVmCommunityEa extends BaseScraper {
+public class GraalVmCommunityEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "graalvm-community";
-	private static final String GITHUB_ORG = "graalvm";
-	private static final String GITHUB_REPO = "graalvm-ce-dev-builds";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	// Pattern for community dev builds: graalvm-community-jdk-17.0.8_linux-x64_bin.tar.gz
 	// or with build number: graalvm-community-jdk-21.0.1-dev_linux-x64_bin.tar.gz
@@ -29,66 +26,59 @@ public class GraalVmCommunityEa extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected String getGitHubOrg() {
+		return "graalvm";
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of("graalvm-ce-dev-builds");
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching EA releases from GitHub");
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, GITHUB_REPO);
-
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
-
-		if (!releases.isArray()) {
-			log("No releases found");
+		// Only process prereleases (EA releases)
+		boolean isPrerelease = release.path("prerelease").asBoolean(false);
+		if (!isPrerelease) {
 			return allMetadata;
 		}
 
-		try {
-			for (JsonNode release : releases) {
-				// Only process prereleases (EA releases)
-				boolean isPrerelease = release.path("prerelease").asBoolean(false);
-				if (!isPrerelease) {
-					continue;
-				}
+		String tagName = release.path("tag_name").asText();
 
-				String tagName = release.path("tag_name").asText();
+		// Only process Community releases (which start with "jdk")
+		if (!tagName.startsWith("jdk")) {
+			return allMetadata;
+		}
 
-				// Only process Community releases (which start with "jdk")
-				if (!tagName.startsWith("jdk")) {
-					continue;
-				}
+		log("Processing EA release: " + tagName);
 
-				log("Processing EA release: " + tagName);
+		JsonNode assets = release.path("assets");
+		if (!assets.isArray()) {
+			return allMetadata;
+		}
 
-				JsonNode assets = release.path("assets");
-				if (!assets.isArray()) {
-					continue;
-				}
+		for (JsonNode asset : assets) {
+			String assetName = asset.path("name").asText();
 
-				for (JsonNode asset : assets) {
-					String assetName = asset.path("name").asText();
-
-					if (!assetName.startsWith("graalvm-community")
-							|| (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
-						continue;
-					}
-
-					if (metadataExists(assetName)) {
-						log("Skipping " + assetName + " (already exists)");
-						continue;
-					}
-
-					try {
-						processAsset(tagName, assetName, allMetadata);
-					} catch (InterruptedProgressException | TooManyFailuresException e) {
-						throw e;
-					} catch (Exception e) {
-						log("Failed to process " + assetName + ": " + e.getMessage());
-					}
-				}
+			if (!assetName.startsWith("graalvm-community")
+					|| (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
+				continue;
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
+
+			if (metadataExists(assetName)) {
+				log("Skipping " + assetName + " (already exists)");
+				continue;
+			}
+
+			try {
+				processAsset(tagName, assetName, allMetadata);
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
+			} catch (Exception e) {
+				log("Failed to process " + assetName + ": " + e.getMessage());
+			}
 		}
 
 		return allMetadata;
@@ -108,7 +98,8 @@ public class GraalVmCommunityEa extends BaseScraper {
 		String ext = matcher.group(4);
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s", GITHUB_ORG, GITHUB_REPO, tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s",
+				getGitHubOrg(), getGitHubRepos().get(0), tagName, assetName);
 
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, assetName);
@@ -150,7 +141,7 @@ public class GraalVmCommunityEa extends BaseScraper {
 
 		@Override
 		public String vendor() {
-			return "graalvm-community";
+			return VENDOR;
 		}
 
 		@Override

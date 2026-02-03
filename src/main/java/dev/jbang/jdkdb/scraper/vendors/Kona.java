@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,13 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Unified scraper for all Tencent Kona releases across multiple Java versions */
-public class Kona extends BaseScraper {
+public class Kona extends GitHubReleaseScraper {
 	private static final String VENDOR = "kona";
-	private static final String ORG = "Tencent";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
-
-	// List of all Java versions to scrape
-	private static final List<String> JAVA_VERSIONS = List.of("8", "11", "17", "21");
 
 	// Pattern for Kona 8
 	private static final Pattern KONA8_SIMPLE_PATTERN =
@@ -41,44 +36,17 @@ public class Kona extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		// Process each Java version
-		for (String javaVersion : JAVA_VERSIONS) {
-			log("Processing Kona version: " + javaVersion);
-			allMetadata.addAll(scrapeVersion(javaVersion));
-		}
-
-		return allMetadata;
+	protected String getGitHubOrg() {
+		return "Tencent";
 	}
 
-	private List<JdkMetadata> scrapeVersion(String javaVersion) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
-		String repo = "TencentKona-" + javaVersion;
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, ORG, repo);
-
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
-
-		if (!releases.isArray()) {
-			log("No releases found for version " + javaVersion);
-			return metadataList;
-		}
-
-		try {
-			for (JsonNode release : releases) {
-				metadataList.addAll(processRelease(release));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
-		return metadataList;
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of("TencentKona-8", "TencentKona-11", "TencentKona-17", "TencentKona-21");
 	}
 
-	private List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> metadataList = new ArrayList<>();
 
 		JsonNode assets = release.get("assets");
@@ -252,12 +220,12 @@ public class Kona extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "kona";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "kona";
+			return VENDOR;
 		}
 
 		@Override

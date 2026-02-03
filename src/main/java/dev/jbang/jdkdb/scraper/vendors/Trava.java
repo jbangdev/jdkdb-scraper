@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -14,10 +14,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for Trava OpenJDK releases with DCEVM across multiple Java versions */
-public class Trava extends BaseScraper {
+public class Trava extends GitHubReleaseScraper {
 	private static final String VENDOR = "trava";
-	private static final String GITHUB_ORG = "TravaOpenJDK";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	/** Configuration for each Trava Java version variant */
 	private record ProjectConfig(
@@ -50,68 +48,59 @@ public class Trava extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			for (ProjectConfig project : PROJECTS) {
-				log("Processing Trava " + project.javaVersion());
-				allMetadata.addAll(scrapeProject(project));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
-		return allMetadata;
+	protected String getGitHubOrg() {
+		return "TravaOpenJDK";
 	}
 
-	private List<JdkMetadata> scrapeProject(ProjectConfig project) throws Exception {
+	@Override
+	protected List<String> getGitHubRepos() {
+		return PROJECTS.stream().map(ProjectConfig::repo).toList();
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> metadata = new ArrayList<>();
 
-		log("Fetching releases from GitHub for " + project.repo());
-		String releasesUrl =
-				String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, project.repo());
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
+		String tagName = release.get("tag_name").asText();
+		log("Processing release: " + tagName);
 
-		if (!releases.isArray()) {
-			log("No releases found for " + project.repo());
+		// Find matching project config based on tag pattern
+		ProjectConfig matchingProject = null;
+		Matcher tagMatcher = null;
+		for (ProjectConfig project : PROJECTS) {
+			tagMatcher = project.tagPattern().matcher(tagName);
+			if (tagMatcher.matches()) {
+				matchingProject = project;
+				break;
+			}
+		}
+
+		if (matchingProject == null) {
+			log("Skipping tag " + tagName + " (does not match any pattern)");
 			return metadata;
 		}
 
-		for (JsonNode release : releases) {
-			String tagName = release.get("tag_name").asText();
-			log("Processing release: " + tagName);
+		String version = matchingProject.versionExtractor().apply(tagMatcher);
 
-			// Parse version from tag using configured pattern and extractor
-			Matcher tagMatcher = project.tagPattern().matcher(tagName);
-			if (!tagMatcher.matches()) {
-				log("Skipping tag " + tagName + " (does not match pattern)");
-				continue;
-			}
+		JsonNode assets = release.get("assets");
+		if (assets != null && assets.isArray()) {
+			for (JsonNode asset : assets) {
+				String contentType = asset.path("content_type").asText("");
+				String assetName = asset.get("name").asText();
 
-			String version = project.versionExtractor().apply(tagMatcher);
+				// Skip source files and jar files
+				if (assetName.contains("_source") || assetName.endsWith(".jar")) {
+					continue;
+				}
 
-			JsonNode assets = release.get("assets");
-			if (assets != null && assets.isArray()) {
-				for (JsonNode asset : assets) {
-					String contentType = asset.path("content_type").asText("");
-					String assetName = asset.get("name").asText();
-
-					// Skip source files and jar files
-					if (assetName.contains("_source") || assetName.endsWith(".jar")) {
-						continue;
-					}
-
-					// Only process application files
-					if (contentType.startsWith("application")) {
-						try {
-							processAsset(project, tagName, assetName, version, metadata);
-						} catch (InterruptedProgressException | TooManyFailuresException e) {
-							throw e;
-						} catch (Exception e) {
-							log("Failed to process " + assetName + ": " + e.getMessage());
-						}
+				// Only process application files
+				if (contentType.startsWith("application")) {
+					try {
+						processAsset(matchingProject, tagName, assetName, version, metadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
+					} catch (Exception e) {
+						log("Failed to process " + assetName + ": " + e.getMessage());
 					}
 				}
 			}
@@ -151,7 +140,7 @@ public class Trava extends BaseScraper {
 		}
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s", GITHUB_ORG, project.repo(), tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s", getGitHubOrg(), project.repo(), tagName, assetName);
 
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, metadataFilename);
@@ -186,12 +175,12 @@ public class Trava extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "trava";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "trava";
+			return VENDOR;
 		}
 
 		@Override

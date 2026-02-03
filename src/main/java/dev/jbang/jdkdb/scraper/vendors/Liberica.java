@@ -28,8 +28,8 @@ public class Liberica extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected String getGitHubRepo() {
-		return "Liberica";
+	protected List<String> getGitHubRepos() {
+		return List.of("Liberica");
 	}
 
 	@Override
@@ -187,12 +187,12 @@ public class Liberica extends GitHubReleaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "liberica";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "liberica";
+			return VENDOR;
 		}
 
 		@Override

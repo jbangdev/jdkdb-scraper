@@ -28,8 +28,8 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected String getGitHubRepo() {
-		return "oracle-graalvm-ea-builds";
+	protected List<String> getGitHubRepos() {
+		return List.of("oracle-graalvm-ea-builds");
 	}
 
 	@Override
@@ -129,7 +129,7 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 
 		@Override
 		public String vendor() {
-			return "oracle-graalvm";
+			return VENDOR;
 		}
 
 		@Override

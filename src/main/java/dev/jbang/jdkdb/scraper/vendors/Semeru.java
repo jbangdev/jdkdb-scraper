@@ -40,12 +40,12 @@ public class Semeru extends SemeruBaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "semeru";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "semeru";
+			return VENDOR;
 		}
 
 		@Override

@@ -6,7 +6,7 @@ import java.util.List;
 
 /** Scraper for IBM Semeru Certified Edition releases */
 public class SemeruCertified extends SemeruBaseScraper {
-	private static final String VENDOR = "semeru-certified";
+	private static final String VENDOR = "semeru";
 
 	// List of Java versions for certified edition
 	private static final List<String> JAVA_VERSIONS =
@@ -44,7 +44,7 @@ public class SemeruCertified extends SemeruBaseScraper {
 
 		@Override
 		public String vendor() {
-			return "IBM Semeru Certified";
+			return VENDOR;
 		}
 
 		@Override

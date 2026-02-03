@@ -23,12 +23,12 @@ public class OpenJdk extends OpenJdkBaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "openjdk";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "openjdk";
+			return VENDOR;
 		}
 
 		@Override

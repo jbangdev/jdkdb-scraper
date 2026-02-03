@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,13 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Unified scraper for all Alibaba Dragonwell releases across multiple Java versions */
-public class Dragonwell extends BaseScraper {
+public class Dragonwell extends GitHubReleaseScraper {
 	private static final String VENDOR = "dragonwell";
-	private static final String ORG = "dragonwell-project";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
-
-	// List of all Java versions to scrape
-	private static final List<String> JAVA_VERSIONS = List.of("8", "11", "17", "21", "25");
 
 	// Multiple patterns to handle different filename formats
 	private static final Pattern STANDARD_EXTENDED_PATTERN_8 = Pattern.compile(
@@ -40,44 +35,17 @@ public class Dragonwell extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			// Process each Java version
-			for (String javaVersion : JAVA_VERSIONS) {
-				log("Processing Dragonwell version: " + javaVersion);
-				allMetadata.addAll(scrapeVersion(javaVersion));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
-		return allMetadata;
+	protected String getGitHubOrg() {
+		return "dragonwell-project";
 	}
 
-	private List<JdkMetadata> scrapeVersion(String javaVersion) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
-		String repo = "dragonwell" + javaVersion;
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, ORG, repo);
-
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
-
-		if (!releases.isArray()) {
-			log("No releases found for version " + javaVersion);
-			return metadataList;
-		}
-
-		for (JsonNode release : releases) {
-			metadataList.addAll(processRelease(release));
-		}
-
-		return metadataList;
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of("dragonwell8", "dragonwell11", "dragonwell17", "dragonwell21", "dragonwell25");
 	}
 
-	private List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> metadataList = new ArrayList<>();
 
 		String tagName = release.get("tag_name").asText();
@@ -265,12 +233,12 @@ public class Dragonwell extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "dragonwell";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "dragonwell";
+			return VENDOR;
 		}
 
 		@Override

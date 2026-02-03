@@ -134,12 +134,12 @@ public class Ibm extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "ibm";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "ibm";
+			return VENDOR;
 		}
 
 		@Override

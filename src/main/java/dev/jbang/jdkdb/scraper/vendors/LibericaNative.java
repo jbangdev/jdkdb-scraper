@@ -147,7 +147,7 @@ public class LibericaNative extends BaseScraper {
 
 		@Override
 		public String vendor() {
-			return "Liberica Native Image Kit";
+			return VENDOR;
 		}
 
 		@Override

@@ -174,12 +174,12 @@ public class Oracle extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "oracle";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "oracle";
+			return VENDOR;
 		}
 
 		@Override

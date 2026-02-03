@@ -85,7 +85,7 @@ public class GraalVmCe extends GraalVmBaseScraper {
 
 		@Override
 		public String vendor() {
-			return "graalvm";
+			return VENDOR;
 		}
 
 		@Override

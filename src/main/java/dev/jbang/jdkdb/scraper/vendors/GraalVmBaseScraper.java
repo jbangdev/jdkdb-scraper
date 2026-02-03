@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
@@ -10,11 +10,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Base class for GraalVM scrapers */
-public abstract class GraalVmBaseScraper extends BaseScraper {
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
+public abstract class GraalVmBaseScraper extends GitHubReleaseScraper {
 
 	public GraalVmBaseScraper(ScraperConfig config) {
 		super(config);
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of(getGithubRepo());
 	}
 
 	/** Get the GitHub organization name */
@@ -22,6 +26,11 @@ public abstract class GraalVmBaseScraper extends BaseScraper {
 
 	/** Get the GitHub repository name */
 	protected abstract String getGithubRepo();
+
+	@Override
+	protected String getGitHubOrg() {
+		return getGithubOrg();
+	}
 
 	/** Check if a release tag should be processed */
 	protected abstract boolean shouldProcessTag(String tagName);
@@ -34,51 +43,34 @@ public abstract class GraalVmBaseScraper extends BaseScraper {
 			throws Exception;
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching releases from GitHub");
-		String releasesUrl =
-				String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGithubOrg(), getGithubRepo());
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
+		String tagName = release.get("tag_name").asText();
 
-		if (!releases.isArray()) {
-			log("No releases found");
+		if (!shouldProcessTag(tagName)) {
 			return allMetadata;
 		}
 
-		try {
-			for (JsonNode release : releases) {
-				String tagName = release.get("tag_name").asText();
+		log("Processing release: " + tagName);
 
-				if (!shouldProcessTag(tagName)) {
+		JsonNode assets = release.get("assets");
+		if (assets != null && assets.isArray()) {
+			for (JsonNode asset : assets) {
+				String assetName = asset.get("name").asText();
+
+				if (!shouldProcessAsset(assetName)) {
 					continue;
 				}
 
-				log("Processing release: " + tagName);
-
-				JsonNode assets = release.get("assets");
-				if (assets != null && assets.isArray()) {
-					for (JsonNode asset : assets) {
-						String assetName = asset.get("name").asText();
-
-						if (!shouldProcessAsset(assetName)) {
-							continue;
-						}
-
-						try {
-							processAsset(tagName, assetName, allMetadata);
-						} catch (InterruptedProgressException | TooManyFailuresException e) {
-							throw e;
-						} catch (Exception e) {
-							log("Failed to process " + assetName + ": " + e.getMessage());
-						}
-					}
+				try {
+					processAsset(tagName, assetName, allMetadata);
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					log("Failed to process " + assetName + ": " + e.getMessage());
 				}
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;

@@ -124,12 +124,12 @@ public class OpenLogic extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "openlogic";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "OpenLogic";
+			return VENDOR;
 		}
 
 		@Override

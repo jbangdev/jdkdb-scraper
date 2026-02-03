@@ -68,12 +68,12 @@ public class AdoptOpenJdk extends AdoptiumMarketplaceScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "adoptopenjdk";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "adoptopenjdk";
+			return VENDOR;
 		}
 
 		@Override

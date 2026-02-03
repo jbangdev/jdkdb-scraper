@@ -30,8 +30,8 @@ public class SapMachine extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected String getGitHubRepo() {
-		return "SapMachine";
+	protected List<String> getGitHubRepos() {
+		return List.of("SapMachine");
 	}
 
 	@Override
@@ -141,12 +141,12 @@ public class SapMachine extends GitHubReleaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "sapmachine";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "sapmachine";
+			return VENDOR;
 		}
 
 		@Override

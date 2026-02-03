@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -12,10 +12,8 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Scraper for Amazon Corretto releases */
-public class Corretto extends BaseScraper {
+public class Corretto extends GitHubReleaseScraper {
 	private static final String VENDOR = "corretto";
-	private static final String GITHUB_ORG = "corretto";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 	private static final List<String> CORRETTO_REPOS = Arrays.asList(
 			"corretto-8",
 			"corretto-11",
@@ -35,29 +33,20 @@ public class Corretto extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected String getGitHubOrg() {
+		return "corretto";
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		return CORRETTO_REPOS;
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			// Fetch releases from all Corretto repositories
-			for (String repo : CORRETTO_REPOS) {
-				log("Processing repository: " + repo);
-
-				String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, repo);
-				String json = httpUtils.downloadString(releasesUrl);
-				JsonNode releases = readJson(json);
-
-				if (releases.isArray()) {
-					for (JsonNode release : releases) {
-						String version = release.get("tag_name").asText();
-						processVersion(version, allMetadata);
-					}
-				}
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
+		String version = release.get("tag_name").asText();
+		processVersion(version, allMetadata);
 		return allMetadata;
 	}
 
@@ -188,12 +177,12 @@ public class Corretto extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "corretto";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "corretto";
+			return VENDOR;
 		}
 
 		@Override

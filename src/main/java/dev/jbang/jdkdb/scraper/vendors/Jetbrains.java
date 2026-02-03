@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,11 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for JetBrains Runtime releases */
-public class Jetbrains extends BaseScraper {
+public class Jetbrains extends GitHubReleaseScraper {
 	private static final String VENDOR = "jetbrains";
-	private static final String GITHUB_ORG = "JetBrains";
-	private static final String GITHUB_REPO = "JetBrainsRuntime";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^jbr(sdk)?(?:_\\w+)?-([0-9][0-9\\+._]{1,})-(linux-musl|linux|osx|macos|windows)-(aarch64|x64|x86)(?:-\\w+)?-(b[0-9\\+.]{1,})(?:_\\w+)?\\.(tar\\.gz|zip|pkg)$");
@@ -30,51 +27,45 @@ public class Jetbrains extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected String getGitHubOrg() {
+		return "JetBrains";
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of("JetBrainsRuntime");
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching releases from GitHub");
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, GITHUB_REPO);
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
+		String tagName = release.get("tag_name").asText();
+		boolean prerelease = release.get("prerelease").asBoolean();
+		String releaseType = prerelease ? "ea" : "ga";
+		String body = release.get("body").asText("");
 
-		if (!releases.isArray()) {
-			log("No releases found");
-			return allMetadata;
-		}
+		log("Processing release: " + tagName);
 
-		try {
-			for (JsonNode release : releases) {
-				String tagName = release.get("tag_name").asText();
-				boolean prerelease = release.get("prerelease").asBoolean();
-				String releaseType = prerelease ? "ea" : "ga";
-				String body = release.get("body").asText("");
+		// Parse assets from the body
+		Matcher matcher = BODY_PATTERN.matcher(body);
+		while (matcher.find()) {
+			String description = matcher.group("description");
+			String file = matcher.group("file");
+			String url = matcher.group("url");
 
-				log("Processing release: " + tagName);
-
-				// Parse assets from the body
-				Matcher matcher = BODY_PATTERN.matcher(body);
-				while (matcher.find()) {
-					String description = matcher.group("description");
-					String file = matcher.group("file");
-					String url = matcher.group("url");
-
-					try {
-						JdkMetadata metadata = processAsset(file, url, releaseType, description, allMetadata);
-						if (metadata != null) {
-							saveMetadataFile(metadata);
-							allMetadata.add(metadata);
-							success(file);
-						}
-					} catch (InterruptedProgressException | TooManyFailuresException e) {
-						throw e;
-					} catch (Exception e) {
-						log("Failed to process " + file + ": " + e.getMessage());
-					}
+			try {
+				JdkMetadata metadata = processAsset(file, url, releaseType, description, allMetadata);
+				if (metadata != null) {
+					saveMetadataFile(metadata);
+					allMetadata.add(metadata);
+					success(file);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
+			} catch (Exception e) {
+				log("Failed to process " + file + ": " + e.getMessage());
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -164,12 +155,12 @@ public class Jetbrains extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "jetbrains";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "jetbrains";
+			return VENDOR;
 		}
 
 		@Override

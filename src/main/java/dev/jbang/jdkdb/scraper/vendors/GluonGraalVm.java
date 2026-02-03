@@ -28,8 +28,8 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected String getGitHubRepo() {
-		return "graal";
+	protected List<String> getGitHubRepos() {
+		return List.of("graal");
 	}
 
 	@Override
@@ -128,12 +128,12 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "gluon-graalvm";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "Gluon GraalVM";
+			return VENDOR;
 		}
 
 		@Override

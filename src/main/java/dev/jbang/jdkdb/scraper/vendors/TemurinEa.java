@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,10 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for Adoptium Eclipse Temurin Early Access releases from GitHub */
-public class TemurinEa extends BaseScraper {
+public class TemurinEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "temurin";
-	private static final String GITHUB_ORG = "adoptium";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	// Filename pattern: OpenJDK{version}U-{type}_{arch}_{os}_{timestamp}_{version}.{ext}
 	private static final Pattern FILENAME_PATTERN =
@@ -30,50 +28,23 @@ public class TemurinEa extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			for (int version : EA_VERSIONS) {
-				log("Checking EA releases for Java " + version);
-				allMetadata.addAll(scrapeVersion(version));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
-
-		return allMetadata;
+	protected String getGitHubOrg() {
+		return "adoptium";
 	}
 
-	private List<JdkMetadata> scrapeVersion(int javaVersion) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
-		String repo = "temurin" + javaVersion + "-binaries";
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, repo);
-
-		log("Fetching releases from " + releasesUrl);
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
-
-		if (!releases.isArray()) {
-			log("No releases found for version " + javaVersion);
-			return metadataList;
-		}
-
-		for (JsonNode release : releases) {
-			// Only process prereleases (EA releases)
-			boolean isPrerelease = release.path("prerelease").asBoolean(false);
-			if (!isPrerelease) {
-				continue;
-			}
-
-			metadataList.addAll(processRelease(release, javaVersion));
-		}
-
-		return metadataList;
+	@Override
+	protected List<String> getGitHubRepos() {
+		return EA_VERSIONS.stream().map(v -> "temurin" + v + "-binaries").toList();
 	}
 
-	private List<JdkMetadata> processRelease(JsonNode release, int javaVersion) throws Exception {
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+		// Only process prereleases (EA releases)
+		boolean isPrerelease = release.path("prerelease").asBoolean(false);
+		if (!isPrerelease) {
+			return List.of();
+		}
+
 		List<JdkMetadata> metadataList = new ArrayList<>();
 
 		String tagName = release.path("tag_name").asText();
@@ -103,7 +74,7 @@ public class TemurinEa extends BaseScraper {
 			}
 
 			try {
-				JdkMetadata metadata = processAsset(filename, downloadUrl, javaVersion);
+				JdkMetadata metadata = processAsset(filename, downloadUrl);
 				if (metadata != null) {
 					saveMetadataFile(metadata);
 					metadataList.add(metadata);
@@ -119,7 +90,7 @@ public class TemurinEa extends BaseScraper {
 		return metadataList;
 	}
 
-	private JdkMetadata processAsset(String filename, String url, int javaVersion) throws Exception {
+	private JdkMetadata processAsset(String filename, String url) throws Exception {
 
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
@@ -139,6 +110,9 @@ public class TemurinEa extends BaseScraper {
 		if (!imageType.equals("jdk") && !imageType.equals("jre")) {
 			return null;
 		}
+
+		// Extract Java version from filename
+		int javaVersion = Integer.parseInt(versionStr);
 
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, filename);
@@ -184,7 +158,7 @@ public class TemurinEa extends BaseScraper {
 
 		@Override
 		public String vendor() {
-			return "Temurin EA";
+			return VENDOR;
 		}
 
 		@Override

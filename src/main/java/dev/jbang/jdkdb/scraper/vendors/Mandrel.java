@@ -2,7 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -13,11 +13,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for Mandrel (Red Hat's downstream distribution of GraalVM) releases */
-public class Mandrel extends BaseScraper {
+public class Mandrel extends GitHubReleaseScraper {
 	private static final String VENDOR = "mandrel";
-	private static final String GITHUB_ORG = "graalvm";
-	private static final String GITHUB_REPO = "mandrel";
-	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^mandrel-java(\\d{1,2})-(linux|macos|windows)-(amd64|aarch64)-([\\d+.]{2,}.*)\\.tar\\.gz$");
@@ -27,44 +24,38 @@ public class Mandrel extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected String getGitHubOrg() {
+		return "graalvm";
+	}
+
+	@Override
+	protected List<String> getGitHubRepos() {
+		return List.of("mandrel");
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching releases from GitHub");
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, GITHUB_ORG, GITHUB_REPO);
-		String json = httpUtils.downloadString(releasesUrl);
-		JsonNode releases = readJson(json);
+		String tagName = release.get("tag_name").asText();
+		log("Processing release: " + tagName);
 
-		if (!releases.isArray()) {
-			log("No releases found");
-			return allMetadata;
-		}
+		JsonNode assets = release.get("assets");
+		if (assets != null && assets.isArray()) {
+			for (JsonNode asset : assets) {
+				String assetName = asset.get("name").asText();
 
-		try {
-			for (JsonNode release : releases) {
-				String tagName = release.get("tag_name").asText();
-				log("Processing release: " + tagName);
-
-				JsonNode assets = release.get("assets");
-				if (assets != null && assets.isArray()) {
-					for (JsonNode asset : assets) {
-						String assetName = asset.get("name").asText();
-
-						// Only process mandrel tar.gz files
-						if (assetName.startsWith("mandrel-") && assetName.endsWith("tar.gz")) {
-							try {
-								processAsset(tagName, assetName, allMetadata);
-							} catch (InterruptedProgressException | TooManyFailuresException e) {
-								throw e;
-							} catch (Exception e) {
-								log("Failed to process " + assetName + ": " + e.getMessage());
-							}
-						}
+				// Only process mandrel tar.gz files
+				if (assetName.startsWith("mandrel-") && assetName.endsWith("tar.gz")) {
+					try {
+						processAsset(tagName, assetName, allMetadata);
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
+					} catch (Exception e) {
+						log("Failed to process " + assetName + ": " + e.getMessage());
 					}
 				}
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
@@ -92,7 +83,8 @@ public class Mandrel extends BaseScraper {
 		String releaseType = determineReleaseType(version);
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s", GITHUB_ORG, GITHUB_REPO, tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s",
+				getGitHubOrg(), getGitHubRepos().get(0), tagName, assetName);
 
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, assetName);
@@ -138,12 +130,12 @@ public class Mandrel extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "mandrel";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "mandrel";
+			return VENDOR;
 		}
 
 		@Override

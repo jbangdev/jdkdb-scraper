@@ -139,12 +139,12 @@ public class JavaSeRi extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "java-se-ri";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "java-se-ri";
+			return VENDOR;
 		}
 
 		@Override

@@ -29,7 +29,7 @@ public class OpenJdkLoom extends OpenJdkBaseScraper {
 
 		@Override
 		public String vendor() {
-			return "openjdk";
+			return VENDOR;
 		}
 
 		@Override

@@ -118,12 +118,12 @@ public class Microsoft extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "microsoft";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "microsoft";
+			return VENDOR;
 		}
 
 		@Override

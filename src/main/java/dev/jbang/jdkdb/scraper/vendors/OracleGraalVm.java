@@ -183,12 +183,12 @@ public class OracleGraalVm extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "oracle-graalvm";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "oracle-graalvm";
+			return VENDOR;
 		}
 
 		@Override

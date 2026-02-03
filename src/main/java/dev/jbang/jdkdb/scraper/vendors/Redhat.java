@@ -56,12 +56,12 @@ public class Redhat extends AdoptiumMarketplaceScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "redhat";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "redhat";
+			return VENDOR;
 		}
 
 		@Override

@@ -56,12 +56,12 @@ public class Bisheng extends AdoptiumMarketplaceScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "bisheng";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "bisheng";
+			return VENDOR;
 		}
 
 		@Override

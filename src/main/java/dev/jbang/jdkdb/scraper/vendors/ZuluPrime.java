@@ -134,12 +134,12 @@ public class ZuluPrime extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "zulu-prime";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "Zulu Prime";
+			return VENDOR;
 		}
 
 		@Override

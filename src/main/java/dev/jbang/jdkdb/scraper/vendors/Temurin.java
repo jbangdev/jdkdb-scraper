@@ -180,12 +180,12 @@ public class Temurin extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "temurin";
+			return VENDOR;
 		}
 
 		@Override
 		public String vendor() {
-			return "temurin";
+			return VENDOR;
 		}
 
 		@Override

@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,8 +17,8 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	/** Get the GitHub organization name */
 	protected abstract String getGitHubOrg();
 
-	/** Get the GitHub repository name */
-	protected abstract String getGitHubRepo();
+	/** Get the GitHub repository names to scrape */
+	protected abstract List<String> getGitHubRepos();
 
 	/** Process a single release and extract metadata */
 	protected abstract List<JdkMetadata> processRelease(JsonNode release) throws Exception;
@@ -26,36 +27,42 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		String releasesUrl =
-				String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), getGitHubRepo());
-
-		log("Fetching releases from " + releasesUrl);
-		String json = httpUtils.downloadString(releasesUrl);
-
-		JsonNode releases = readJson(json);
-
 		try {
-			if (releases.isArray()) {
-				log("Found " + releases.size() + " releases");
-				for (JsonNode release : releases) {
-					try {
-						List<JdkMetadata> metadata = processRelease(release);
-						allMetadata.addAll(metadata);
-					} catch (InterruptedProgressException | TooManyFailuresException e) {
-						throw e;
-					} catch (Exception e) {
-						String tagName = release.has("tag_name")
-								? release.get("tag_name").asText()
-								: "unknown";
-						log("Failed to process release " + tagName + ": " + e.getMessage());
-					}
-				}
+			for (String repo : getGitHubRepos()) {
+				processRepo(allMetadata, repo);
 			}
 		} catch (InterruptedProgressException e) {
 			log("Reached progress limit, aborting");
 		}
 
 		return allMetadata;
+	}
+
+	protected void processRepo(List<JdkMetadata> allMetadata, String repo) throws IOException, InterruptedException {
+		log("Processing repository: " + repo);
+
+		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), repo);
+
+		log("Fetching releases from " + releasesUrl);
+		String json = httpUtils.downloadString(releasesUrl);
+
+		JsonNode releases = readJson(json);
+
+		if (releases.isArray()) {
+			log("Found " + releases.size() + " releases");
+			for (JsonNode release : releases) {
+				try {
+					List<JdkMetadata> metadata = processRelease(release);
+					allMetadata.addAll(metadata);
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
+				} catch (Exception e) {
+					String tagName =
+							release.has("tag_name") ? release.get("tag_name").asText() : "unknown";
+					log("Failed to process release " + tagName + ": " + e.getMessage());
+				}
+			}
+		}
 	}
 
 	/** Parse filename to extract metadata components */

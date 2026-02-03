@@ -29,7 +29,7 @@ public class OpenJdkLeyden extends OpenJdkBaseScraper {
 
 		@Override
 		public String vendor() {
-			return "openjdk";
+			return VENDOR;
 		}
 
 		@Override

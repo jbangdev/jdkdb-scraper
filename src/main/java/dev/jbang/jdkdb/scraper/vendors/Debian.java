@@ -204,7 +204,7 @@ public class Debian extends BaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return "debian";
+			return VENDOR;
 		}
 
 		@Override
