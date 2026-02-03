@@ -2,10 +2,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -46,8 +45,6 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
 		String tagName = release.get("tag_name").asText();
 
 		// Parse version from tag name
@@ -55,47 +52,24 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		Matcher versionMatcher = versionPattern.matcher(tagName);
 
 		if (!versionMatcher.matches()) {
-			return metadataList;
+			return List.of();
 		}
 
 		String parsedJavaVersion = versionMatcher.group(1);
 		String openj9Version = versionMatcher.group(2);
 		String version = parsedJavaVersion + "_openj9-" + openj9Version;
 
-		JsonNode assets = release.get("assets");
-		if (assets == null || !assets.isArray()) {
-			return metadataList;
-		}
-
-		for (JsonNode asset : assets) {
+		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 			String downloadUrl = asset.get("browser_download_url").asText();
 
 			// Skip files that don't match our prefix
 			if (!assetName.startsWith(getFilenamePrefix())) {
-				continue;
+				return null;
 			}
 
-			if (metadataExists(assetName)) {
-				log("Skipping " + assetName + " (already exists)");
-				continue;
-			}
-
-			try {
-				JdkMetadata metadata = processAsset(assetName, downloadUrl, version, parsedJavaVersion);
-				if (metadata != null) {
-					saveMetadataFile(metadata);
-					metadataList.add(metadata);
-					success(assetName);
-				}
-			} catch (InterruptedProgressException | TooManyFailuresException e) {
-				throw e;
-			} catch (Exception e) {
-				fail(assetName, e);
-			}
-		}
-
-		return metadataList;
+			return processAsset(assetName, downloadUrl, version, parsedJavaVersion);
+		});
 	}
 
 	private JdkMetadata processAsset(String filename, String url, String version, String javaVersion) throws Exception {
@@ -138,30 +112,20 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		// Build features list
 		List<String> features = new ArrayList<>(getAdditionalFeatures());
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(getVendor());
-		metadata.setFilename(filename);
-		metadata.setReleaseType("ga");
-		metadata.setVersion(version);
-		metadata.setJavaVersion(javaVersion);
-		metadata.setJvmImpl("openj9");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(extension);
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(getVendor())
+				.releaseType("ga")
+				.version(version)
+				.javaVersion(javaVersion)
+				.jvmImpl("openj9")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(extension)
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 }

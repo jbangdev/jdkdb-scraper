@@ -2,12 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,58 +35,36 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
 		// Only process prereleases (EA releases)
 		boolean isPrerelease = release.path("prerelease").asBoolean(false);
 		if (!isPrerelease) {
-			return allMetadata;
+			return List.of();
 		}
 
 		String tagName = release.path("tag_name").asText();
 
 		// Exclude Community releases (which start with "jdk")
 		if (tagName.startsWith("jdk")) {
-			return allMetadata;
+			return List.of();
 		}
 
-		log("Processing EA release: " + tagName);
-
-		JsonNode assets = release.path("assets");
-		if (!assets.isArray()) {
-			return allMetadata;
-		}
-
-		for (JsonNode asset : assets) {
+		return processReleaseAssets(release, asset -> {
 			String assetName = asset.path("name").asText();
 
 			if (!assetName.startsWith("graalvm-ce") || (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
-				continue;
+				return null;
 			}
 
-			if (metadataExists(assetName)) {
-				log("Skipping " + assetName + " (already exists)");
-				continue;
-			}
-
-			try {
-				processAsset(tagName, assetName, allMetadata);
-			} catch (InterruptedProgressException | TooManyFailuresException e) {
-				throw e;
-			} catch (Exception e) {
-				log("Failed to process " + assetName + ": " + e.getMessage());
-			}
-		}
-
-		return allMetadata;
+			return processAsset(tagName, assetName);
+		});
 	}
 
-	private void processAsset(String tagName, String assetName, List<JdkMetadata> allMetadata) throws Exception {
+	private JdkMetadata processAsset(String tagName, String assetName) throws Exception {
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
 			log("Skipping " + assetName + " (does not match pattern)");
-			return;
+			return null;
 		}
 
 		String javaVersion = matcher.group(1);
@@ -104,33 +80,20 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, assetName);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(assetName);
-		metadata.setReleaseType("ea");
-		metadata.setVersion(version + "+java" + javaVersion);
-		metadata.setJavaVersion(javaVersion);
-		metadata.setJvmImpl("graalvm");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType("jdk");
-		metadata.setFeatures(new ArrayList<>());
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(assetName + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(assetName + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(assetName + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(assetName + ".sha512");
-		metadata.setSize(download.size());
-
-		saveMetadataFile(metadata);
-		allMetadata.add(metadata);
-		log("Processed " + assetName);
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ea")
+				.version(version + "+java" + javaVersion)
+				.javaVersion(javaVersion)
+				.jvmImpl("graalvm")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType("jdk")
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

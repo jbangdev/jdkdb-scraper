@@ -212,18 +212,21 @@ class DummyScraperTest {
 	private List<JdkMetadata> createTestMetadata(int count) {
 		List<JdkMetadata> result = new ArrayList<>();
 		for (int i = 0; i < count; i++) {
-			JdkMetadata metadata = new JdkMetadata();
-			metadata.setFilename("test-jdk-" + i);
-			metadata.setVendor("test-vendor");
-			metadata.setVersion("17.0." + i);
-			metadata.setJavaVersion("17");
-			metadata.setOs("linux");
-			metadata.setArchitecture("x86_64");
-			metadata.setFileType("tar.gz");
-			metadata.setImageType("jdk");
-			metadata.setReleaseType("ga");
-			metadata.setUrl("https://example.com/jdk-" + i + ".tar.gz");
-			metadata.setSize(100_000_000 + i);
+			// Create a mock DownloadResult for testing
+			DownloadResult download =
+					new DownloadResult("md5-" + i, "sha1-" + i, "sha256-" + i, "sha512-" + i, 100_000_000L + i);
+			JdkMetadata metadata = JdkMetadata.builder()
+					.vendor("test-vendor")
+					.releaseType("ga")
+					.version("17.0." + i)
+					.javaVersion("17")
+					.os("linux")
+					.arch("x86_64")
+					.fileType("tar.gz")
+					.imageType("jdk")
+					.url("https://example.com/jdk-" + i + ".tar.gz")
+					.download("test-jdk-" + i, download)
+					.build();
 			result.add(metadata);
 		}
 		return result;

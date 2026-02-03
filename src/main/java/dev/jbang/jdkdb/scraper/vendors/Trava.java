@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
@@ -59,7 +60,7 @@ public class Trava extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> metadata = new ArrayList<>();
+		List<JdkMetadata> metadataList = new ArrayList<>();
 
 		String tagName = release.get("tag_name").asText();
 		log("Processing release: " + tagName);
@@ -77,7 +78,7 @@ public class Trava extends GitHubReleaseScraper {
 
 		if (matchingProject == null) {
 			log("Skipping tag " + tagName + " (does not match any pattern)");
-			return metadata;
+			return null;
 		}
 
 		String version = matchingProject.versionExtractor().apply(tagMatcher);
@@ -96,7 +97,12 @@ public class Trava extends GitHubReleaseScraper {
 				// Only process application files
 				if (contentType.startsWith("application")) {
 					try {
-						processAsset(matchingProject, tagName, assetName, version, metadata);
+						JdkMetadata metadata = processAsset(matchingProject, tagName, assetName, version);
+						if (metadata != null) {
+							saveMetadataFile(metadata);
+							metadataList.add(metadata);
+							success(assetName);
+						}
 					} catch (InterruptedProgressException | TooManyFailuresException e) {
 						throw e;
 					} catch (Exception e) {
@@ -106,17 +112,16 @@ public class Trava extends GitHubReleaseScraper {
 			}
 		}
 
-		return metadata;
+		return metadataList;
 	}
 
-	private void processAsset(
-			ProjectConfig project, String tagName, String assetName, String version, List<JdkMetadata> allMetadata)
+	private JdkMetadata processAsset(ProjectConfig project, String tagName, String assetName, String version)
 			throws Exception {
 
 		Matcher filenameMatcher = project.filenamePattern().matcher(assetName);
 		if (!filenameMatcher.matches()) {
 			log("Skipping " + assetName + " (does not match pattern)");
-			return;
+			return null;
 		}
 
 		String os = filenameMatcher.group(1);
@@ -136,7 +141,7 @@ public class Trava extends GitHubReleaseScraper {
 
 		if (metadataExists(metadataFilename)) {
 			log("Skipping " + metadataFilename + " (already exists)");
-			return;
+			return null;
 		}
 
 		String url = String.format(
@@ -145,31 +150,20 @@ public class Trava extends GitHubReleaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, metadataFilename);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(assetName);
-		metadata.setReleaseType("ga");
-		metadata.setVersion(version);
-		metadata.setJavaVersion(version);
-		metadata.setJvmImpl("hotspot");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType("jdk");
-		metadata.setFeatures(new ArrayList<>());
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(assetName + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(assetName + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(assetName + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(assetName + ".sha512");
-
-		allMetadata.add(metadata);
-		saveMetadataFile(metadata);
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ga")
+				.version(version)
+				.javaVersion(version)
+				.jvmImpl("hotspot")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType("jdk")
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

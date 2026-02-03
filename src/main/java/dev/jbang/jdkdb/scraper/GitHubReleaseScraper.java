@@ -23,6 +23,80 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	/** Process a single release and extract metadata */
 	protected abstract List<JdkMetadata> processRelease(JsonNode release) throws Exception;
 
+	/**
+	 * Process release assets with common iteration and error handling logic.
+	 * This method reduces boilerplate by handling the standard asset processing pattern.
+	 *
+	 * @param release The GitHub release JSON node
+	 * @param assetProcessor Function to process each asset, returns null to skip the asset
+	 * @return List of successfully processed metadata
+	 */
+	protected List<JdkMetadata> processReleaseAssets(JsonNode release, AssetProcessor assetProcessor) throws Exception {
+		List<JdkMetadata> metadataList = new ArrayList<>();
+
+		JsonNode assets = release.get("assets");
+		if (assets == null || !assets.isArray()) {
+			return metadataList;
+		}
+
+		for (JsonNode asset : assets) {
+			String assetName = asset.get("name").asText();
+
+			if (metadataExists(assetName)) {
+				log("Skipping " + assetName + " (already exists)");
+				continue;
+			}
+
+			try {
+				JdkMetadata metadata = assetProcessor.process(asset);
+				if (metadata != null) {
+					saveMetadataFile(metadata);
+					metadataList.add(metadata);
+					success(assetName);
+				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
+			} catch (Exception e) {
+				fail(assetName, e);
+			}
+		}
+
+		return metadataList;
+	}
+
+	/**
+	 * Determine release type from version string or prerelease flag.
+	 * Common logic extracted from multiple scrapers.
+	 */
+	protected String determineReleaseType(String version, boolean isPrerelease) {
+		if (isPrerelease) {
+			return "ea";
+		}
+		if (version == null) {
+			return "ga";
+		}
+		String lower = version.toLowerCase();
+		if (lower.contains("ea") || lower.contains("alpha") || lower.contains("beta") || lower.contains("-dev")) {
+			return "ea";
+		}
+		return "ga";
+	}
+
+	/**
+	 * Overload for determining release type from version string only
+	 */
+	protected String determineReleaseType(String version) {
+		return determineReleaseType(version, false);
+	}
+
+	/**
+	 * Functional interface for processing assets
+	 */
+	@FunctionalInterface
+	protected interface AssetProcessor {
+		JdkMetadata process(JsonNode asset) throws Exception;
+	}
+
 	@Override
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();

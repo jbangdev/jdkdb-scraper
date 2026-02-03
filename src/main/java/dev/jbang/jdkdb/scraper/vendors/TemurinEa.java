@@ -2,11 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -45,17 +44,7 @@ public class TemurinEa extends GitHubReleaseScraper {
 			return List.of();
 		}
 
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
-		String tagName = release.path("tag_name").asText();
-		log("Processing EA release: " + tagName);
-
-		JsonNode assets = release.path("assets");
-		if (!assets.isArray()) {
-			return metadataList;
-		}
-
-		for (JsonNode asset : assets) {
+		return processReleaseAssets(release, asset -> {
 			String filename = asset.path("name").asText();
 			String downloadUrl = asset.path("browser_download_url").asText();
 
@@ -65,29 +54,11 @@ public class TemurinEa extends GitHubReleaseScraper {
 					|| filename.endsWith(".json")
 					|| filename.contains("debugimage")
 					|| filename.contains("testimage")) {
-				continue;
+				return null;
 			}
 
-			if (metadataExists(filename)) {
-				log("Skipping " + filename + " (already exists)");
-				continue;
-			}
-
-			try {
-				JdkMetadata metadata = processAsset(filename, downloadUrl);
-				if (metadata != null) {
-					saveMetadataFile(metadata);
-					metadataList.add(metadata);
-					success(filename);
-				}
-			} catch (InterruptedProgressException | TooManyFailuresException e) {
-				throw e;
-			} catch (Exception e) {
-				fail(filename, e);
-			}
-		}
-
-		return metadataList;
+			return processAsset(filename, downloadUrl);
+		});
 	}
 
 	private JdkMetadata processAsset(String filename, String url) throws Exception {
@@ -102,7 +73,7 @@ public class TemurinEa extends GitHubReleaseScraper {
 		String imageType = matcher.group(2);
 		String arch = matcher.group(3);
 		String os = matcher.group(4);
-		String timestamp = matcher.group(5);
+		// String timestamp = matcher.group(5); // Not currently used
 		String version = matcher.group(6);
 		String ext = matcher.group(7);
 
@@ -123,31 +94,21 @@ public class TemurinEa extends GitHubReleaseScraper {
 			features.add("musl");
 		}
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(filename);
-		metadata.setReleaseType("ea");
-		metadata.setVersion(version);
-		metadata.setJavaVersion(String.valueOf(javaVersion));
-		metadata.setJvmImpl("hotspot");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ea")
+				.version(version)
+				.javaVersion(String.valueOf(javaVersion))
+				.jvmImpl("hotspot")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

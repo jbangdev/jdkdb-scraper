@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -93,31 +94,35 @@ class MetadataUtilsTest {
 		Path vendorDir = tempDir.resolve("vendor-dir");
 		Files.createDirectories(vendorDir);
 
-		JdkMetadata metadata1 = new JdkMetadata();
-		metadata1.setFilename("test-jdk-1");
-		metadata1.setVendor("test-vendor");
-		metadata1.setVersion("17.0.1");
-		metadata1.setJavaVersion("17");
-		metadata1.setOs("linux");
-		metadata1.setArchitecture("x86_64");
-		metadata1.setFileType("tar.gz");
-		metadata1.setImageType("jdk");
-		metadata1.setReleaseType("ga");
-		metadata1.setUrl("https://example.com/jdk-1.tar.gz");
-		metadata1.setSize(100_000_000L);
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.builder()
+				.vendor("test-vendor")
+				.filename("test-jdk-1")
+				.releaseType("ga")
+				.version("17.0.1")
+				.javaVersion("17")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/jdk-1.tar.gz")
+				.download("test-jdk-1", download1)
+				.build();
 
-		JdkMetadata metadata2 = new JdkMetadata();
-		metadata2.setFilename("test-jdk-2");
-		metadata2.setVendor("test-vendor");
-		metadata2.setVersion("17.0.2");
-		metadata2.setJavaVersion("17");
-		metadata2.setOs("windows");
-		metadata2.setArchitecture("x86_64");
-		metadata2.setFileType("zip");
-		metadata2.setImageType("jdk");
-		metadata2.setReleaseType("ga");
-		metadata2.setUrl("https://example.com/jdk-2.zip");
-		metadata2.setSize(100_000_001L);
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.builder()
+				.vendor("test-vendor")
+				.filename("test-jdk-2")
+				.releaseType("ga")
+				.version("17.0.2")
+				.javaVersion("17")
+				.os("windows")
+				.arch("x86_64")
+				.fileType("zip")
+				.imageType("jdk")
+				.url("https://example.com/jdk-2.zip")
+				.download("test-jdk-2", download2)
+				.build();
 
 		// Save individual metadata files
 		MetadataUtils.saveMetadataFile(vendorDir, metadata1);
@@ -147,18 +152,20 @@ class MetadataUtilsTest {
 		Path vendorDir = tempDir.resolve("vendor-dir");
 		Files.createDirectories(vendorDir);
 
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setFilename("test-jdk");
-		metadata.setVendor("test-vendor");
-		metadata.setVersion("17.0.1");
-		metadata.setJavaVersion("17");
-		metadata.setOs("linux");
-		metadata.setArchitecture("x86_64");
-		metadata.setFileType("tar.gz");
-		metadata.setImageType("jdk");
-		metadata.setReleaseType("ga");
-		metadata.setUrl("https://example.com/jdk.tar.gz");
-		metadata.setSize(100_000_000L);
+		DownloadResult download = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata = JdkMetadata.builder()
+				.filename("test-jdk")
+				.vendor("test-vendor")
+				.version("17.0.1")
+				.javaVersion("17")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/jdk.tar.gz")
+				.download("test-jdk", download)
+				.build();
 
 		MetadataUtils.saveMetadataFile(vendorDir, metadata);
 
@@ -187,70 +194,80 @@ class MetadataUtilsTest {
 	@Test
 	void testSaveMetadataSortsByVersionThenFilename() throws Exception {
 		// Given - metadata with various versions and filenames
-		JdkMetadata metadata1 = new JdkMetadata();
-		metadata1.setFilename("zulu-jdk-11.0.10");
-		metadata1.setVendor("zulu");
-		metadata1.setVersion("11.0.10");
-		metadata1.setJavaVersion("11");
-		metadata1.setOs("linux");
-		metadata1.setArchitecture("x86_64");
-		metadata1.setFileType("tar.gz");
-		metadata1.setImageType("jdk");
-		metadata1.setReleaseType("ga");
-		metadata1.setUrl("https://example.com/zulu-11.0.10.tar.gz");
-		metadata1.setSize(100_000_000L);
+		DownloadResult download1 = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.builder()
+				.filename("zulu-jdk-11.0.10")
+				.vendor("zulu")
+				.version("11.0.10")
+				.javaVersion("11")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/zulu-11.0.10.tar.gz")
+				.download("zulu-jdk-11.0.10", download1)
+				.build();
 
-		JdkMetadata metadata2 = new JdkMetadata();
-		metadata2.setFilename("abc-jdk-11.0.10");
-		metadata2.setVendor("abc");
-		metadata2.setVersion("11.0.10");
-		metadata2.setJavaVersion("11");
-		metadata2.setOs("linux");
-		metadata2.setArchitecture("x86_64");
-		metadata2.setFileType("tar.gz");
-		metadata2.setImageType("jdk");
-		metadata2.setReleaseType("ga");
-		metadata2.setUrl("https://example.com/abc-11.0.10.tar.gz");
-		metadata2.setSize(100_000_000L);
+		DownloadResult download2 = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata2 = JdkMetadata.builder()
+				.filename("abc-jdk-11.0.10")
+				.vendor("abc")
+				.version("11.0.10")
+				.javaVersion("11")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/abc-11.0.10.tar.gz")
+				.download("abc-jdk-11.0.10", download2)
+				.build();
 
-		JdkMetadata metadata3 = new JdkMetadata();
-		metadata3.setFilename("temurin-jdk-17.0.5");
-		metadata3.setVendor("temurin");
-		metadata3.setVersion("17.0.5");
-		metadata3.setJavaVersion("17");
-		metadata3.setOs("linux");
-		metadata3.setArchitecture("x86_64");
-		metadata3.setFileType("tar.gz");
-		metadata3.setImageType("jdk");
-		metadata3.setReleaseType("ga");
-		metadata3.setUrl("https://example.com/temurin-17.0.5.tar.gz");
-		metadata3.setSize(100_000_000L);
+		DownloadResult download3 = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata3 = JdkMetadata.builder()
+				.filename("temurin-jdk-17.0.5")
+				.vendor("temurin")
+				.version("17.0.5")
+				.javaVersion("17")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/temurin-17.0.5.tar.gz")
+				.download("temurin-jdk-17.0.5", download3)
+				.build();
 
-		JdkMetadata metadata4 = new JdkMetadata();
-		metadata4.setFilename("oracle-jdk-8.0.202");
-		metadata4.setVendor("oracle");
-		metadata4.setVersion("8.0.202");
-		metadata4.setJavaVersion("8");
-		metadata4.setOs("linux");
-		metadata4.setArchitecture("x86_64");
-		metadata4.setFileType("tar.gz");
-		metadata4.setImageType("jdk");
-		metadata4.setReleaseType("ga");
-		metadata4.setUrl("https://example.com/oracle-8.0.202.tar.gz");
-		metadata4.setSize(100_000_000L);
+		DownloadResult download4 = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata4 = JdkMetadata.builder()
+				.filename("oracle-jdk-8.0.202")
+				.vendor("oracle")
+				.version("8.0.202")
+				.javaVersion("8")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/oracle-8.0.202.tar.gz")
+				.download("oracle-jdk-8.0.202", download4)
+				.build();
 
-		JdkMetadata metadata5 = new JdkMetadata();
-		metadata5.setFilename("oracle-jdk-11.0.2");
-		metadata5.setVendor("oracle");
-		metadata5.setVersion("11.0.2");
-		metadata5.setJavaVersion("11");
-		metadata5.setOs("linux");
-		metadata5.setArchitecture("x86_64");
-		metadata5.setFileType("tar.gz");
-		metadata5.setImageType("jdk");
-		metadata5.setReleaseType("ga");
-		metadata5.setUrl("https://example.com/oracle-11.0.2.tar.gz");
-		metadata5.setSize(100_000_000L);
+		DownloadResult download5 = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata5 = JdkMetadata.builder()
+				.filename("oracle-jdk-11.0.2")
+				.vendor("oracle")
+				.version("11.0.2")
+				.javaVersion("11")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/oracle-11.0.2.tar.gz")
+				.download("oracle-jdk-11.0.2", download5)
+				.build();
 
 		// When - save in random order
 		Path metadataDir = tempDir.resolve("metadata");

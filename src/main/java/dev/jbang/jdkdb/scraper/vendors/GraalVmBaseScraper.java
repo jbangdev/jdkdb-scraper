@@ -2,11 +2,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
-import java.util.ArrayList;
 import java.util.List;
 
 /** Base class for GraalVM scrapers */
@@ -38,44 +36,32 @@ public abstract class GraalVmBaseScraper extends GitHubReleaseScraper {
 	/** Check if an asset should be processed */
 	protected abstract boolean shouldProcessAsset(String assetName);
 
-	/** Process an asset and extract metadata */
-	protected abstract void processAsset(String tagName, String assetName, List<JdkMetadata> allMetadata)
-			throws Exception;
+	/** Process an asset and extract metadata - returns metadata or null to skip */
+	protected abstract JdkMetadata processAsset(String tagName, String assetName) throws Exception;
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
 		String tagName = release.get("tag_name").asText();
 
 		if (!shouldProcessTag(tagName)) {
-			return allMetadata;
+			return List.of();
 		}
 
-		log("Processing release: " + tagName);
+		return processReleaseAssets(release, asset -> {
+			String assetName = asset.get("name").asText();
 
-		JsonNode assets = release.get("assets");
-		if (assets != null && assets.isArray()) {
-			for (JsonNode asset : assets) {
-				String assetName = asset.get("name").asText();
-
-				if (!shouldProcessAsset(assetName)) {
-					continue;
-				}
-
-				try {
-					processAsset(tagName, assetName, allMetadata);
-				} catch (InterruptedProgressException | TooManyFailuresException e) {
-					throw e;
-				} catch (Exception e) {
-					log("Failed to process " + assetName + ": " + e.getMessage());
-				}
+			if (!shouldProcessAsset(assetName)) {
+				return null;
 			}
-		}
 
-		return allMetadata;
+			return processAsset(tagName, assetName);
+		});
 	}
 
+	/**
+	 * @deprecated Use the createMetadata method from GitHubReleaseScraper with MetadataBuilder instead
+	 */
+	@Deprecated
 	protected JdkMetadata createMetadata(
 			String vendor,
 			String assetName,
@@ -88,29 +74,18 @@ public abstract class GraalVmBaseScraper extends GitHubReleaseScraper {
 			String url,
 			DownloadResult download) {
 
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(vendor);
-		metadata.setFilename(assetName);
-		metadata.setReleaseType(releaseType);
-		metadata.setVersion(version);
-		metadata.setJavaVersion(javaVersion);
-		metadata.setJvmImpl("graalvm");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType("jdk");
-		metadata.setFeatures(new ArrayList<>());
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(assetName + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(assetName + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(assetName + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(assetName + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		return JdkMetadata.builder()
+				.vendor(vendor)
+				.releaseType(releaseType)
+				.version(version)
+				.javaVersion(javaVersion)
+				.jvmImpl("graalvm")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType("jdk")
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 }

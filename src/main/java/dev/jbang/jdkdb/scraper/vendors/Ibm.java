@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -102,29 +103,20 @@ public class Ibm extends BaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, ibmFile);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(ibmFile);
-		metadata.setReleaseType("ga");
-		metadata.setVersion(jdkVersion);
-		metadata.setJavaVersion(jdkVersion);
-		metadata.setJvmImpl("openj9");
-		metadata.setOs("linux");
-		metadata.setArchitecture(normalizeArch(architecture));
-		metadata.setFileType("tgz");
-		metadata.setImageType(imageType);
-		metadata.setFeatures(new ArrayList<>());
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(ibmFile + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(ibmFile + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(ibmFile + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(ibmFile + ".sha512");
-		metadata.setSize(download.size());
+		// Create metadata using builder
+		JdkMetadata metadata = JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ga")
+				.version(jdkVersion)
+				.javaVersion(jdkVersion)
+				.jvmImpl("openj9")
+				.os("linux")
+				.arch(normalizeArch(architecture))
+				.fileType("tgz")
+				.imageType(imageType)
+				.url(url)
+				.download(ibmFile, download)
+				.build();
 
 		saveMetadataFile(metadata);
 		allMetadata.add(metadata);

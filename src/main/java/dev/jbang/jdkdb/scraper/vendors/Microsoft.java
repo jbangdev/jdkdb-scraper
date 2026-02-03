@@ -88,31 +88,20 @@ public class Microsoft extends BaseScraper {
 		// Download file and compute hashes
 		var download = downloadFile(url, filename);
 
-		// Create metadata
-		var metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(filename);
-		metadata.setReleaseType(normalizeReleaseType(releaseType));
-		metadata.setVersion(version);
-		metadata.setJavaVersion(version);
-		metadata.setJvmImpl("hotspot");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(extension);
-		metadata.setImageType("jdk");
-		metadata.setFeatures(new ArrayList<>());
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType(normalizeReleaseType(releaseType))
+				.version(version)
+				.javaVersion(version)
+				.jvmImpl("hotspot")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(extension)
+				.imageType("jdk")
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

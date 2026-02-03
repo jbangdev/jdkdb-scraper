@@ -2,12 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -34,47 +32,24 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> metadata = new ArrayList<>();
 		String tagName = release.get("tag_name").asText();
 
 		// Only process releases with jdk tag prefix
 		if (!tagName.startsWith("jdk")) {
-			return metadata;
+			return List.of();
 		}
 
-		JsonNode assets = release.get("assets");
-		if (assets == null) {
-			return metadata;
-		}
-
-		for (JsonNode asset : assets) {
+		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 
 			// Only process graalvm-jdk files with tar.gz or zip extensions
 			if (!assetName.startsWith("graalvm-jdk-")
 					|| (!assetName.endsWith(".tar.gz") && !assetName.endsWith(".zip"))) {
-				continue;
+				return null;
 			}
 
-			if (metadataExists(assetName)) {
-				continue;
-			}
-
-			try {
-				JdkMetadata jdkMetadata = parseAsset(assetName, asset);
-				if (jdkMetadata != null) {
-					saveMetadataFile(jdkMetadata);
-					metadata.add(jdkMetadata);
-					success(assetName);
-				}
-			} catch (InterruptedProgressException | TooManyFailuresException e) {
-				throw e;
-			} catch (Exception e) {
-				fail(assetName, e);
-			}
-		}
-
-		return metadata;
+			return parseAsset(assetName, asset);
+		});
 	}
 
 	private JdkMetadata parseAsset(String assetName, JsonNode asset) throws Exception {
@@ -95,30 +70,21 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 		// Download and calculate checksums
 		DownloadResult download = downloadFile(downloadUrl, assetName);
 
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(assetName);
-		metadata.setReleaseType("ea");
-		metadata.setVersion(javaVersion);
-		metadata.setJavaVersion(javaVersion);
-		metadata.setJvmImpl("graalvm");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(extension);
-		metadata.setImageType("jdk");
-		metadata.setFeatures(features.isEmpty() ? new ArrayList<>() : List.of(features));
-		metadata.setUrl(downloadUrl);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(assetName + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(assetName + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(assetName + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(assetName + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ea")
+				.version(javaVersion)
+				.javaVersion(javaVersion)
+				.jvmImpl("graalvm")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(extension)
+				.imageType("jdk")
+				.features(features.isEmpty() ? null : List.of(features))
+				.url(downloadUrl)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

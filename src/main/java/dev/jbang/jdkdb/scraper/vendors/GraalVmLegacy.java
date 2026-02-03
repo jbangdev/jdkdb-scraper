@@ -1,9 +1,9 @@
 package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,13 +46,7 @@ public class GraalVmLegacy extends GraalVmBaseScraper {
 	}
 
 	@Override
-	protected void processAsset(String tagName, String assetName, List<JdkMetadata> allMetadata) throws Exception {
-
-		if (metadataExists(assetName)) {
-			log("Skipping " + assetName + " (already exists)");
-			return;
-		}
-
+	protected JdkMetadata processAsset(String tagName, String assetName) throws Exception {
 		String releaseType;
 		String os;
 		String arch;
@@ -72,7 +66,7 @@ public class GraalVmLegacy extends GraalVmBaseScraper {
 			Matcher regularMatcher = REGULAR_PATTERN.matcher(assetName);
 			if (!regularMatcher.matches()) {
 				log("Skipping " + assetName + " (does not match pattern)");
-				return;
+				return null;
 			}
 
 			// Check if it's a dev build
@@ -90,21 +84,19 @@ public class GraalVmLegacy extends GraalVmBaseScraper {
 		DownloadResult download = downloadFile(url, assetName);
 
 		// Create metadata
-		JdkMetadata metadata = createMetadata(
-				VENDOR,
-				assetName,
-				releaseType,
-				version,
-				"8", // Legacy GraalVM was based on Java 8
-				os,
-				arch,
-				ext,
-				url,
-				download);
-
-		saveMetadataFile(metadata);
-		allMetadata.add(metadata);
-		log("Processed " + assetName);
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType(releaseType)
+				.version(version)
+				.javaVersion("8")
+				.jvmImpl("graalvm")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType("jdk")
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

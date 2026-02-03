@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
@@ -40,12 +41,9 @@ public class Jetbrains extends GitHubReleaseScraper {
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		String tagName = release.get("tag_name").asText();
 		boolean prerelease = release.get("prerelease").asBoolean();
 		String releaseType = prerelease ? "ea" : "ga";
 		String body = release.get("body").asText("");
-
-		log("Processing release: " + tagName);
 
 		// Parse assets from the body
 		Matcher matcher = BODY_PATTERN.matcher(body);
@@ -54,8 +52,13 @@ public class Jetbrains extends GitHubReleaseScraper {
 			String file = matcher.group("file");
 			String url = matcher.group("url");
 
+			if (metadataExists(file)) {
+				log("Skipping " + file + " (already exists)");
+				continue;
+			}
+
 			try {
-				JdkMetadata metadata = processAsset(file, url, releaseType, description, allMetadata);
+				JdkMetadata metadata = processAsset(file, url, releaseType, description);
 				if (metadata != null) {
 					saveMetadataFile(metadata);
 					allMetadata.add(metadata);
@@ -71,14 +74,8 @@ public class Jetbrains extends GitHubReleaseScraper {
 		return allMetadata;
 	}
 
-	private JdkMetadata processAsset(
-			String assetName, String url, String releaseType, String description, List<JdkMetadata> allMetadata)
+	private JdkMetadata processAsset(String assetName, String url, String releaseType, String description)
 			throws Exception {
-
-		if (metadataExists(assetName)) {
-			log("Skipping " + assetName + " (already exists)");
-			return null;
-		}
 
 		// Only process files ending in tar.gz, zip, or pkg
 		if (!assetName.matches(".+\\.(tar\\.gz|zip|pkg)$")) {
@@ -126,30 +123,21 @@ public class Jetbrains extends GitHubReleaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, assetName);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(assetName);
-		metadata.setReleaseType(releaseType);
-		metadata.setVersion(version);
-		metadata.setJavaVersion(os); // Note: in bash script this was set to OS, likely a bug
-		metadata.setJvmImpl("hotspot");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(assetName + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(assetName + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(assetName + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(assetName + ".sha512");
-		metadata.setSize(download.size());
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType(releaseType)
+				.version(version)
+				.javaVersion(versionPart)
+				.jvmImpl("hotspot")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

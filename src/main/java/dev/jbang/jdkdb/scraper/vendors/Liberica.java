@@ -2,11 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -34,17 +33,10 @@ public class Liberica extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
 		String tagName = release.get("tag_name").asText();
 		boolean isPrerelease = release.get("prerelease").asBoolean();
 
-		JsonNode assets = release.get("assets");
-		if (assets == null || !assets.isArray()) {
-			return metadataList;
-		}
-
-		for (JsonNode asset : assets) {
+		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 			String contentType = asset.get("content_type").asText("application/octet-stream");
 
@@ -58,29 +50,11 @@ public class Liberica extends GitHubReleaseScraper {
 					|| assetName.endsWith("-src-crac.tar.gz")
 					|| assetName.endsWith("-src-leyden.tar.gz")
 					|| assetName.contains("-full-nosign")) {
-				continue;
+				return null;
 			}
 
-			if (metadataExists(assetName)) {
-				log("Skipping " + assetName + " (already exists)");
-				continue;
-			}
-
-			try {
-				JdkMetadata metadata = processAsset(tagName, assetName, isPrerelease);
-				if (metadata != null) {
-					saveMetadataFile(metadata);
-					metadataList.add(metadata);
-					success(assetName);
-				}
-			} catch (InterruptedProgressException | TooManyFailuresException e) {
-				throw e;
-			} catch (Exception e) {
-				fail(assetName, e);
-			}
-		}
-
-		return metadataList;
+			return processAsset(tagName, assetName, isPrerelease);
+		});
 	}
 
 	private JdkMetadata processAsset(String tagName, String filename, boolean isPrerelease) throws Exception {
@@ -115,31 +89,21 @@ public class Liberica extends GitHubReleaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, filename);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(filename);
-		metadata.setReleaseType(releaseType);
-		metadata.setVersion(version);
-		metadata.setJavaVersion(version);
-		metadata.setJvmImpl("hotspot");
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType(releaseType)
+				.version(version)
+				.javaVersion(version)
+				.jvmImpl("hotspot")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 
 	private List<String> buildFeatures(String featuresStr) {

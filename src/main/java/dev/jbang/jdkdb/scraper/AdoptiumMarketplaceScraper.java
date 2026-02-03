@@ -198,29 +198,20 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, filename);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(getVendorName());
-		metadata.setFilename(filename);
-		metadata.setReleaseType("ga");
-		metadata.setVersion(normalizedVersion);
-		metadata.setJavaVersion(javaVersion);
-		metadata.setJvmImpl(jvmImpl);
-		metadata.setOs(normalizeOs(os));
-		metadata.setArchitecture(normalizeArch(arch));
-		metadata.setFileType(ext);
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(getVendorName())
+				.releaseType("ga")
+				.version(normalizedVersion)
+				.javaVersion(javaVersion)
+				.jvmImpl(jvmImpl)
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 }

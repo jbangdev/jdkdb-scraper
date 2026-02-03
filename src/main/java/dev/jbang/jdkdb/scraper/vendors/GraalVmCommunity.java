@@ -1,9 +1,9 @@
 package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,17 +43,11 @@ public class GraalVmCommunity extends GraalVmBaseScraper {
 	}
 
 	@Override
-	protected void processAsset(String tagName, String assetName, List<JdkMetadata> allMetadata) throws Exception {
-
-		if (metadataExists(assetName)) {
-			log("Skipping " + assetName + " (already exists)");
-			return;
-		}
-
+	protected JdkMetadata processAsset(String tagName, String assetName) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
 			log("Skipping " + assetName + " (does not match pattern)");
-			return;
+			return null;
 		}
 
 		String javaVersion = matcher.group(1);
@@ -68,12 +62,19 @@ public class GraalVmCommunity extends GraalVmBaseScraper {
 		DownloadResult download = downloadFile(url, assetName);
 
 		// Create metadata
-		JdkMetadata metadata =
-				createMetadata(VENDOR, assetName, "ga", javaVersion, javaVersion, os, arch, ext, url, download);
-
-		saveMetadataFile(metadata);
-		allMetadata.add(metadata);
-		log("Processed " + assetName);
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ga")
+				.version(javaVersion)
+				.javaVersion(javaVersion)
+				.jvmImpl("graalvm")
+				.os(normalizeOs(os))
+				.arch(normalizeArch(arch))
+				.fileType(ext)
+				.imageType("jdk")
+				.url(url)
+				.download(assetName, download)
+				.build();
 	}
 
 	public static class Discovery implements Scraper.Discovery {

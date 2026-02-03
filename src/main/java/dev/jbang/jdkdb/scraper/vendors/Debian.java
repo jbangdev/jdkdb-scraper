@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
+import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
@@ -150,31 +151,21 @@ public class Debian extends BaseScraper {
 		// Download and compute hashes
 		DownloadResult download = downloadFile(url, filename);
 
-		// Create metadata
-		JdkMetadata metadata = new JdkMetadata();
-		metadata.setVendor(VENDOR);
-		metadata.setFilename(filename);
-		metadata.setReleaseType("ga"); // Debian only packages GA releases
-		metadata.setVersion(version);
-		metadata.setJavaVersion(version);
-		metadata.setJvmImpl("hotspot"); // Debian packages HotSpot
-		metadata.setOs("linux"); // Debian is Linux-only
-		metadata.setArchitecture(architecture);
-		metadata.setFileType("deb");
-		metadata.setImageType(imageType);
-		metadata.setFeatures(features);
-		metadata.setUrl(url);
-		metadata.setMd5(download.md5());
-		metadata.setMd5File(filename + ".md5");
-		metadata.setSha1(download.sha1());
-		metadata.setSha1File(filename + ".sha1");
-		metadata.setSha256(download.sha256());
-		metadata.setSha256File(filename + ".sha256");
-		metadata.setSha512(download.sha512());
-		metadata.setSha512File(filename + ".sha512");
-		metadata.setSize(download.size());
-
-		return metadata;
+		// Create metadata using builder
+		return JdkMetadata.builder()
+				.vendor(VENDOR)
+				.releaseType("ga") // Debian only packages GA releases
+				.version(version)
+				.javaVersion(version)
+				.jvmImpl("hotspot") // Debian packages HotSpot
+				.os("linux") // Debian is Linux-only
+				.arch(architecture)
+				.fileType("deb")
+				.imageType(imageType)
+				.features(features)
+				.url(url)
+				.download(filename, download)
+				.build();
 	}
 
 	/** Normalize Debian architecture names to our standard names */

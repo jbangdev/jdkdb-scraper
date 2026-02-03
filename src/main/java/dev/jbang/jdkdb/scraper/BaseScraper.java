@@ -184,7 +184,4 @@ public abstract class BaseScraper implements Scraper {
 
 		return (lower.contains("ea") || lower.contains("early")) ? "ea" : "ga";
 	}
-
-	/** Result of a file download */
-	protected record DownloadResult(String md5, String sha1, String sha256, String sha512, long size) {}
 }
