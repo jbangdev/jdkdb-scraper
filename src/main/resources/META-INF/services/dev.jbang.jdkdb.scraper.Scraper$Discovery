@@ -3,6 +3,7 @@ dev.jbang.jdkdb.scraper.vendors.TemurinEa$Discovery
 dev.jbang.jdkdb.scraper.vendors.Zulu$Discovery
 dev.jbang.jdkdb.scraper.vendors.Liberica$Discovery
 dev.jbang.jdkdb.scraper.vendors.Corretto$Discovery
+dev.jbang.jdkdb.scraper.vendors.Debian$Discovery
 dev.jbang.jdkdb.scraper.vendors.SapMachine$Discovery
 dev.jbang.jdkdb.scraper.vendors.Microsoft$Discovery
 dev.jbang.jdkdb.scraper.vendors.OpenJdk$Discovery
