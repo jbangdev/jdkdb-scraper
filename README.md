@@ -26,8 +26,8 @@ This project uses Gradle for dependency management and building.
 ./gradlew spotlessApply build
 
 # This creates two jars:
-# - java-metadata-scraper-1.0.0-SNAPSHOT.jar (regular jar)
-# - java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar (fat jar with all dependencies)
+# - jdkdb-scraper-1.0.0-SNAPSHOT.jar (regular jar)
+# - jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar (fat jar with all dependencies)
 ```
 
 ## Usage
@@ -36,30 +36,30 @@ This project uses Gradle for dependency management and building.
 
 ```bash
 # Run all scrapers
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar
 
 # List available scrapers
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar --list
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar --list
 
 # Run specific scrapers
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar --scrapers microsoft,semeru-11,semeru-17
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar --scrapers microsoft,semeru-11,semeru-17
 
 # Specify custom directories
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar \
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar \
 --metadata-dir /path/to/metadata \
 --checksum-dir /path/to/checksums
 
 # Control parallelism
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar --threads 4
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar --threads 4
 
 # Show help
-java -jar build/libs/java-metadata-scraper-1.0.0-SNAPSHOT-standalone.jar --help
+java -jar build/libs/jdkdb-scraper-1.0.0-SNAPSHOT-standalone.jar --help
 ```
 
 ## Command Line Options
 
 ```
-Usage: java-metadata-scraper [-hlV] [--from-start] [-c=<checksumDir>]
+Usage: jdkdb-scraper [-hlV] [--from-start] [-c=<checksumDir>]
 							[-m=<metadataDir>] [--limit-progress=<limitProgress>]
 							[--max-failures=<maxFailures>]
 							[-s=<scraperIds>[,<scraperIds>...]]...
@@ -208,7 +208,7 @@ public class NewScraper extends BaseScraper {
 src/
 ├── main/
 │   ├── java/
-│   │   └── com/github/joschi/javametadata/
+│   │   └── dev/jbang/jdkdb/
 │   │       ├── Main.java                          # CLI application entry point
 │   │       ├── model/
 │   │       │   └── JdkMetadata.java              # Data model for JDK metadata
@@ -240,7 +240,7 @@ src/
 │       ├── logback.xml                           # Logging configuration
 │       └── META-INF/
 │           └── services/
-│               └── com.github.joschi.javametadata.scraper.Scraper$Discovery
+│               └── dev.jbang.jdkdb.scraper.Scraper$Discovery
 └── test/
 	└── java/
 		└── (test classes)
@@ -269,7 +269,7 @@ Each vendor directory contains:
 
 Logs are written to:
 - Console (STDOUT) - Real-time progress
-- File (`logs/java-metadata-scraper.log`) - Detailed execution log
+- File (`logs/jdkdb-scraper.log`) - Detailed execution log
 
 The logging configuration can be customized in `src/main/resources/logback.xml`.
 
