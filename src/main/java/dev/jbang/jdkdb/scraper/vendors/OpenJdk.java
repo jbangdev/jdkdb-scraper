@@ -15,12 +15,9 @@ public class OpenJdk extends OpenJdkBaseScraper {
 	protected List<String> getIndexUrls() {
 		return Arrays.asList(
 				"http://jdk.java.net/archive/",
-				"http://jdk.java.net/21/",
-				"http://jdk.java.net/22/",
-				"http://jdk.java.net/23/",
-				"http://jdk.java.net/24/",
 				"http://jdk.java.net/25/",
-				"http://jdk.java.net/26/");
+				"http://jdk.java.net/26/",
+				"http://jdk.java.net/27/");
 	}
 
 	public static class Discovery implements Scraper.Discovery {

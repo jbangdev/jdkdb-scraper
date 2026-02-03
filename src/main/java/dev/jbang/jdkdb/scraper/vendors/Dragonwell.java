@@ -19,7 +19,7 @@ public class Dragonwell extends BaseScraper {
 	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 
 	// List of all Java versions to scrape
-	private static final List<String> JAVA_VERSIONS = List.of("8", "11", "17", "21");
+	private static final List<String> JAVA_VERSIONS = List.of("8", "11", "17", "21", "25");
 
 	// Multiple patterns to handle different filename formats
 	private static final Pattern STANDARD_EXTENDED_PATTERN_8 = Pattern.compile(

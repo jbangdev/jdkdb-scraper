@@ -30,7 +30,7 @@ public class Debian extends BaseScraper {
 			"(openjdk-)([0-9]{1,2})-(jre|jdk)_(([1-9]\\d*)((u(\\d+))|(\\.?(\\d+)?\\.?(\\d+)?\\.?(\\d+)?\\.?(\\d+)?\\.(\\d+)))?((_|b)(\\d+))?((-|\\+|\\.)([a-zA-Z0-9\\-\\+]+)(\\.[0-9]+)?)?)_(.*)(\\.deb)");
 
 	// LTS versions to scrape
-	private static final int[] LTS_VERSIONS = {8, 11, 17, 21};
+	private static final String[] LTS_VERSIONS = {"8", "11", "11-jre-dcevm", "17", "21"};
 
 	public Debian(ScraperConfig config) {
 		super(config);
@@ -42,7 +42,7 @@ public class Debian extends BaseScraper {
 
 		try {
 			// Process each LTS version
-			for (int majorVersion : LTS_VERSIONS) {
+			for (String majorVersion : LTS_VERSIONS) {
 				String cdnUrl = CDN_URL + "openjdk-" + majorVersion + "/";
 				log("Processing OpenJDK " + majorVersion + " from " + cdnUrl);
 
