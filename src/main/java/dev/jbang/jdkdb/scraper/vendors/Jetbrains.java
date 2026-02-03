@@ -60,7 +60,12 @@ public class Jetbrains extends BaseScraper {
 					String url = matcher.group("url");
 
 					try {
-						processAsset(file, url, releaseType, description, allMetadata);
+						JdkMetadata metadata = processAsset(file, url, releaseType, description, allMetadata);
+						if (metadata != null) {
+							saveMetadataFile(metadata);
+							allMetadata.add(metadata);
+							success(file);
+						}
 					} catch (InterruptedProgressException | TooManyFailuresException e) {
 						throw e;
 					} catch (Exception e) {
@@ -75,24 +80,24 @@ public class Jetbrains extends BaseScraper {
 		return allMetadata;
 	}
 
-	private void processAsset(
+	private JdkMetadata processAsset(
 			String assetName, String url, String releaseType, String description, List<JdkMetadata> allMetadata)
 			throws Exception {
 
 		if (metadataExists(assetName)) {
 			log("Skipping " + assetName + " (already exists)");
-			return;
+			return null;
 		}
 
 		// Only process files ending in tar.gz, zip, or pkg
 		if (!assetName.matches(".+\\.(tar\\.gz|zip|pkg)$")) {
-			return;
+			return null;
 		}
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
 			log("Skipping " + assetName + " (does not match pattern)");
-			return;
+			return null;
 		}
 
 		String sdkMarker = matcher.group(1);
@@ -153,10 +158,7 @@ public class Jetbrains extends BaseScraper {
 		metadata.setSha512(download.sha512());
 		metadata.setSha512File(assetName + ".sha512");
 		metadata.setSize(download.size());
-
-		saveMetadataFile(metadata);
-		allMetadata.add(metadata);
-		log("Processed " + assetName);
+		return metadata;
 	}
 
 	public static class Discovery implements Scraper.Discovery {
