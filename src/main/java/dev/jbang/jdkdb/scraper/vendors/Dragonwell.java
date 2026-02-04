@@ -39,8 +39,9 @@ public class Dragonwell extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("dragonwell8", "dragonwell11", "dragonwell17", "dragonwell21", "dragonwell25");
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all dragonwell repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), "dragonwell", "^dragonwell\\d+$");
 	}
 
 	@Override

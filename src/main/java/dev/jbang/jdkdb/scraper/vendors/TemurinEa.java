@@ -19,9 +19,6 @@ public class TemurinEa extends GitHubReleaseScraper {
 	private static final Pattern FILENAME_PATTERN =
 			Pattern.compile("^OpenJDK([0-9]+)U?-([a-z]+)_([^_]+)_([^_]+)_([^_]+)_([^.]+)\\.(tar\\.gz|zip|pkg|msi)$");
 
-	// List of Java versions to check for EA releases
-	private static final List<Integer> EA_VERSIONS = List.of(24, 25, 26, 27);
-
 	public TemurinEa(ScraperConfig config) {
 		super(config);
 	}
@@ -32,8 +29,9 @@ public class TemurinEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return EA_VERSIONS.stream().map(v -> "temurin" + v + "-binaries").toList();
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all temurin EA repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), "temurin", "^temurin\\d+-binaries$");
 	}
 
 	@Override

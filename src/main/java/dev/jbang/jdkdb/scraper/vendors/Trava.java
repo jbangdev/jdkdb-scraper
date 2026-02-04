@@ -51,8 +51,9 @@ public class Trava extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return PROJECTS.stream().map(ProjectConfig::repo).toList();
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all trava-jdk repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), "trava", "^trava-jdk-\\d+-dcevm$");
 	}
 
 	@Override

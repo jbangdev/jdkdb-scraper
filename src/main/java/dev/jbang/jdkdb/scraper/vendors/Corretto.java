@@ -7,7 +7,6 @@ import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -15,19 +14,6 @@ import java.util.regex.Pattern;
 /** Scraper for Amazon Corretto releases */
 public class Corretto extends GitHubReleaseScraper {
 	private static final String VENDOR = "corretto";
-	private static final List<String> CORRETTO_REPOS = Arrays.asList(
-			"corretto-8",
-			"corretto-11",
-			"corretto-17",
-			"corretto-18",
-			"corretto-19",
-			"corretto-20",
-			"corretto-21",
-			"corretto-22",
-			"corretto-23",
-			"corretto-24",
-			"corretto-25",
-			"corretto-jdk");
 
 	// Pattern to extract download links from HTML table in release body
 	// Matches: <a href="URL" rel="nofollow">FILENAME</a>
@@ -44,8 +30,9 @@ public class Corretto extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return CORRETTO_REPOS;
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all corretto repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), "corretto", "^corretto-(\\d+|jdk)$");
 	}
 
 	@Override

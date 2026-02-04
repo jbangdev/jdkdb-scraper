@@ -40,8 +40,9 @@ public class Kona extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("TencentKona-8", "TencentKona-11", "TencentKona-17", "TencentKona-21");
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all TencentKona repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), "TencentKona", "^TencentKona-\\d+$");
 	}
 
 	@Override

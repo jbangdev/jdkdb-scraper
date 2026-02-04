@@ -8,17 +8,18 @@ import java.util.List;
 public class SemeruCertified extends SemeruBaseScraper {
 	private static final String VENDOR = "semeru";
 
-	// List of Java versions for certified edition
-	private static final List<String> JAVA_VERSIONS =
-			List.of("11-certified", "17-certified", "21-certified", "25-certified");
-
 	public SemeruCertified(ScraperConfig config) {
 		super(config);
 	}
 
 	@Override
-	protected List<String> getJavaVersions() {
-		return JAVA_VERSIONS;
+	protected String getRepoSearchString() {
+		return "semeru+certified";
+	}
+
+	@Override
+	protected String getRepoPattern() {
+		return "^semeru\\d+-certified-binaries$";
 	}
 
 	@Override

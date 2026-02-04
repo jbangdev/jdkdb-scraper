@@ -9,17 +9,18 @@ import java.util.List;
 public class Semeru extends SemeruBaseScraper {
 	private static final String VENDOR = "semeru";
 
-	// List of Java versions for open edition
-	private static final List<String> JAVA_VERSIONS =
-			List.of("8", "11", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25");
-
 	public Semeru(ScraperConfig config) {
 		super(config);
 	}
 
 	@Override
-	protected List<String> getJavaVersions() {
-		return JAVA_VERSIONS;
+	protected String getRepoSearchString() {
+		return "semeru";
+	}
+
+	@Override
+	protected String getRepoPattern() {
+		return "^semeru\\d+-binaries$";
 	}
 
 	@Override

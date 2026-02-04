@@ -5,10 +5,12 @@ import dev.jbang.jdkdb.model.JdkMetadata;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /** Base class for scrapers that fetch releases from GitHub */
 public abstract class GitHubReleaseScraper extends BaseScraper {
 	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
+	private static final String GITHUB_ORGS_API_BASE = "https://api.github.com/orgs";
 
 	public GitHubReleaseScraper(ScraperConfig config) {
 		super(config);
@@ -18,7 +20,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected abstract String getGitHubOrg();
 
 	/** Get the GitHub repository names to scrape */
-	protected abstract List<String> getGitHubRepos();
+	protected abstract List<String> getGitHubRepos() throws Exception;
 
 	/** Process a single release and extract metadata */
 	protected abstract List<JdkMetadata> processRelease(JsonNode release) throws Exception;
@@ -147,6 +149,55 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Fetch repository names from a GitHub organization that match a given pattern.
+	 * This is useful for organizations with multiple repositories following a naming convention.
+	 *
+	 * @param orgName The GitHub organization name
+	 * @param searchString A string to search for in repository names
+	 * @param repoNamePattern A regex pattern to match repository names against
+	 * @return List of repository names that match the pattern
+	 * @throws IOException If the API call fails
+	 * @throws InterruptedException If the download is interrupted
+	 */
+	protected List<String> getGitHubReposFromOrg(String orgName, String searchString, String repoNamePattern)
+			throws IOException, InterruptedException {
+		List<String> repos = new ArrayList<>();
+		Pattern pattern = Pattern.compile(repoNamePattern);
+
+		// GitHub API pagination
+		int page = 1;
+		boolean hasMore = true;
+
+		while (hasMore) {
+			String url =
+					String.format("%s/%s/repos?type=public&per_page=100&page=%d", GITHUB_ORGS_API_BASE, orgName, page);
+			if (searchString != null && !searchString.isEmpty()) {
+				url += "&q=" + searchString;
+			}
+			log("Fetching repositories from " + url);
+
+			String json = httpUtils.downloadString(url);
+			JsonNode reposArray = readJson(json);
+
+			if (!reposArray.isArray() || reposArray.size() == 0) {
+				hasMore = false;
+			} else {
+				for (JsonNode repo : reposArray) {
+					String repoName = repo.get("name").asText();
+					if (pattern.matcher(repoName).matches()) {
+						repos.add(repoName);
+						log("Matched repository: " + repoName);
+					}
+				}
+				page++;
+			}
+		}
+
+		log("Found " + repos.size() + " matching repositories");
+		return repos;
 	}
 
 	/** Parse filename to extract metadata components */

@@ -23,16 +23,16 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		List<String> repos = new ArrayList<>();
-		for (String version : getJavaVersions()) {
-			repos.add("semeru" + version + "-binaries");
-		}
-		return repos;
+	protected List<String> getGitHubRepos() throws Exception {
+		// Use the helper method to fetch all semeru repositories
+		return getGitHubReposFromOrg(getGitHubOrg(), getRepoSearchString(), getRepoPattern());
 	}
 
-	/** Get the list of Java versions to scrape */
-	protected abstract List<String> getJavaVersions();
+	/** Get the search string for repository names */
+	protected abstract String getRepoSearchString();
+
+	/** Get the pattern for matching repository names */
+	protected abstract String getRepoPattern();
 
 	/** Get the filename prefix to accept (e.g., "ibm-semeru-open-" or "ibm-semeru-certified-") */
 	protected abstract String getFilenamePrefix();
