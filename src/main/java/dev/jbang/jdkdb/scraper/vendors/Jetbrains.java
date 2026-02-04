@@ -58,6 +58,9 @@ public class Jetbrains extends GitHubReleaseScraper {
 			}
 
 			try {
+				if (!shouldProcessAsset(file)) {
+					return null;
+				}
 				JdkMetadata metadata = processAsset(file, url, releaseType, description);
 				if (metadata != null) {
 					saveMetadataFile(metadata);
@@ -74,13 +77,13 @@ public class Jetbrains extends GitHubReleaseScraper {
 		return allMetadata;
 	}
 
+	protected boolean shouldProcessAsset(String assetName) {
+		// Only process files ending in tar.gz, zip, or pkg
+		return assetName.matches(".+\\.(tar\\.gz|zip|pkg)$");
+	}
+
 	private JdkMetadata processAsset(String assetName, String url, String releaseType, String description)
 			throws Exception {
-
-		// Only process files ending in tar.gz, zip, or pkg
-		if (!assetName.matches(".+\\.(tar\\.gz|zip|pkg)$")) {
-			return null;
-		}
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {

@@ -38,25 +38,35 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 		// Only process prereleases (EA releases)
 		boolean isPrerelease = release.path("prerelease").asBoolean(false);
 		if (!isPrerelease) {
-			return List.of();
+			return null;
 		}
 
 		String tagName = release.path("tag_name").asText();
 
-		// Exclude Community releases (which start with "jdk")
-		if (tagName.startsWith("jdk")) {
+		if (!shouldProcessTag(tagName)) {
 			return List.of();
 		}
 
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.path("name").asText();
 
-			if (!assetName.startsWith("graalvm-ce") || (!assetName.endsWith("tar.gz") && !assetName.endsWith("zip"))) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
 			return processAsset(tagName, assetName);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessTag(String tagName) {
+		// Exclude Community releases (which start with "jdk")
+		return !tagName.startsWith("jdk");
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		return assetName.startsWith("graalvm-ce") && (assetName.endsWith("tar.gz") || assetName.endsWith("zip"));
 	}
 
 	private JdkMetadata processAsset(String tagName, String assetName) throws Exception {

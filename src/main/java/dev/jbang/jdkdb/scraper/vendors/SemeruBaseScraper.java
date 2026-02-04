@@ -43,18 +43,19 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	/** Get additional features to add to metadata */
 	protected abstract List<String> getAdditionalFeatures();
 
+	private static final Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
+
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 
-		// Parse version from tag name
-		Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
-		Matcher versionMatcher = versionPattern.matcher(tagName);
-
-		if (!versionMatcher.matches()) {
-			return List.of();
+		if (!shouldProcessTag(tagName)) {
+			return null;
 		}
 
+		// Parse version from tag name
+		Matcher versionMatcher = versionPattern.matcher(tagName);
+		versionMatcher.matches(); // We know this will succeed
 		String parsedJavaVersion = versionMatcher.group(1);
 		String openj9Version = versionMatcher.group(2);
 		String version = parsedJavaVersion + "_openj9-" + openj9Version;
@@ -63,13 +64,26 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			String assetName = asset.get("name").asText();
 			String downloadUrl = asset.get("browser_download_url").asText();
 
-			// Skip files that don't match our prefix
-			if (!assetName.startsWith(getFilenamePrefix())) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
 			return processAsset(assetName, downloadUrl, version, parsedJavaVersion);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessTag(String tagName) {
+		Matcher versionMatcher = versionPattern.matcher(tagName);
+		if (!versionMatcher.matches()) {
+			return false;
+		}
+		return true;
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		return assetName.startsWith(getFilenamePrefix());
 	}
 
 	private JdkMetadata processAsset(String filename, String url, String version, String javaVersion) throws Exception {

@@ -23,6 +23,16 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	/** Process a single release and extract metadata */
 	protected abstract List<JdkMetadata> processRelease(JsonNode release) throws Exception;
 
+	protected boolean shouldProcessTag(String tagName) {
+		// By default, process all tags
+		return true;
+	}
+
+	protected boolean shouldProcessAsset(String assetName) {
+		// By default, process all assets
+		return true;
+	}
+
 	/**
 	 * Process release assets with common iteration and error handling logic.
 	 * This method reduces boilerplate by handling the standard asset processing pattern.

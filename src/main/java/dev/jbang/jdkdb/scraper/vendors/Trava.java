@@ -4,11 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -60,10 +57,11 @@ public class Trava extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
 		String tagName = release.get("tag_name").asText();
-		log("Processing release: " + tagName);
+
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
 
 		// Find matching project config based on tag pattern
 		ProjectConfig matchingProject = null;
@@ -77,42 +75,33 @@ public class Trava extends GitHubReleaseScraper {
 		}
 
 		if (matchingProject == null) {
-			log("Skipping tag " + tagName + " (does not match any pattern)");
 			return null;
 		}
 
 		String version = matchingProject.versionExtractor().apply(tagMatcher);
+		ProjectConfig finalMatchingProject = matchingProject;
 
-		JsonNode assets = release.get("assets");
-		if (assets != null && assets.isArray()) {
-			for (JsonNode asset : assets) {
-				String contentType = asset.path("content_type").asText("");
-				String assetName = asset.get("name").asText();
+		return processReleaseAssets(release, asset -> {
+			String contentType = asset.path("content_type").asText("");
+			String assetName = asset.get("name").asText();
 
-				// Skip source files and jar files
-				if (assetName.contains("_source") || assetName.endsWith(".jar")) {
-					continue;
-				}
-
-				// Only process application files
-				if (contentType.startsWith("application")) {
-					try {
-						JdkMetadata metadata = processAsset(matchingProject, tagName, assetName, version);
-						if (metadata != null) {
-							saveMetadataFile(metadata);
-							metadataList.add(metadata);
-							success(assetName);
-						}
-					} catch (InterruptedProgressException | TooManyFailuresException e) {
-						throw e;
-					} catch (Exception e) {
-						log("Failed to process " + assetName + ": " + e.getMessage());
-					}
-				}
+			if (!shouldProcessAsset(assetName)) {
+				return null;
 			}
-		}
 
-		return metadataList;
+			// Only process application files
+			if (!contentType.startsWith("application")) {
+				return null;
+			}
+
+			return processAsset(finalMatchingProject, tagName, assetName, version);
+		});
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Skip source files and jar files
+		return !assetName.contains("_source") && !assetName.endsWith(".jar");
 	}
 
 	private JdkMetadata processAsset(ProjectConfig project, String tagName, String assetName, String version)

@@ -35,16 +35,25 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 		String tagName = release.get("tag_name").asText();
 		boolean isPrerelease = release.get("prerelease").asBoolean();
 
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 
-			// Skip non-matching files
-			if (!assetName.startsWith("graalvm-svm-") || assetName.endsWith(".sha256")) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
 			return processAsset(tagName, assetName, isPrerelease);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Skip non-matching files
+		return assetName.startsWith("graalvm-svm-") && !assetName.endsWith(".sha256");
 	}
 
 	private JdkMetadata processAsset(String tagName, String filename, boolean isPrerelease) throws Exception {

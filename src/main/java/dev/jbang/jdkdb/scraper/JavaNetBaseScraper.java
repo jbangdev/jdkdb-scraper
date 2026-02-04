@@ -1,11 +1,6 @@
-package dev.jbang.jdkdb.scraper.vendors;
+package dev.jbang.jdkdb.scraper;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.DownloadResult;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
-import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;

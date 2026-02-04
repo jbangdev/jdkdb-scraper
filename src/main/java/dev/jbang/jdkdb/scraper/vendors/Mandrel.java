@@ -34,18 +34,26 @@ public class Mandrel extends GitHubReleaseScraper {
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
-		log("Processing release: " + tagName);
+
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
 
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 
-			// Only process mandrel tar.gz files
-			if (!assetName.startsWith("mandrel-") || !assetName.endsWith("tar.gz")) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
 			return processAsset(tagName, assetName);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Only process mandrel-java files with tar.gz extension
+		return assetName.startsWith("mandrel-java") && assetName.endsWith(".tar.gz");
 	}
 
 	private JdkMetadata processAsset(String tagName, String assetName) throws Exception {

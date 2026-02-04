@@ -1,14 +1,17 @@
 package dev.jbang.jdkdb.scraper.vendors;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DownloadResult;
+import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Scraper for GraalVM Community releases (starting from GraalVM 23) */
-public class GraalVmCommunity extends GraalVmBaseScraper {
+public class GraalVmCommunity extends GitHubReleaseScraper {
 	private static final String VENDOR = "graalvm-community";
 	private static final String GITHUB_ORG = "graalvm";
 	private static final String GITHUB_REPO = "graalvm-ce-builds";
@@ -23,13 +26,32 @@ public class GraalVmCommunity extends GraalVmBaseScraper {
 	}
 
 	@Override
-	protected String getGithubOrg() {
+	protected String getGitHubOrg() {
 		return GITHUB_ORG;
 	}
 
 	@Override
-	protected String getGithubRepo() {
-		return GITHUB_REPO;
+	protected List<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
+	}
+
+	@Override
+	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+		String tagName = release.get("tag_name").asText();
+
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
+		return processReleaseAssets(release, asset -> {
+			String assetName = asset.get("name").asText();
+
+			if (!shouldProcessAsset(assetName)) {
+				return null;
+			}
+
+			return processAsset(tagName, assetName);
+		});
 	}
 
 	@Override
@@ -42,7 +64,6 @@ public class GraalVmCommunity extends GraalVmBaseScraper {
 		return assetName.startsWith("graalvm-community") && (assetName.endsWith("tar.gz") || assetName.endsWith("zip"));
 	}
 
-	@Override
 	protected JdkMetadata processAsset(String tagName, String assetName) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {

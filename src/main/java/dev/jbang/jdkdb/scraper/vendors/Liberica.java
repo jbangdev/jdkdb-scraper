@@ -36,25 +36,40 @@ public class Liberica extends GitHubReleaseScraper {
 		String tagName = release.get("tag_name").asText();
 		boolean isPrerelease = release.get("prerelease").asBoolean();
 
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 			String contentType = asset.get("content_type").asText("application/octet-stream");
 
-			// Skip non-binary files
-			if (contentType.equals("text/plain")
-					|| assetName.endsWith(".txt")
-					|| assetName.endsWith(".bom")
-					|| assetName.endsWith(".json")
-					|| assetName.endsWith("-src.tar.gz")
-					|| assetName.endsWith("-src-full.tar.gz")
-					|| assetName.endsWith("-src-crac.tar.gz")
-					|| assetName.endsWith("-src-leyden.tar.gz")
-					|| assetName.contains("-full-nosign")) {
+			if (!shouldProcessAsset(assetName)) {
+				return null;
+			}
+
+			if (contentType.equals("text/plain")) {
 				return null;
 			}
 
 			return processAsset(tagName, assetName, isPrerelease);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Skip non-binary files
+		if (assetName.endsWith(".txt")
+				|| assetName.endsWith(".bom")
+				|| assetName.endsWith(".json")
+				|| assetName.endsWith("-src.tar.gz")
+				|| assetName.endsWith("-src-full.tar.gz")
+				|| assetName.endsWith("-src-crac.tar.gz")
+				|| assetName.endsWith("-src-leyden.tar.gz")
+				|| assetName.contains("-full-nosign")) {
+			return false;
+		}
+		return true;
 	}
 
 	private JdkMetadata processAsset(String tagName, String filename, boolean isPrerelease) throws Exception {

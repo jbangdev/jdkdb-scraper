@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Scraper for Amazon Corretto releases */
 public class Corretto extends GitHubReleaseScraper {
@@ -29,6 +29,11 @@ public class Corretto extends GitHubReleaseScraper {
 			"corretto-25",
 			"corretto-jdk");
 
+	// Pattern to extract download links from HTML table in release body
+	// Matches: <a href="URL" rel="nofollow">FILENAME</a>
+	private static final Pattern DOWNLOAD_LINK_PATTERN =
+			Pattern.compile("<a href=\"([^\"]+)\" rel=\"nofollow\">([^<]+\\.(tar\\.gz|zip|deb|rpm|msi|pkg))</a>");
+
 	public Corretto(ScraperConfig config) {
 		super(config);
 	}
@@ -45,99 +50,65 @@ public class Corretto extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
 		String version = release.get("tag_name").asText();
-		processVersion(version, allMetadata);
+		if (!shouldProcessTag(version)) {
+			return null;
+		}
+
+		String body = release.get("body").asText("");
+
+		// Parse download links from the HTML table in the release body
+		Matcher matcher = DOWNLOAD_LINK_PATTERN.matcher(body);
+		List<JdkMetadata> allMetadata = new ArrayList<>();
+
+		while (matcher.find()) {
+			String url = matcher.group(1);
+			String filename = matcher.group(2);
+
+			if (metadataExists(filename)) {
+				log("Skipping " + filename + " (already exists)");
+				continue;
+			}
+
+			try {
+				JdkMetadata metadata = processAsset(filename, url, version);
+				if (metadata != null) {
+					saveMetadataFile(metadata);
+					allMetadata.add(metadata);
+					success(filename);
+				}
+			} catch (Exception e) {
+				fail(filename, e);
+			}
+		}
+
 		return allMetadata;
 	}
 
-	private void processVersion(String version, List<JdkMetadata> allMetadata) {
-		// Define OS, architecture, extension, and image type combinations
-		String[][] osConfigs = {
-			{"linux", "x86,x64,aarch64,armv7", "tar.gz,rpm,deb", "none"},
-			{"alpine-linux", "x64,aarch64", "tar.gz", "none"},
-			{"macosx", "x64,aarch64", "tar.gz,pkg", "none"},
-			{"windows", "x64,x86", "zip,msi", "jre,jdk,none"}
-		};
+	private JdkMetadata processAsset(String filename, String url, String version) throws Exception {
+		// Parse filename to extract OS, architecture, extension, and image type
+		// Examples:
+		// amazon-corretto-8.482.08.1-linux-x64.tar.gz
+		// amazon-corretto-8.482.08.1-windows-x64-jdk.zip
+		// java-1.8.0-amazon-corretto-jdk_8.482.08-1_amd64.deb
+		// java-1.8.0-amazon-corretto-devel-1.8.0_482.b08-1.x86_64.rpm
 
-		for (String[] config : osConfigs) {
-			String os = config[0];
-			String[] archs = config[1].split(",");
-			String[] exts = config[2].split(",");
-			String[] imageTypes = config[3].split(",");
+		String os = extractOs(filename);
+		String arch = extractArch(filename);
+		String ext = extractExtension(filename);
+		String imageType = extractImageType(filename);
 
-			for (String arch : archs) {
-				for (String ext : exts) {
-					for (String imageType : imageTypes) {
-						// Skip jre/jdk image types for non-zip Windows files
-						if (os.equals("windows") && !ext.equals("zip") && !imageType.equals("none")) {
-							continue;
-						}
-
-						String filename = buildFilename(version, os, arch, ext, imageType);
-						try {
-							JdkMetadata metadata =
-									downloadVersion(filename, version, os, arch, ext, imageType, allMetadata);
-							if (metadata != null) {
-								saveMetadataFile(metadata);
-								allMetadata.add(metadata);
-								success(filename);
-							}
-						} catch (InterruptedProgressException | TooManyFailuresException e) {
-							throw e;
-						} catch (Exception e) {
-							fail(filename, e);
-						}
-					}
-				}
-			}
-		}
-	}
-
-	private JdkMetadata downloadVersion(
-			String filename,
-			String version,
-			String os,
-			String arch,
-			String ext,
-			String imageType,
-			List<JdkMetadata> allMetadata)
-			throws Exception {
-
-		if (metadataExists(filename)) {
-			log("Skipping " + filename + " (already exists)");
+		if (os == null || arch == null || ext == null) {
+			log("Could not parse OS/arch/extension from filename: " + filename);
 			return null;
 		}
 
-		// Try both CDN URLs
-		String url = null;
-		String primaryUrl = String.format("https://corretto.aws/downloads/resources/%s/%s", version, filename);
-		String fallbackUrl = String.format("https://d3pxv6yz143wms.cloudfront.net/%s/%s", version, filename);
-
-		try {
-			if (httpUtils.checkUrlExists(primaryUrl)) {
-				url = primaryUrl;
-			} else if (httpUtils.checkUrlExists(fallbackUrl)) {
-				url = fallbackUrl;
-			}
-		} catch (Exception e) {
-			// URL doesn't exist, skip
-			return null;
-		}
-
-		if (url == null) {
-			return null;
-		}
-
-		// Download and compute hashes
+		// Download and compute hashes (we need sha1 and sha512 which aren't in the HTML)
 		DownloadResult download = downloadFile(url, filename);
-
-		// Normalize image type
-		String normalizedImageType = imageType.equals("none") ? "jdk" : imageType;
 
 		// Build features list
 		List<String> features = new ArrayList<>();
-		if (os.equals("alpine-linux")) {
+		if (filename.contains("-alpine-") || filename.contains("alpine-linux")) {
 			features.add("musl");
 		}
 
@@ -151,19 +122,73 @@ public class Corretto extends GitHubReleaseScraper {
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
 				.fileType(ext)
-				.imageType(normalizedImageType)
+				.imageType(imageType)
 				.features(features)
 				.url(url)
 				.download(filename, download)
 				.build();
 	}
 
-	private String buildFilename(String version, String os, String arch, String ext, String imageType) {
-		if (imageType.equals("none")) {
-			return String.format("amazon-corretto-%s-%s-%s.%s", version, os, arch, ext);
-		} else {
-			return String.format("amazon-corretto-%s-%s-%s-%s.%s", version, os, arch, imageType, ext);
+	private String extractOs(String filename) {
+		if (filename.contains("-linux-") || filename.endsWith(".deb") || filename.endsWith(".rpm")) {
+			if (filename.contains("-alpine-")) {
+				return "alpine-linux";
+			}
+			return "linux";
 		}
+		if (filename.contains("-windows-")) {
+			return "windows";
+		}
+		if (filename.contains("-macosx-") || filename.contains("-macos-")) {
+			return "macosx";
+		}
+		return null;
+	}
+
+	private String extractArch(String filename) {
+		if (filename.contains("-x64") || filename.contains("_amd64") || filename.contains(".x86_64")) {
+			return "x64";
+		}
+		if (filename.contains("-x86") || filename.contains("_i686")) {
+			return "x86";
+		}
+		if (filename.contains("-aarch64") || filename.contains("_arm64") || filename.contains(".aarch64")) {
+			return "aarch64";
+		}
+		if (filename.contains("-armv7") || filename.contains("_armhf")) {
+			return "armv7";
+		}
+		return null;
+	}
+
+	private String extractExtension(String filename) {
+		if (filename.endsWith(".tar.gz")) {
+			return "tar.gz";
+		}
+		if (filename.endsWith(".zip")) {
+			return "zip";
+		}
+		if (filename.endsWith(".deb")) {
+			return "deb";
+		}
+		if (filename.endsWith(".rpm")) {
+			return "rpm";
+		}
+		if (filename.endsWith(".msi")) {
+			return "msi";
+		}
+		if (filename.endsWith(".pkg")) {
+			return "pkg";
+		}
+		return null;
+	}
+
+	private String extractImageType(String filename) {
+		if (filename.contains("-jre") || filename.contains("_jre")) {
+			return "jre";
+		}
+		// Default to jdk for all other cases
+		return "jdk";
 	}
 
 	public static class Discovery implements Scraper.Discovery {

@@ -34,22 +34,31 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 
-		// Only process releases with jdk tag prefix
-		if (!tagName.startsWith("jdk")) {
-			return List.of();
+		if (!shouldProcessTag(tagName)) {
+			return null;
 		}
 
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 
-			// Only process graalvm-jdk files with tar.gz or zip extensions
-			if (!assetName.startsWith("graalvm-jdk-")
-					|| (!assetName.endsWith(".tar.gz") && !assetName.endsWith(".zip"))) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
 			return parseAsset(assetName, asset);
 		});
+	}
+
+	@Override
+	protected boolean shouldProcessTag(String tagName) {
+		// Only process releases with jdk tag prefix
+		return tagName.startsWith("jdk");
+	}
+
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Only process graalvm-jdk files with zip or tar.gz extension
+		return assetName.startsWith("graalvm-jdk") && (assetName.endsWith(".tar.gz") || assetName.endsWith(".zip"));
 	}
 
 	private JdkMetadata parseAsset(String assetName, JsonNode asset) throws Exception {

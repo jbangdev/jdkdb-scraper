@@ -38,27 +38,37 @@ public class TemurinEa extends GitHubReleaseScraper {
 
 	@Override
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+		String tagName = release.get("tag_name").asText();
+
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
 		// Only process prereleases (EA releases)
 		boolean isPrerelease = release.path("prerelease").asBoolean(false);
 		if (!isPrerelease) {
-			return List.of();
+			return null;
 		}
 
 		return processReleaseAssets(release, asset -> {
 			String filename = asset.path("name").asText();
 			String downloadUrl = asset.path("browser_download_url").asText();
 
-			// Skip non-JDK files
-			if (!filename.startsWith("OpenJDK")
-					|| filename.endsWith(".txt")
-					|| filename.endsWith(".json")
-					|| filename.contains("debugimage")
-					|| filename.contains("testimage")) {
+			if (!shouldProcessAsset(filename)) {
 				return null;
 			}
 
 			return processAsset(filename, downloadUrl);
 		});
+	}
+
+	protected boolean shouldProcessAsset(String assetName) {
+		// Only process OpenJDK files with known extensions
+		return assetName.startsWith("OpenJDK")
+				&& (assetName.endsWith(".tar.gz")
+						|| assetName.endsWith(".zip")
+						|| assetName.endsWith(".pkg")
+						|| assetName.endsWith(".msi"));
 	}
 
 	private JdkMetadata processAsset(String filename, String url) throws Exception {

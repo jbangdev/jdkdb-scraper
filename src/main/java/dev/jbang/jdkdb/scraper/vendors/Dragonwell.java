@@ -47,20 +47,29 @@ public class Dragonwell extends GitHubReleaseScraper {
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 			String downloadUrl = asset.get("browser_download_url").asText();
 
-			// Only process tar.gz and zip files
-			if (!assetName.endsWith(".tar.gz") && !assetName.endsWith(".zip")) {
+			if (!shouldProcessAsset(assetName)) {
 				return null;
 			}
 
-			return processAsset(tagName, assetName, downloadUrl);
+			return processAsset(assetName, downloadUrl);
 		});
 	}
 
-	private JdkMetadata processAsset(String tagName, String filename, String url) throws Exception {
+	@Override
+	protected boolean shouldProcessAsset(String assetName) {
+		// Only process tar.gz and zip files
+		return assetName.endsWith(".tar.gz") || assetName.endsWith(".zip");
+	}
+
+	private JdkMetadata processAsset(String filename, String url) throws Exception {
 		ParsedFilename parsed = parseFilename(filename);
 		if (parsed == null || parsed.version == null) {
 			log("Could not parse filename: " + filename);

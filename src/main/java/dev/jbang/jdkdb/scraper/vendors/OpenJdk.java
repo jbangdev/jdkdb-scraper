@@ -1,5 +1,6 @@
 package dev.jbang.jdkdb.scraper.vendors;
 
+import dev.jbang.jdkdb.scraper.JavaNetBaseScraper;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.Arrays;

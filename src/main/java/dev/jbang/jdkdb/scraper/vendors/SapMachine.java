@@ -36,9 +36,18 @@ public class SapMachine extends GitHubReleaseScraper {
 	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 
+		if (!shouldProcessTag(tagName)) {
+			return null;
+		}
+
 		return processReleaseAssets(release, asset -> {
 			String assetName = asset.get("name").asText();
 			String downloadUrl = asset.get("browser_download_url").asText();
+
+			if (!shouldProcessAsset(assetName)) {
+				return null;
+			}
+
 			return processAsset(tagName, assetName, downloadUrl);
 		});
 	}
