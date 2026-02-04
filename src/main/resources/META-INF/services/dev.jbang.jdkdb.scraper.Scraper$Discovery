@@ -27,7 +27,7 @@ dev.jbang.jdkdb.scraper.vendors.GraalVmCeEa$Discovery
 dev.jbang.jdkdb.scraper.vendors.GraalVmCommunity$Discovery
 dev.jbang.jdkdb.scraper.vendors.GraalVmCommunityEa$Discovery
 dev.jbang.jdkdb.scraper.vendors.Ibm$Discovery
-dev.jbang.jdkdb.scraper.vendors.JavaSeRi$Discovery
+dev.jbang.jdkdb.scraper.vendors.JavaSeReference$Discovery
 dev.jbang.jdkdb.scraper.vendors.Jetbrains$Discovery
 dev.jbang.jdkdb.scraper.vendors.Mandrel$Discovery
 dev.jbang.jdkdb.scraper.vendors.GluonGraalVm$Discovery

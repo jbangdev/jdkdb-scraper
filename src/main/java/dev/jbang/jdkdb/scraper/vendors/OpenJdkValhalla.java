@@ -5,7 +5,7 @@ import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.*;
 
 /** Scraper for OpenJDK Project Valhalla early access builds */
-public class OpenJdkValhalla extends OpenJdkBaseScraper {
+public class OpenJdkValhalla extends JavaNetBaseScraper {
 
 	public OpenJdkValhalla(ScraperConfig config) {
 		super(config);

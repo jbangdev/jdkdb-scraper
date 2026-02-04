@@ -11,15 +11,15 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Base scraper for OpenJDK releases from jdk.java.net */
-public abstract class OpenJdkBaseScraper extends BaseScraper {
+/** Base scraper for Java releases from jdk.java.net */
+public abstract class JavaNetBaseScraper extends BaseScraper {
 	protected static final String VENDOR = "openjdk";
-	private static final Pattern FILENAME_PATTERN = Pattern.compile(
+	protected static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^openjdk-([0-9]{1,}[^_]*)_(linux|osx|macos|windows)-(aarch64|x64-musl|x64)_bin\\.(tar\\.gz|zip)$");
-	private static final Pattern URL_PATTERN =
+	protected static final Pattern URL_PATTERN =
 			Pattern.compile("href=\"(https://download\\.java\\.net/java/[^\"]*\\.(tar\\.gz|zip))\"");
 
-	public OpenJdkBaseScraper(ScraperConfig config) {
+	public JavaNetBaseScraper(ScraperConfig config) {
 		super(config);
 	}
 
@@ -29,6 +29,26 @@ public abstract class OpenJdkBaseScraper extends BaseScraper {
 	/** Get features for this scraper (e.g., "leyden", "loom", etc.) */
 	protected String getFeature() {
 		return null; // No feature by default
+	}
+
+	/** Get the vendor name for this scraper */
+	protected String getVendor() {
+		return VENDOR;
+	}
+
+	/** Get the filename pattern for this scraper */
+	protected Pattern getFilenamePattern() {
+		return FILENAME_PATTERN;
+	}
+
+	/** Get the URL pattern for this scraper */
+	protected Pattern getUrlPattern() {
+		return URL_PATTERN;
+	}
+
+	/** Check if a URL should be processed (e.g., filter out source files) */
+	protected boolean shouldProcessUrl(String url) {
+		return true; // Process all URLs by default
 	}
 
 	@Override
@@ -79,10 +99,10 @@ public abstract class OpenJdkBaseScraper extends BaseScraper {
 	}
 
 	private void extractUrls(String html, List<String> downloadUrls) {
-		Matcher matcher = URL_PATTERN.matcher(html);
+		Matcher matcher = getUrlPattern().matcher(html);
 		while (matcher.find()) {
 			String url = matcher.group(1);
-			if (!downloadUrls.contains(url)) {
+			if (shouldProcessUrl(url) && !downloadUrls.contains(url)) {
 				downloadUrls.add(url);
 			}
 		}
@@ -97,7 +117,7 @@ public abstract class OpenJdkBaseScraper extends BaseScraper {
 	}
 
 	private JdkMetadata processFile(String filename, String url) throws Exception {
-		Matcher matcher = FILENAME_PATTERN.matcher(filename);
+		Matcher matcher = getFilenamePattern().matcher(filename);
 		if (!matcher.matches()) {
 			log("Filename doesn't match pattern: " + filename);
 			return null;
@@ -130,7 +150,7 @@ public abstract class OpenJdkBaseScraper extends BaseScraper {
 
 		// Create metadata using builder
 		return JdkMetadata.builder()
-				.vendor(VENDOR)
+				.vendor(getVendor())
 				.releaseType(releaseType)
 				.version(version)
 				.javaVersion(version)

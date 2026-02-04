@@ -5,7 +5,7 @@ import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.*;
 
 /** Scraper for OpenJDK Project Leyden early access builds */
-public class OpenJdkLeyden extends OpenJdkBaseScraper {
+public class OpenJdkLeyden extends JavaNetBaseScraper {
 
 	public OpenJdkLeyden(ScraperConfig config) {
 		super(config);

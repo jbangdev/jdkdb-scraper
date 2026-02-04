@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /** Scraper for mainline OpenJDK releases */
-public class OpenJdk extends OpenJdkBaseScraper {
+public class OpenJdk extends JavaNetBaseScraper {
 	public OpenJdk(ScraperConfig config) {
 		super(config);
 	}

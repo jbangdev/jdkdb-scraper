@@ -5,7 +5,7 @@ import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.*;
 
 /** Scraper for OpenJDK Project Loom early access builds */
-public class OpenJdkLoom extends OpenJdkBaseScraper {
+public class OpenJdkLoom extends JavaNetBaseScraper {
 
 	public OpenJdkLoom(ScraperConfig config) {
 		super(config);
