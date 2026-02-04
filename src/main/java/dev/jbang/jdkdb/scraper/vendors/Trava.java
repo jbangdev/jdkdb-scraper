@@ -168,6 +168,12 @@ public class Trava extends GitHubReleaseScraper {
 		}
 
 		@Override
+		public When when() {
+			// Trava is no longer maintained, last release was in 2023
+			return When.NEVER;
+		}
+
+		@Override
 		public Scraper create(ScraperConfig config) {
 			return new Trava(config);
 		}

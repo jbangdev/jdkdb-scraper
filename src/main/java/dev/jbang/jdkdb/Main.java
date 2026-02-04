@@ -6,8 +6,12 @@ import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
 import dev.jbang.jdkdb.scraper.ScraperResult;
 import dev.jbang.jdkdb.util.MetadataUtils;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -104,19 +108,29 @@ public class Main implements Callable<Integer> {
 			var scrapers = new HashMap<String, Scraper>();
 			var affectedVendors = new HashSet<String>();
 			for (var scraperId : scraperIds) {
+				var discovery = allDiscoveries.get(scraperId);
+				if (discovery == null) {
+					System.err.println("Warning: Unknown scraper ID: " + scraperId);
+					continue;
+				}
+
+				// Check if scraper should run based on schedule
+				if (!shouldRunScraper(discovery, metadataDir)) {
+					System.out.println("Skipping scraper '" + scraperId + "' - not scheduled to run yet ("
+							+ discovery.when() + ")");
+					continue;
+				}
+
 				scrapers.put(scraperId, fact.createScraper(scraperId));
 				// Track which vendor this scraper affects
-				var discovery = allDiscoveries.get(scraperId);
-				if (discovery != null) {
-					affectedVendors.add(discovery.vendor());
-				}
+				affectedVendors.add(discovery.vendor());
 			}
-			if (scraperIds != null && !scraperIds.isEmpty()) {
-				System.out.println("Running specific scrapers: " + String.join(", ", scraperIds));
-			} else {
-				System.out.println("Running all available scrapers");
+			if (scrapers.isEmpty()) {
+				System.out.println("No scrapers scheduled to run.");
+				return 0;
 			}
 
+			System.out.println("Running scrapers: " + String.join(", ", scrapers.keySet()));
 			System.out.println("Total scrapers: " + scrapers.size());
 			System.out.println();
 
@@ -245,6 +259,67 @@ public class Main implements Callable<Integer> {
 					System.err.println("    Failed for vendor " + vendorName + ": " + e.getMessage());
 				}
 			}
+		}
+	}
+
+	/**
+	 * Check if a scraper should run based on its scheduling configuration and the last update time
+	 * of the vendor's all.json file.
+	 *
+	 * @param discovery The scraper discovery with scheduling information
+	 * @param metadataDir The metadata directory
+	 * @return true if the scraper should run, false otherwise
+	 */
+	private boolean shouldRunScraper(Scraper.Discovery discovery, Path metadataDir) {
+		Scraper.When when = discovery.when();
+
+		// NEVER scrapers should never run
+		if (when == Scraper.When.NEVER) {
+			return false;
+		}
+
+		// ALWAYS scrapers should always run
+		if (when == Scraper.When.ALWAYS) {
+			return true;
+		}
+
+		// For other schedules, check the last update time
+		Path vendorAllJson =
+				metadataDir.resolve("vendor").resolve(discovery.vendor()).resolve("all.json");
+
+		Instant lastUpdate = getLastModifiedTime(vendorAllJson);
+		if (lastUpdate == null) {
+			// No all.json exists, so we should run the scraper
+			return true;
+		}
+
+		Instant now = Instant.now();
+		Duration timeSinceUpdate = Duration.between(lastUpdate, now);
+
+		return switch (when) {
+			case ONCE_A_DAY -> timeSinceUpdate.compareTo(Duration.ofDays(1)) >= 0;
+			case ONCE_A_WEEK -> timeSinceUpdate.compareTo(Duration.ofDays(7)) >= 0;
+			case ONCE_A_MONTH -> timeSinceUpdate.compareTo(Duration.ofDays(30)) >= 0;
+			default -> true; // ALWAYS or unknown
+		};
+	}
+
+	/**
+	 * Get the last modified time of a file, or null if the file doesn't exist.
+	 *
+	 * @param path The file path
+	 * @return The last modified time as an Instant, or null if the file doesn't exist
+	 */
+	private Instant getLastModifiedTime(Path path) {
+		try {
+			if (!Files.exists(path)) {
+				return null;
+			}
+			FileTime fileTime = Files.getLastModifiedTime(path);
+			return fileTime.toInstant();
+		} catch (IOException e) {
+			// If we can't read the file time, treat it as if the file doesn't exist
+			return null;
 		}
 	}
 
