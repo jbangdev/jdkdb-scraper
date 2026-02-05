@@ -1,5 +1,6 @@
 package dev.jbang.jdkdb.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import dev.jbang.jdkdb.scraper.DownloadResult;
@@ -79,6 +80,9 @@ public class JdkMetadata {
 	private String sha512File;
 
 	private long size;
+
+	@JsonIgnore
+	private transient String metadataFilename;
 
 	// Constructors
 	public JdkMetadata() {}
@@ -168,6 +172,14 @@ public class JdkMetadata {
 		return size;
 	}
 
+	public String getMetadataFilename() {
+		if (metadataFilename == null) {
+			throw new IllegalStateException(
+					"Trying to access ignored value 'metadataFilename' with data read from file");
+		}
+		return metadataFilename;
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
@@ -212,6 +224,7 @@ public class JdkMetadata {
 		public String sha512;
 		public String sha512File;
 		public long size;
+		public String metadataFilename;
 
 		private Builder() {}
 
@@ -320,6 +333,11 @@ public class JdkMetadata {
 			return this;
 		}
 
+		public Builder metadataFilename(String metadataFilename) {
+			this.metadataFilename = metadataFilename;
+			return this;
+		}
+
 		public Builder download(String filename, DownloadResult download) {
 			this.filename = filename;
 			this.md5 = download.md5();
@@ -357,7 +375,12 @@ public class JdkMetadata {
 			metadata.sha512 = sha512;
 			metadata.sha512File = sha512File;
 			metadata.size = size;
+			metadata.metadataFilename = metadataFilename != null ? metadataFilename : filename + ".json";
 			return metadata;
 		}
+	}
+
+	public void setMetadataFilename(String metadataFilename) {
+		this.metadataFilename = metadataFilename;
 	}
 }

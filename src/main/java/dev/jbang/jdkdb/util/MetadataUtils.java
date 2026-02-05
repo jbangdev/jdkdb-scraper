@@ -17,20 +17,10 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class MetadataUtils {
+	private static ObjectMapper readMapper = new ObjectMapper();
 
-	/** Mix-in to force alphabetical property ordering */
-	@JsonPropertyOrder(alphabetic = true)
-	private interface AlphabeticPropertyOrder {}
-
-	/** Save individual metadata to file */
-	public static void saveMetadataFile(Path metadataFile, JdkMetadata metadata) throws IOException {
-		try (var writer = Files.newBufferedWriter(metadataFile)) {
-			ObjectMapper objectMapper = new ObjectMapper().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
-			objectMapper.writeValue(writer, metadata);
-			// This is to ensure we write the files exactly as the original code did
-			writer.write("\n");
-		}
-	}
+	private static ObjectMapper writeOneMapper =
+			new ObjectMapper().configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
 
 	// Custom pretty printer with proper formatting
 	private static MinimalPrettyPrinter printer = new MinimalPrettyPrinter() {
@@ -105,12 +95,44 @@ public class MetadataUtils {
 		printer.setRootValueSeparator("\n");
 	}
 
+	// Use a mix-in to override the JsonPropertyOrder annotation
+	private static ObjectMapper writeAllMapper = JsonMapper.builder()
+			.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false)
+			.enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+			.enable(SerializationFeature.INDENT_OUTPUT)
+			.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
+			.defaultPrettyPrinter(printer)
+			.build();
+
+	// Add a mix-in to override the @JsonPropertyOrder annotation
+	static {
+		writeAllMapper.addMixIn(JdkMetadata.class, AlphabeticPropertyOrder.class);
+	}
+
+	/** Mix-in to force alphabetical property ordering */
+	@JsonPropertyOrder(alphabetic = true)
+	private interface AlphabeticPropertyOrder {}
+
+	public static JdkMetadata readMetadataFile(Path metadataFile) throws IOException {
+		JdkMetadata md = readMapper.readValue(metadataFile.toFile(), JdkMetadata.class);
+		md.setMetadataFilename(metadataFile.getFileName().toString());
+		return md;
+	}
+
+	/** Save individual metadata to file */
+	public static void saveMetadataFile(Path metadataFile, JdkMetadata metadata) throws IOException {
+		try (var writer = Files.newBufferedWriter(metadataFile)) {
+			writeOneMapper.writeValue(writer, metadata);
+			// This is to ensure we write the files exactly as the original code did
+			writer.write("\n");
+		}
+	}
 	/** Save all metadata and create combined all.json file */
 	public static void saveMetadata(Path metadataDir, List<JdkMetadata> metadataList) throws IOException {
 		// Sort by version first (using VersionComparator) and filename second
 		List<JdkMetadata> sortedList = metadataList.stream()
 				.sorted(Comparator.comparing(JdkMetadata::getVersion, VersionComparator.INSTANCE)
-						.thenComparing(JdkMetadata::getFilename))
+						.thenComparing(JdkMetadata::getMetadataFilename))
 				.toList();
 
 		// Create all.json
@@ -118,19 +140,7 @@ public class MetadataUtils {
 			Path allJsonPath = metadataDir.resolve("all.json");
 
 			try (var writer = Files.newBufferedWriter(allJsonPath)) {
-				// Use a mix-in to override the JsonPropertyOrder annotation
-				ObjectMapper objectMapper = JsonMapper.builder()
-						.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false)
-						.enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
-						.enable(SerializationFeature.INDENT_OUTPUT)
-						.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
-						.defaultPrettyPrinter(printer)
-						.build();
-
-				// Add a mix-in to override the @JsonPropertyOrder annotation
-				objectMapper.addMixIn(JdkMetadata.class, AlphabeticPropertyOrder.class);
-
-				objectMapper.writeValue(writer, sortedList);
+				writeAllMapper.writeValue(writer, sortedList);
 				// This is to ensure we write the files exactly as the original code did
 				writer.write("\n");
 			}
@@ -147,7 +157,6 @@ public class MetadataUtils {
 		}
 
 		List<JdkMetadata> metadataList = new ArrayList<>();
-		ObjectMapper readMapper = new ObjectMapper();
 
 		// Read all .json files except all.json
 		try (Stream<Path> files = Files.list(vendorDir)) {
@@ -155,7 +164,7 @@ public class MetadataUtils {
 					.filter(p -> !p.getFileName().toString().equals("all.json"))
 					.forEach(metadataFile -> {
 						try {
-							JdkMetadata metadata = readMapper.readValue(metadataFile.toFile(), JdkMetadata.class);
+							JdkMetadata metadata = readMetadataFile(metadataFile);
 							metadataList.add(metadata);
 						} catch (IOException e) {
 							// Log or handle parse errors, but continue processing other files

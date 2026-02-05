@@ -111,7 +111,7 @@ class DummyScraperTest {
 				// Simulate processing with success() calls
 				// Note: the exception is thrown when processedCount reaches limitProgress
 				for (JdkMetadata md : metadataToReturn) {
-					success(md.getFilename());
+					success(md.getMetadataFilename());
 				}
 				return metadataToReturn;
 			}

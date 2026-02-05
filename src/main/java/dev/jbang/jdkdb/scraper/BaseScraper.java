@@ -50,10 +50,20 @@ public abstract class BaseScraper implements Scraper {
 			// Execute the scraping logic
 			var metadataList = scrape();
 
-			log("Completed successfully. Processed " + metadataList.size() + " items");
+			int processed = 0;
+			int skipped = 0;
+			if (metadataList != null) {
+				for (var metadata : metadataList) {
+					if (metadata.getVendor() != null) {
+						processed++;
+					} else {
+						skipped++;
+					}
+				}
+			}
+			log("Completed successfully. Processed " + processed + " items, skipped " + skipped + " items");
 
-			return ScraperResult.success(metadataList.size());
-
+			return ScraperResult.success(processed, skipped);
 		} catch (Exception e) {
 			log("Failed with error: " + e.getMessage());
 			return ScraperResult.failure(e);
@@ -96,23 +106,24 @@ public abstract class BaseScraper implements Scraper {
 		if (fromStart) {
 			return false;
 		}
-		Path metadataFile = metadataDir.resolve(filename + ".json");
+		if (!filename.endsWith(".json")) {
+			filename += ".json";
+		}
+		Path metadataFile = metadataDir.resolve(filename);
 		return Files.exists(metadataFile);
 	}
 
 	/** Save individual metadata to file */
 	protected void saveMetadataFile(JdkMetadata metadata) throws IOException {
-		saveMetadataFile(metadata.getFilename(), metadata);
-	}
-
-	/** Save individual metadata to file */
-	protected void saveMetadataFile(String metadataFilename, JdkMetadata metadata) throws IOException {
-		Path metadataFile = metadataDir.resolve(metadataFilename + ".json");
+		Path metadataFile = metadataDir.resolve(metadata.getMetadataFilename());
 		MetadataUtils.saveMetadataFile(metadataFile, metadata);
 	}
 
-	protected JdkMetadata skipped(String filename) {
-		return JdkMetadata.builder().filename(filename).build();
+	protected JdkMetadata skipped(String metadataFilename) {
+		if (!metadataFilename.endsWith(".json")) {
+			metadataFilename += ".json";
+		}
+		return JdkMetadata.builder().metadataFilename(metadataFilename).build();
 	}
 
 	/** Download a file and compute its hashes */

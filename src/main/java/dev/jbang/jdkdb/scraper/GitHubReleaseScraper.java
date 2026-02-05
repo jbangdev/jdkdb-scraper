@@ -67,7 +67,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			try {
 				JdkMetadata metadata = assetProcessor.process(release, asset);
 				if (metadata != null) {
-					saveMetadataFile(metadataFilename, metadata);
+					saveMetadataFile(metadata);
 					metadataList.add(metadata);
 					success(assetName);
 				}
