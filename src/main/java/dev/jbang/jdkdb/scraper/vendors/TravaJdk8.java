@@ -61,7 +61,7 @@ public class TravaJdk8 extends TravaBaseScraper {
 	public static class Discovery implements Scraper.Discovery {
 		@Override
 		public String name() {
-			return VENDOR + "-jdk8";
+			return VENDOR + "-8";
 		}
 
 		@Override
