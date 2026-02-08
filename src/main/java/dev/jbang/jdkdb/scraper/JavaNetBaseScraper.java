@@ -54,8 +54,12 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 		List<String> downloadUrls = new ArrayList<>();
 		for (String indexUrl : getIndexUrls()) {
 			log("Fetching index from " + indexUrl);
-			String html = httpUtils.downloadString(indexUrl);
-			extractUrls(html, downloadUrls);
+			var res = httpUtils.downloadString(indexUrl);
+			if (!res.isSuccess()) {
+				fail(indexUrl, new java.io.IOException(res.errorMessage()));
+				continue;
+			}
+			extractUrls(res.body(), downloadUrls);
 		}
 
 		log("Found " + downloadUrls.size() + " download URLs");

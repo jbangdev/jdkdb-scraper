@@ -210,7 +210,14 @@ class BaseScraperTest {
 
 	private DummyScraper createScraper() {
 		ScraperConfig config = new ScraperConfig(
-				tempDir.resolve("metadata"), tempDir.resolve("checksums"), Logger.getLogger("test"), false, 10, 0);
+				tempDir.resolve("metadata"),
+				tempDir.resolve("checksums"),
+				Logger.getLogger("test"),
+				new dev.jbang.jdkdb.reporting.ProgressReporter(),
+				null,
+				false,
+				10,
+				0);
 		return new DummyScraper(config);
 	}
 }

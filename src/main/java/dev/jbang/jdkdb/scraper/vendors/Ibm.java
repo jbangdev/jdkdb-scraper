@@ -30,7 +30,12 @@ public class Ibm extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		log("Fetching index");
-		String indexHtml = httpUtils.downloadString(BASE_URL);
+		var indexRes = httpUtils.downloadString(BASE_URL);
+		if (!indexRes.isSuccess()) {
+			log("Failed to fetch index: " + indexRes.errorMessage());
+			return allMetadata;
+		}
+		String indexHtml = indexRes.body();
 
 		// Extract JDK versions
 		Matcher versionMatcher = VERSION_PATTERN.matcher(indexHtml);
@@ -47,7 +52,12 @@ public class Ibm extends BaseScraper {
 
 				// Fetch architecture list
 				String archUrl = BASE_URL + jdkVersion + "/linux/";
-				String archHtml = httpUtils.downloadString(archUrl);
+				var archRes = httpUtils.downloadString(archUrl);
+				if (!archRes.isSuccess()) {
+					fail(archUrl, new java.io.IOException(archRes.errorMessage()));
+					continue;
+				}
+				String archHtml = archRes.body();
 
 				Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
 				List<String> architectures = new ArrayList<>();
@@ -60,7 +70,12 @@ public class Ibm extends BaseScraper {
 
 					// Fetch file list
 					String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
-					String filesHtml = httpUtils.downloadString(filesUrl);
+					var filesRes = httpUtils.downloadString(filesUrl);
+					if (!filesRes.isSuccess()) {
+						fail(filesUrl, new java.io.IOException(filesRes.errorMessage()));
+						continue;
+					}
+					String filesHtml = filesRes.body();
 
 					Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
 					while (fileMatcher.find()) {
@@ -88,7 +103,7 @@ public class Ibm extends BaseScraper {
 						} catch (InterruptedProgressException | TooManyFailuresException e) {
 							throw e;
 						} catch (Exception e) {
-							log("Failed to process " + ibmFile + ": " + e.getMessage());
+							fail("Failed to process " + ibmFile + ": " + e.getMessage(), e);
 						}
 					}
 				}

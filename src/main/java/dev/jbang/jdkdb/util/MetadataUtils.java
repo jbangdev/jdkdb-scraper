@@ -132,7 +132,8 @@ public class MetadataUtils {
 		// Sort by version first (using VersionComparator) and filename second
 		List<JdkMetadata> sortedList = metadataList.stream()
 				.sorted(Comparator.comparing(JdkMetadata::getVersion, VersionComparator.INSTANCE)
-						.thenComparing(JdkMetadata::getMetadataFilename))
+						.thenComparing(
+								JdkMetadata::getMetadataFilename, Comparator.nullsLast(Comparator.naturalOrder())))
 				.toList();
 
 		// Create all.json

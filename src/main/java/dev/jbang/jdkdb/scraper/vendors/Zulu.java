@@ -31,7 +31,12 @@ public class Zulu extends BaseScraper {
 
 		// Download index page
 		log("Fetching index from " + INDEX_URL);
-		String html = httpUtils.downloadString(INDEX_URL);
+		var indexRes = httpUtils.downloadString(INDEX_URL);
+		if (!indexRes.isSuccess()) {
+			log("Failed to fetch index: " + indexRes.errorMessage());
+			return allMetadata;
+		}
+		String html = indexRes.body();
 
 		// Extract file links
 		Matcher linkMatcher = LINK_PATTERN.matcher(html);

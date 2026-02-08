@@ -61,7 +61,12 @@ public class OracleGraalVm extends BaseScraper {
 		}
 
 		// Then scrape archive
-		String html = httpUtils.downloadString(archiveUrl);
+		var archiveRes = httpUtils.downloadString(archiveUrl);
+		if (!archiveRes.isSuccess()) {
+			log("Failed to fetch archive: " + archiveRes.errorMessage());
+			return allMetadata;
+		}
+		String html = archiveRes.body();
 
 		// Find all download links using regex
 		Matcher matcher = LINK_PATTERN.matcher(html);
@@ -94,7 +99,11 @@ public class OracleGraalVm extends BaseScraper {
 
 		// Try to find current release version from downloads page
 		String downloadsUrl = "https://www.oracle.com/java/technologies/downloads/";
-		String html = httpUtils.downloadString(downloadsUrl);
+		var downloadsRes = httpUtils.downloadString(downloadsUrl);
+		if (!downloadsRes.isSuccess()) {
+			return allMetadata;
+		}
+		String html = downloadsRes.body();
 
 		Pattern versionPattern = Pattern.compile(
 				String.format("<h3 id=\"graalvmjava%d\">GraalVM for JDK ([0-9.+]+) downloads</h3>", majorVersion));

@@ -23,7 +23,7 @@ public class ProgressReporterLogger extends Logger {
 				if (isLoggable(record)) {
 					String message = record.getLevel() + ": " + record.getMessage();
 					if (message != null && !message.isBlank()) {
-						reporter.report(ProgressEvent.progress(scraperId, message));
+						reporter.report(ProgressEvent.progress(scraperId, message, record.getThrown()));
 					}
 				}
 			}

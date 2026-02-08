@@ -66,8 +66,13 @@ public class Debian extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Download the directory listing
-		String html = httpUtils.downloadString(cdnUrl);
-		if (html.isEmpty()) {
+		var res = httpUtils.downloadString(cdnUrl);
+		if (!res.isSuccess()) {
+			log("Failed to fetch directory: " + res.errorMessage());
+			return null;
+		}
+		String html = res.body();
+		if (html == null || html.isEmpty()) {
 			log("Empty response from " + cdnUrl);
 			return null;
 		}

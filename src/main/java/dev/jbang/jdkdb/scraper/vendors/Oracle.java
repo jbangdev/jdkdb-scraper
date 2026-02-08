@@ -55,16 +55,24 @@ public class Oracle extends BaseScraper {
 		String versionsUrl = "https://java.oraclecloud.com/javaVersions";
 
 		log("Fetching Oracle JDK versions from " + versionsUrl);
-		String versionsJson = httpUtils.downloadString(versionsUrl);
-		JsonNode versionsNode = readJson(versionsJson);
+		var versionsRes = httpUtils.downloadString(versionsUrl);
+		if (!versionsRes.isSuccess()) {
+			log("Failed to fetch versions: " + versionsRes.errorMessage());
+			return allMetadata;
+		}
+		JsonNode versionsNode = readJson(versionsRes.body());
 
 		for (JsonNode item : versionsNode.get("items")) {
 			String latestVersion = item.get("latestReleaseVersion").asText();
 			String releaseUrl = "https://java.oraclecloud.com/javaReleases/" + latestVersion;
 
 			log("Fetching release info for version " + latestVersion);
-			String releaseJson = httpUtils.downloadString(releaseUrl);
-			JsonNode releaseNode = readJson(releaseJson);
+			var releaseRes = httpUtils.downloadString(releaseUrl);
+			if (!releaseRes.isSuccess()) {
+				fail(releaseUrl, new java.io.IOException(releaseRes.errorMessage()));
+				continue;
+			}
+			JsonNode releaseNode = readJson(releaseRes.body());
 
 			// Skip OTN licensed versions (Oracle Technology Network - requires acceptance)
 			String licenseType =
@@ -105,7 +113,12 @@ public class Oracle extends BaseScraper {
 
 		log("Scraping Oracle JDK " + majorVersion + " archive from " + archiveUrl);
 
-		String html = httpUtils.downloadString(archiveUrl);
+		var archiveRes = httpUtils.downloadString(archiveUrl);
+		if (!archiveRes.isSuccess()) {
+			log("Failed to fetch archive: " + archiveRes.errorMessage());
+			return allMetadata;
+		}
+		String html = archiveRes.body();
 
 		// Find all download links using regex
 		Matcher matcher = LINK_PATTERN.matcher(html);

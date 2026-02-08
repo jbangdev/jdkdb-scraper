@@ -31,7 +31,12 @@ public class ZuluPrime extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		log("Fetching properties from " + PROPERTIES_URL);
-		String propertiesContent = httpUtils.downloadString(PROPERTIES_URL);
+		var res = httpUtils.downloadString(PROPERTIES_URL);
+		if (!res.isSuccess()) {
+			log("Failed to fetch properties: " + res.errorMessage());
+			return allMetadata;
+		}
+		String propertiesContent = res.body();
 
 		Properties props = new Properties();
 		props.load(new StringReader(propertiesContent));

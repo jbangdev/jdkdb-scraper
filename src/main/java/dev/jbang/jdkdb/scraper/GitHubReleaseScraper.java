@@ -2,15 +2,77 @@ package dev.jbang.jdkdb.scraper;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.util.HttpResult;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /** Base class for scrapers that fetch releases from GitHub */
 public abstract class GitHubReleaseScraper extends BaseScraper {
 	private static final String GITHUB_API_BASE = "https://api.github.com/repos";
 	private static final String GITHUB_ORGS_API_BASE = "https://api.github.com/orgs";
+
+	private static final String GITHUB_TOKEN_ENV = "GITHUB_TOKEN";
+	private static final Logger logger = Logger.getLogger(GitHubReleaseScraper.class.getName());
+
+	/** Cached GitHub token from env or gh CLI; resolved once. */
+	private static volatile String githubToken;
+	/** Whether we have already attempted to resolve the token. */
+	private static volatile boolean tokenResolved;
+
+	/**
+	 * Return a GitHub token for API requests, or null. Uses GITHUB_TOKEN env if set; otherwise runs
+	 * {@code gh auth token} once and caches the result.
+	 */
+	protected static String getGitHubToken() {
+		if (tokenResolved) {
+			return githubToken;
+		}
+		synchronized (GitHubReleaseScraper.class) {
+			if (tokenResolved) {
+				return githubToken;
+			}
+			String fromEnv = System.getenv(GITHUB_TOKEN_ENV);
+			if (fromEnv != null && !fromEnv.isBlank()) {
+				githubToken = fromEnv.trim();
+				logger.info("Using GitHub token from " + GITHUB_TOKEN_ENV);
+			} else {
+				githubToken = runGhAuthToken();
+				if (githubToken != null) {
+					logger.info("Using GitHub token from gh auth token");
+				} else {
+					logger.warning("No GitHub token found (set " + GITHUB_TOKEN_ENV
+							+ " or run 'gh auth login'); API rate limits may apply");
+				}
+			}
+			tokenResolved = true;
+		}
+		return githubToken;
+	}
+
+	private static String runGhAuthToken() {
+		try {
+			Process process = new ProcessBuilder("gh", "auth", "token")
+					.redirectErrorStream(false)
+					.start();
+			String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+			int exit = process.waitFor();
+			if (exit == 0 && !output.isBlank()) {
+				return output;
+			}
+		} catch (IOException | InterruptedException e) {
+			// ignore: no token available
+		}
+		return null;
+	}
+
+	/** Download from a GitHub API URL, using bearer token if available. */
+	protected HttpResult<String> downloadFromGitHub(String url) throws IOException, InterruptedException {
+		return httpUtils.downloadString(url, getGitHubToken());
+	}
 
 	public GitHubReleaseScraper(ScraperConfig config) {
 		super(config);
@@ -58,7 +120,11 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 
 			String assetName = asset.get("name").asText();
 			String metadataFilename = toMetadataFilename(release, asset);
-			if (metadataExists(metadataFilename)) {
+			if (metadataFilename == null) { // trava returns null so to avoid non-informative fail logging explicitly
+				log("Skipping " + assetName + " (does not match pattern)");
+				metadataList.add(skipped(assetName));
+				continue;
+			} else if (metadataExists(metadataFilename)) {
 				log("Skipping " + assetName + " (already exists)");
 				metadataList.add(skipped(assetName));
 				continue;
@@ -74,7 +140,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			} catch (InterruptedProgressException | TooManyFailuresException e) {
 				throw e;
 			} catch (Exception e) {
-				fail(assetName, e);
+				fail("Failed to process asset " + assetName + ": " + e.getMessage(), e);
 			}
 		}
 
@@ -135,22 +201,27 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), repo);
 
 		log("Fetching releases from " + releasesUrl);
-		String json = httpUtils.downloadString(releasesUrl);
-
-		JsonNode releases = readJson(json);
+		var res = downloadFromGitHub(releasesUrl);
+		if (!res.isSuccess()) {
+			log("Failed to fetch releases: " + res.errorMessage());
+			return;
+		}
+		JsonNode releases = readJson(res.body());
 
 		if (releases.isArray()) {
 			log("Found " + releases.size() + " releases");
 			for (JsonNode release : releases) {
 				try {
 					List<JdkMetadata> metadata = processRelease(release);
-					allMetadata.addAll(metadata);
+					if (metadata != null) { // some implementations return null to filter out
+						allMetadata.addAll(metadata);
+					}
 				} catch (InterruptedProgressException | TooManyFailuresException e) {
 					throw e;
 				} catch (Exception e) {
 					String tagName =
 							release.has("tag_name") ? release.get("tag_name").asText() : "unknown";
-					log("Failed to process release " + tagName + ": " + e.getMessage());
+					fail("Failed to process release " + tagName + ": " + e.getMessage(), e);
 				}
 			}
 		}
@@ -184,8 +255,13 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			}
 			log("Fetching repositories from " + url);
 
-			String json = httpUtils.downloadString(url);
-			JsonNode reposArray = readJson(json);
+			var pageRes = downloadFromGitHub(url);
+			if (!pageRes.isSuccess()) {
+				fail(url, new java.io.IOException(pageRes.errorMessage()));
+				hasMore = false;
+				continue;
+			}
+			JsonNode reposArray = readJson(pageRes.body());
 
 			if (!reposArray.isArray() || reposArray.size() == 0) {
 				hasMore = false;

@@ -32,8 +32,12 @@ public class LibericaNative extends BaseScraper {
 		String apiUrl = API_BASE_URL + "?bundle-type=nik&release-type=all&page-size=1000";
 
 		log("Fetching releases from " + apiUrl);
-		String json = httpUtils.downloadString(apiUrl);
-		JsonNode releases = readJson(json);
+		var res = httpUtils.downloadString(apiUrl);
+		if (!res.isSuccess()) {
+			log("Failed to fetch releases: " + res.errorMessage());
+			return allMetadata;
+		}
+		JsonNode releases = readJson(res.body());
 
 		if (!releases.isArray()) {
 			log("No releases found");
