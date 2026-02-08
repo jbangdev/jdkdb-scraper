@@ -189,12 +189,8 @@ public class Main implements Callable<Integer> {
 					e.printStackTrace();
 				}
 
-				// Allow time for async logging to flush before printing summary
-				try {
-					Thread.sleep(200);
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-				}
+				// Allow async logging to flush before printing summary
+				reporter.awaitDrain(2000);
 
 				// Print summary
 				System.out.println();

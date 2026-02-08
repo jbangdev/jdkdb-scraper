@@ -123,6 +123,24 @@ public class ProgressReporter implements Runnable, AutoCloseable {
 		return Set.copyOf(runningScrapers);
 	}
 
+	/**
+	 * Wait for the event queue to drain (empty) or the given timeout to elapse. Use before printing
+	 * summary so async log events are processed first.
+	 *
+	 * @param timeoutMs maximum time to wait in milliseconds
+	 */
+	public void awaitDrain(long timeoutMs) {
+		long deadline = System.currentTimeMillis() + timeoutMs;
+		while (!eventQueue.isEmpty() && System.currentTimeMillis() < deadline) {
+			try {
+				Thread.sleep(50);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+		}
+	}
+
 	/** Shutdown the reporter and wait for all events to be processed */
 	@Override
 	public void close() {

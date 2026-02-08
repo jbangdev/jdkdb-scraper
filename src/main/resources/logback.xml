@@ -3,7 +3,7 @@
     <!-- Console appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{15} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -15,7 +15,7 @@
             <maxHistory>7</maxHistory>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{15} - %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -30,6 +30,9 @@
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
     </logger>
+
+    <!-- ProgressReporter: STARTED/COMPLETED/FAILED and thread lifecycle. Use WARN to reduce noise. -->
+    <logger name="dev.jbang.jdkdb.reporting.ProgressReporter" level="WARN" />
 
     <!-- Suppress verbose Apache HttpClient logging -->
     <logger name="org.apache.hc" level="ERROR" />

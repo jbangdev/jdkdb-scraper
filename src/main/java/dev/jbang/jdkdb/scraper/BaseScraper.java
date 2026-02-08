@@ -14,6 +14,8 @@ import java.util.logging.Logger;
 
 /** Base class for all vendor scrapers */
 public abstract class BaseScraper implements Scraper {
+	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
 	protected final Path metadataDir;
 	protected final Path checksumDir;
 	protected final Logger logger;
@@ -70,12 +72,12 @@ public abstract class BaseScraper implements Scraper {
 		}
 	}
 
-	/** Log a progress message */
+	/** Log a progress message at FINE level */
 	protected void log(String message) {
 		logger.fine(message);
 	}
 
-	/** Log a progress message */
+	/** Log a progress message at FINER level (more verbose) */
 	protected void fine(String message) {
 		logger.finer(message);
 	}
@@ -97,8 +99,7 @@ public abstract class BaseScraper implements Scraper {
 	}
 
 	protected JsonNode readJson(String json) throws IOException {
-		ObjectMapper objectMapper = new ObjectMapper();
-		return objectMapper.readTree(json);
+		return OBJECT_MAPPER.readTree(json);
 	}
 
 	/** Check if metadata file already exists */

@@ -137,7 +137,7 @@ Each scraper is registered via Java's ServiceLoader mechanism in `META-INF/servi
 1. Create a new class extending `BaseScraper`, `GitHubReleaseScraper`, or `AdoptiumMarketplaceScraper`
 2. Implement required abstract methods
 3. Add an inner `Discovery` class implementing `Scraper.Discovery`
-4. Register the discovery class in `META-INF/services/com.github.joschi.javametadata.scraper.Scraper$Discovery`
+4. Register the discovery class in `META-INF/services/dev.jbang.jdkdb.scraper.Scraper$Discovery`
 
 Example:
 
@@ -249,7 +249,7 @@ src/
 ## Dependencies
 
 - **Jackson**: JSON processing (2.16.1)
-- **Apache HttpClient 5**: HTTP operations (5.3.1)
+- **Java HttpClient** (`java.net.http`): HTTP operations (built-in)
 - **SLF4J/Logback**: Logging (SLF4J 2.0.7, Logback 1.4.14)
 - **Picocli**: Command-line interface (4.7.5)
 - **JUnit 5**: Testing (5.10.1)

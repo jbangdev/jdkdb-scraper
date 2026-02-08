@@ -23,3 +23,4 @@ out/
 /logs
 *.code-workspace
 .vscode/
+docs

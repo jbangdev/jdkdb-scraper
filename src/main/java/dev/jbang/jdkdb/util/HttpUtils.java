@@ -10,9 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.logging.Logger;
 
 /** Utility class for HTTP operations */
 public class HttpUtils {
+	private static final Logger logger = Logger.getLogger(HttpUtils.class.getName());
 	private final HttpClient httpClient;
 
 	public HttpUtils() {
@@ -22,25 +24,35 @@ public class HttpUtils {
 				.build();
 	}
 
-	/** Download a file from a URL to a local path */
+	/** Download a file from a URL to a local path. Throws IOException if response is not 2xx. */
 	public void downloadFile(String url, Path destination) throws IOException, InterruptedException {
 		HttpRequest request =
 				HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
 
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+		checkStatus(url, response.statusCode());
 
 		try (InputStream inputStream = response.body()) {
 			Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
 		}
 	}
 
-	/** Download content from a URL as a string */
+	/** Download content from a URL as a string. Throws IOException if response is not 2xx. */
 	public String downloadString(String url) throws IOException, InterruptedException {
 		HttpRequest request =
 				HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
 
 		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		checkStatus(url, response.statusCode());
 		return response.body();
+	}
+
+	private static void checkStatus(String url, int statusCode) throws IOException {
+		if (statusCode >= 200 && statusCode < 300) {
+			return;
+		}
+		// throw new IOException("HTTP " + statusCode + " for " + url);
+		logger.severe("HTTP " + statusCode + " for " + url);
 	}
 
 	/** Check if a URL exists (returns 2xx status code) */
@@ -62,10 +74,5 @@ public class HttpUtils {
 	/** Alias for urlExists - check if a URL exists (returns 2xx status code) */
 	public boolean checkUrlExists(String url) {
 		return urlExists(url);
-	}
-
-	public void close() {
-		// HttpClient doesn't require explicit closing in modern JDK
-		// It manages its resources automatically
 	}
 }
