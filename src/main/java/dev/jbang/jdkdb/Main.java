@@ -1,6 +1,5 @@
 package dev.jbang.jdkdb;
 
-import dev.jbang.jdkdb.reporting.ProgressEvent;
 import dev.jbang.jdkdb.reporting.ProgressReporter;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
@@ -137,31 +136,24 @@ public class Main implements Callable<Integer> {
 			long startTime = System.currentTimeMillis();
 
 			// Execute scrapers in parallel
-			try (var executor = Executors.newFixedThreadPool(threadCount)) {
+			try (var executor = Executors.newFixedThreadPool(threadCount);
+					var heartbeatExecutor = Executors.newSingleThreadScheduledExecutor()) {
 				// Submit all scrapers and wrap them to report start/complete/failed events
 				var futures = new ArrayList<Future<ScraperResult>>();
 				for (var scraperEntry : scrapers.entrySet()) {
 					Future<ScraperResult> future = executor.submit(() -> {
-						String scraperName = scraperEntry.getKey();
-						reporter.report(ProgressEvent.started(scraperName));
 						try {
-							ScraperResult result = scraperEntry.getValue().call();
-							if (result.success()) {
-								reporter.report(ProgressEvent.completed(scraperName));
-							} else {
-								reporter.report(ProgressEvent.failed(
-										scraperName,
-										result.error() != null ? result.error().getMessage() : "Unknown error",
-										result.error()));
-							}
-							return result;
+							return scraperEntry.getValue().call();
 						} catch (Exception e) {
-							reporter.report(ProgressEvent.failed(scraperName, e.getMessage(), e));
 							return ScraperResult.failure(e);
 						}
 					});
 					futures.add(future);
 				}
+
+				// Heartbeat: print active scrapers with processed/failure counts and failed-so-far every 30s
+				var heartbeatFuture = heartbeatExecutor.scheduleAtFixedRate(
+						() -> System.out.println(reporter.formatHeartbeat()), 5, 5, TimeUnit.SECONDS);
 
 				// Wait for all scrapers to complete and collect results
 				var results = new HashMap<String, ScraperResult>();
@@ -177,6 +169,10 @@ public class Main implements Callable<Integer> {
 						System.err.println("Scraper execution interrupted");
 					}
 				}
+
+				heartbeatFuture.cancel(false);
+				heartbeatExecutor.shutdown();
+				heartbeatExecutor.awaitTermination(2, TimeUnit.SECONDS);
 
 				// Generate all.json files for affected vendor directories only
 				System.out.println();

@@ -69,7 +69,7 @@ class ScraperResultTest {
 		String str = result.toString();
 
 		// Then
-		assertThat(str).isEqualTo("SUCCESS (5 items processed, 2 items skipped)");
+		assertThat(str).isEqualTo("SUCCESS (5/2)");
 	}
 
 	@Test

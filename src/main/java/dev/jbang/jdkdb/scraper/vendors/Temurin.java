@@ -26,8 +26,12 @@ public class Temurin extends BaseScraper {
 
 		// Get list of available releases
 		log("Fetching available releases");
-		String releasesJson = httpUtils.downloadString(API_BASE + "/info/available_releases");
-		JsonNode releasesData = readJson(releasesJson);
+		var releasesRes = httpUtils.downloadString(API_BASE + "/info/available_releases");
+		if (!releasesRes.isSuccess()) {
+			log("Failed to fetch releases: " + releasesRes.errorMessage());
+			return allMetadata;
+		}
+		JsonNode releasesData = readJson(releasesRes.body());
 		JsonNode availableReleases = releasesData.get("available_releases");
 
 		if (availableReleases == null || !availableReleases.isArray()) {
@@ -50,8 +54,13 @@ public class Temurin extends BaseScraper {
 							"%s/assets/feature_releases/%d/ga?page=%d&page_size=50&project=jdk&sort_order=ASC&vendor=adoptium",
 							API_BASE, release, page);
 
-					String assetsJson = httpUtils.downloadString(assetsUrl);
-					JsonNode assets = readJson(assetsJson);
+					var assetsRes = httpUtils.downloadString(assetsUrl);
+					if (!assetsRes.isSuccess()) {
+						fail(assetsUrl, new java.io.IOException(assetsRes.errorMessage()));
+						hasMore = false;
+						continue;
+					}
+					JsonNode assets = readJson(assetsRes.body());
 
 					if (assets.isArray() && assets.size() > 0) {
 						processAssets(assets, allMetadata);

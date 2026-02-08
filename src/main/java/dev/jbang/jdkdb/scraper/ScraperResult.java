@@ -14,7 +14,7 @@ public record ScraperResult(boolean success, int itemsProcessed, int itemsSkippe
 	@Override
 	public String toString() {
 		return success
-				? "SUCCESS (%d items processed, %d items skipped)".formatted(itemsProcessed, itemsSkipped)
+				? "SUCCESS (%d/%d)".formatted(itemsProcessed, itemsSkipped)
 				: "FAILED - %s".formatted(error != null ? error.getMessage() : "Unknown error");
 	}
 }

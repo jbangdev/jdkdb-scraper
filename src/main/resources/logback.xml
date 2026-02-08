@@ -31,8 +31,8 @@
         <appender-ref ref="FILE" />
     </logger>
 
-    <!-- ProgressReporter: STARTED/COMPLETED/FAILED and thread lifecycle. Use WARN to reduce noise. -->
-    <logger name="dev.jbang.jdkdb.reporting.ProgressReporter" level="WARN" />
+    <!-- ProgressReporter: STARTED/COMPLETED/FAILED and thread lifecycle. -->
+    <logger name="dev.jbang.jdkdb.reporting.ProgressReporter" level="DEBUG" />
 
     <!-- Suppress verbose Apache HttpClient logging -->
     <logger name="org.apache.hc" level="ERROR" />

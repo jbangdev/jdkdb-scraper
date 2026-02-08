@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper;
 
 import dev.jbang.jdkdb.reporting.ProgressReporter;
 import dev.jbang.jdkdb.reporting.ProgressReporterLogger;
+import dev.jbang.jdkdb.reporting.ScraperState;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -49,11 +50,15 @@ public class ScraperFactory {
 		for (Scraper.Discovery discovery : loader) {
 			String vendor = discovery.vendor();
 			String name = discovery.name();
+			ScraperState state = new ScraperState(name);
+			reporter.register(state);
 
 			ScraperConfig config = new ScraperConfig(
 					metadataVendorDir.resolve(vendor),
 					checksumDir.resolve(vendor),
 					ProgressReporterLogger.forScraper(name, reporter),
+					reporter,
+					state,
 					fromStart,
 					maxFailureCount,
 					limitProgress);
@@ -72,10 +77,14 @@ public class ScraperFactory {
 		Scraper.Discovery discovery = allDiscoveries.get(scraperName);
 		if (discovery != null) {
 			String vendor = discovery.vendor();
+			ScraperState state = new ScraperState(scraperName);
+			reporter.register(state);
 			ScraperConfig config = new ScraperConfig(
 					metadataDir.resolve("vendor").resolve(vendor),
 					checksumDir.resolve(vendor),
 					ProgressReporterLogger.forScraper(scraperName, reporter),
+					reporter,
+					state,
 					fromStart,
 					maxFailureCount,
 					limitProgress);

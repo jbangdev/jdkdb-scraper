@@ -3,13 +3,17 @@ package dev.jbang.jdkdb.scraper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.reporting.ProgressReporter;
+import dev.jbang.jdkdb.reporting.ScraperState;
 import dev.jbang.jdkdb.util.HashUtils;
+import dev.jbang.jdkdb.util.HttpResult;
 import dev.jbang.jdkdb.util.HttpUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Base class for all vendor scrapers */
@@ -19,18 +23,23 @@ public abstract class BaseScraper implements Scraper {
 	protected final Path metadataDir;
 	protected final Path checksumDir;
 	protected final Logger logger;
+	protected final ProgressReporter reporter;
 	protected final HttpUtils httpUtils;
 	protected final boolean fromStart;
 	protected final int maxFailureCount;
 	protected final int limitProgress;
+	protected final ScraperState state;
 
 	private int failureCount = 0;
 	private int processedCount = 0;
+	private int skippedCount = 0;
 
 	public BaseScraper(ScraperConfig config) {
 		this.metadataDir = config.metadataDir();
 		this.checksumDir = config.checksumDir();
 		this.logger = config.logger();
+		this.reporter = config.reporter();
+		this.state = config.state();
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
 		this.limitProgress = config.limitProgress();
@@ -64,10 +73,15 @@ public abstract class BaseScraper implements Scraper {
 				}
 			}
 			log("Completed successfully. Processed " + processed + " items, skipped " + skipped + " items");
-
+			if (state != null) {
+				state.complete();
+			}
 			return ScraperResult.success(processed, skipped);
 		} catch (Exception e) {
 			log("Failed with error: " + e.getMessage());
+			if (state != null) {
+				state.fail();
+			}
 			return ScraperResult.failure(e);
 		}
 	}
@@ -85,6 +99,7 @@ public abstract class BaseScraper implements Scraper {
 	/** Log successful processing of single metadata item */
 	protected void success(String filename) {
 		logger.info("Processed " + filename);
+		if (state != null) state.incrementProcessed();
 		if (limitProgress > 0 && ++processedCount >= limitProgress) {
 			throw new InterruptedProgressException("Reached progress limit of " + limitProgress + " items, aborting");
 		}
@@ -92,7 +107,8 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
-		logger.severe("Failed " + message + ": " + error.getMessage());
+		logger.log(Level.SEVERE, "Failed " + message + ": " + error.getMessage(), error);
+		if (state != null) state.incrementFailed();
 		if (maxFailureCount > 0 && ++failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");
 		}
@@ -124,6 +140,8 @@ public abstract class BaseScraper implements Scraper {
 		if (!metadataFilename.endsWith(".json")) {
 			metadataFilename += ".json";
 		}
+		skippedCount++;
+		if (state != null) state.incrementSkipped();
 		return JdkMetadata.builder().metadataFilename(metadataFilename).build();
 	}
 
@@ -132,8 +150,11 @@ public abstract class BaseScraper implements Scraper {
 		Path tempFile = Files.createTempFile("jdk-metadata-", "-" + filename);
 
 		try {
-			log("Downloading " + filename);
-			httpUtils.downloadFile(url, tempFile);
+			log("Downloading " + filename + " to " + tempFile);
+			HttpResult<String> result = httpUtils.downloadFile(url, tempFile);
+			if (!result.isSuccess()) {
+				throw new IOException(result.errorMessage());
+			}
 
 			long size = Files.size(tempFile);
 

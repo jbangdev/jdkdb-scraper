@@ -27,7 +27,12 @@ public class Microsoft extends BaseScraper {
 		// Download the Microsoft JDK download page
 		var indexUrl = "https://docs.microsoft.com/en-us/java/openjdk/download";
 		log("Fetching index from " + indexUrl);
-		var html = httpUtils.downloadString(indexUrl);
+		var indexRes = httpUtils.downloadString(indexUrl);
+		if (!indexRes.isSuccess()) {
+			log("Failed to fetch index: " + indexRes.errorMessage());
+			return allMetadata;
+		}
+		var html = indexRes.body();
 
 		// Extract download links using regex
 		var linkPattern = Pattern.compile(

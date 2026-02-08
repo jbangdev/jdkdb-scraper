@@ -3,6 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import static org.assertj.core.api.Assertions.*;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.reporting.ProgressReporter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -29,6 +30,8 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				Logger.getLogger("test"),
+				new ProgressReporter(),
+				null, // state
 				false, // fromStart
 				10, // maxFailureCount
 				0 // limitProgress (unlimited)
@@ -100,7 +103,14 @@ class DummyScraperTest {
 	void testScraperWithProgressLimit() {
 		// Given
 		ScraperConfig limitedConfig = new ScraperConfig(
-				metadataDir, checksumDir, Logger.getLogger("test"), false, 10, 2 // limit to 2 items
+				metadataDir,
+				checksumDir,
+				Logger.getLogger("test"),
+				new ProgressReporter(),
+				null,
+				false,
+				10,
+				2 // limit to 2 items
 				);
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
@@ -134,6 +144,8 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				Logger.getLogger("test"),
+				new ProgressReporter(),
+				null,
 				false,
 				2, // max 2 failures
 				0);
@@ -173,6 +185,8 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				Logger.getLogger("test"),
+				new ProgressReporter(),
+				null,
 				false, // fromStart = false
 				10,
 				0);
@@ -196,6 +210,8 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				Logger.getLogger("test"),
+				new ProgressReporter(),
+				null,
 				true, // fromStart = true
 				10,
 				0);

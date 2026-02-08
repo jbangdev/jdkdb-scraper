@@ -72,7 +72,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 			} catch (InterruptedProgressException | TooManyFailuresException e) {
 				throw e;
 			} catch (Exception e) {
-				log("Failed to process " + file + ": " + e.getMessage());
+				fail("Failed to process " + file + ": " + e.getMessage(), e);
 			}
 		}
 
