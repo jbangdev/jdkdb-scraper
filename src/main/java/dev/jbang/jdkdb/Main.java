@@ -5,8 +5,10 @@ import dev.jbang.jdkdb.reporting.ProgressReporter;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
 import dev.jbang.jdkdb.scraper.ScraperResult;
+import dev.jbang.jdkdb.util.HttpUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -29,6 +31,7 @@ import picocli.CommandLine.Option;
 		description = "Scrapes JDK metadata from various vendors",
 		mixinStandardHelpOptions = true)
 public class Main implements Callable<Integer> {
+	private static final String GITHUB_TOKEN_ENV = "GITHUB_TOKEN";
 
 	@Option(
 			names = {"-m", "--metadata-dir"},
@@ -365,7 +368,44 @@ public class Main implements Callable<Integer> {
 		System.out.println("Total: " + names.size() + " scrapers");
 	}
 
+	protected static void setupGitHubToken() {
+		String githubToken;
+		String fromEnv = System.getenv(GITHUB_TOKEN_ENV);
+		if (fromEnv != null && !fromEnv.isBlank()) {
+			githubToken = fromEnv.trim();
+			System.out.println("Using GitHub token from " + GITHUB_TOKEN_ENV);
+		} else {
+			githubToken = runGhAuthToken();
+			if (githubToken != null) {
+				System.out.println("Using GitHub token from gh auth token");
+			} else {
+				System.out.println("No GitHub token found (set " + GITHUB_TOKEN_ENV
+						+ " or run 'gh auth login'); API rate limits may apply");
+			}
+		}
+		if (githubToken != null) {
+			System.setProperty(HttpUtils.GITHUB_TOKEN_PROP, githubToken);
+		}
+	}
+
+	private static String runGhAuthToken() {
+		try {
+			Process process = new ProcessBuilder("gh", "auth", "token")
+					.redirectErrorStream(false)
+					.start();
+			String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+			int exit = process.waitFor();
+			if (exit == 0 && !output.isBlank()) {
+				return output;
+			}
+		} catch (IOException | InterruptedException e) {
+			// ignore: no token available
+		}
+		return null;
+	}
+
 	public static void main(String[] args) {
+		setupGitHubToken();
 		int exitCode = new CommandLine(new Main()).execute(args);
 		System.exit(exitCode);
 	}

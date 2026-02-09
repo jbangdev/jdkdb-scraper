@@ -15,6 +15,8 @@ import java.time.Duration;
 public class HttpUtils {
 	private final HttpClient httpClient;
 
+	public static final String GITHUB_TOKEN_PROP = "github.token";
+
 	public HttpUtils() {
 		this.httpClient = HttpClient.newBuilder()
 				.followRedirects(HttpClient.Redirect.NORMAL)
@@ -24,11 +26,8 @@ public class HttpUtils {
 
 	/** Download a file from a URL to a local path */
 	public void downloadFile(String url, Path destination) throws IOException, InterruptedException {
-		HttpRequest request =
-				HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-
+		HttpRequest request = request(url).build();
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-
 		try (InputStream inputStream = response.body()) {
 			Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
 		}
@@ -36,9 +35,7 @@ public class HttpUtils {
 
 	/** Download content from a URL as a string */
 	public String downloadString(String url) throws IOException, InterruptedException {
-		HttpRequest request =
-				HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-
+		HttpRequest request = request(url).build();
 		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 		return response.body();
 	}
@@ -46,11 +43,9 @@ public class HttpUtils {
 	/** Check if a URL exists (returns 2xx status code) */
 	public boolean urlExists(String url) {
 		try {
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create(url))
+			HttpRequest request = request(url)
 					.method("HEAD", HttpRequest.BodyPublishers.noBody())
 					.build();
-
 			HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
 			int statusCode = response.statusCode();
 			return statusCode >= 200 && statusCode < 300;
@@ -62,6 +57,21 @@ public class HttpUtils {
 	/** Alias for urlExists - check if a URL exists (returns 2xx status code) */
 	public boolean checkUrlExists(String url) {
 		return urlExists(url);
+	}
+
+	private HttpRequest.Builder request(String url) {
+		URI uri = URI.create(url);
+		HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).GET();
+
+		// If the URL is for GitHub API, add the Authorization header if a token is available
+		if (uri.getHost().equalsIgnoreCase("api.github.com")) {
+			String token = System.getProperty(GITHUB_TOKEN_PROP);
+			if (token != null && !token.isEmpty()) {
+				builder.header("Authorization", "Bearer " + token);
+			}
+		}
+
+		return builder;
 	}
 
 	public void close() {
