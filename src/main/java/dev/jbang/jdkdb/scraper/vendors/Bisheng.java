@@ -65,6 +65,12 @@ public class Bisheng extends AdoptiumMarketplaceScraper {
 		}
 
 		@Override
+		public When when() {
+			// This project now uses some weird Chinese Git hosting service that we don't support
+			return When.NEVER;
+		}
+
+		@Override
 		public Scraper create(ScraperConfig config) {
 			return new Bisheng(config);
 		}
