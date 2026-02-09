@@ -178,6 +178,8 @@ public class MetadataUtils {
 		// Save the combined all.json
 		if (!metadataList.isEmpty()) {
 			saveMetadata(vendorDir, metadataList);
+		} else {
+			System.err.println("No metadata found for " + vendorDir);
 		}
 	}
 }
