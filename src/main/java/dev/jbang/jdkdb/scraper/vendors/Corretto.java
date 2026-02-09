@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
+import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -15,10 +17,9 @@ import java.util.regex.Pattern;
 public class Corretto extends GitHubReleaseScraper {
 	private static final String VENDOR = "corretto";
 
-	// Pattern to extract download links from HTML table in release body
-	// Matches: <a href="URL" rel="nofollow">FILENAME</a>
-	private static final Pattern DOWNLOAD_LINK_PATTERN =
-			Pattern.compile("<a href=\"([^\"]+)\" rel=\"nofollow\">([^<]+\\.(tar\\.gz|zip|deb|rpm|msi|pkg))</a>");
+	// Pattern to extract download links from MD table in release body
+	private static final Pattern DOWNLOAD_URL_PATTERN = Pattern.compile(
+			"(https:\\/\\/corretto.aws\\/downloads\\/resources\\/([0-9.]+)\\/(amazon-corretto-([0-9.]+)-([a-z]+)-([a-z0-9]+)\\.(tar\\.gz|zip|pkg|msi)))\\)");
 
 	public Corretto(ScraperConfig config) {
 		super(config);
@@ -42,12 +43,12 @@ public class Corretto extends GitHubReleaseScraper {
 		String body = release.get("body").asText("");
 
 		// Parse download links from the HTML table in the release body
-		Matcher matcher = DOWNLOAD_LINK_PATTERN.matcher(body);
+		Matcher matcher = DOWNLOAD_URL_PATTERN.matcher(body);
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		while (matcher.find()) {
 			String url = matcher.group(1);
-			String filename = matcher.group(2);
+			String filename = matcher.group(3);
 
 			if (metadataExists(filename)) {
 				allMetadata.add(skipped(filename));
@@ -62,6 +63,8 @@ public class Corretto extends GitHubReleaseScraper {
 					allMetadata.add(metadata);
 					success(filename);
 				}
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
 			} catch (Exception e) {
 				fail(filename, e);
 			}
