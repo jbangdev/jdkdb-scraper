@@ -98,11 +98,17 @@ public class Oracle extends BaseScraper {
 						continue;
 					}
 
-					JdkMetadata jdkMetadata = parseFilename(filename, downloadUrl);
-					if (jdkMetadata != null) {
-						saveMetadataFile(jdkMetadata);
-						allMetadata.add(jdkMetadata);
-						success(filename);
+					try {
+						JdkMetadata jdkMetadata = parseFilename(filename, downloadUrl);
+						if (jdkMetadata != null) {
+							saveMetadataFile(jdkMetadata);
+							allMetadata.add(jdkMetadata);
+							success(filename);
+						}
+					} catch (InterruptedProgressException | TooManyFailuresException e) {
+						throw e;
+					} catch (Exception e) {
+						fail(filename, e);
 					}
 				}
 			}

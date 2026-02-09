@@ -144,6 +144,8 @@ public class OracleGraalVm extends BaseScraper {
 						allMetadata.add(jdkMetadata);
 						success(filename);
 					}
+				} catch (InterruptedProgressException | TooManyFailuresException e) {
+					throw e;
 				} catch (Exception e) {
 					fail(filename, e);
 				}
