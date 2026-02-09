@@ -118,8 +118,8 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 									: "unknown";
 
 					if (metadataExists(filename)) {
-						log("Skipping " + filename + " (already exists)");
 						allMetadata.add(skipped(filename));
+						skip(filename);
 						continue;
 					}
 

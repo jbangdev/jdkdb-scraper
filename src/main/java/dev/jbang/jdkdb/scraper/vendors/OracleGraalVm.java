@@ -71,6 +71,7 @@ public class OracleGraalVm extends BaseScraper {
 
 			if (metadataExists(filename)) {
 				allMetadata.add(skipped(filename));
+				skip(filename);
 				continue;
 			}
 
@@ -123,6 +124,7 @@ public class OracleGraalVm extends BaseScraper {
 
 				if (metadataExists(filename)) {
 					allMetadata.add(skipped(filename));
+					skip(filename);
 					continue;
 				}
 

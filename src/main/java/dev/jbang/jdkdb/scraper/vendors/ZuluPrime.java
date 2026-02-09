@@ -44,8 +44,8 @@ public class ZuluPrime extends BaseScraper {
 				String filename = url.substring(url.lastIndexOf('/') + 1);
 
 				if (metadataExists(filename)) {
-					log("Skipping " + filename + " (already exists)");
 					allMetadata.add(skipped(filename));
+					skip(filename);
 					continue;
 				}
 

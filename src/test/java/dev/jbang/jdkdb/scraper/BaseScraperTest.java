@@ -209,8 +209,24 @@ class BaseScraperTest {
 	}
 
 	private DummyScraper createScraper() {
+		ScraperProgress progress = new ScraperProgress() {
+			@Override
+			public void success(String filename) {}
+
+			@Override
+			public void skipped(String filename) {}
+
+			@Override
+			public void fail(String message, Exception error) {}
+		};
 		ScraperConfig config = new ScraperConfig(
-				tempDir.resolve("metadata"), tempDir.resolve("checksums"), Logger.getLogger("test"), false, 10, 0);
+				tempDir.resolve("metadata"),
+				tempDir.resolve("checksums"),
+				progress,
+				Logger.getLogger("test"),
+				false,
+				10,
+				0);
 		return new DummyScraper(config);
 	}
 }

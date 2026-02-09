@@ -45,8 +45,8 @@ public class Zulu extends BaseScraper {
 		try {
 			for (String filename : files) {
 				if (metadataExists(filename)) {
-					log("Skipping " + filename + " (already exists)");
 					allMetadata.add(skipped(filename));
+					skip(filename);
 					continue;
 				}
 

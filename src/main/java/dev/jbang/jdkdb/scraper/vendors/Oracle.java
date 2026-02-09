@@ -82,6 +82,7 @@ public class Oracle extends BaseScraper {
 
 					if (metadataExists(filename)) {
 						allMetadata.add(skipped(filename));
+						skip(filename);
 						continue;
 					}
 
@@ -115,6 +116,7 @@ public class Oracle extends BaseScraper {
 
 			if (metadataExists(filename)) {
 				allMetadata.add(skipped(filename));
+				skip(filename);
 				continue;
 			}
 

@@ -21,6 +21,17 @@ class DummyScraperTest {
 	private Path checksumDir;
 	private ScraperConfig config;
 
+	private static final ScraperProgress progress = new ScraperProgress() {
+		@Override
+		public void success(String filename) {}
+
+		@Override
+		public void skipped(String filename) {}
+
+		@Override
+		public void fail(String message, Exception error) {}
+	};
+
 	@BeforeEach
 	void setUp() {
 		metadataDir = tempDir.resolve("metadata");
@@ -28,6 +39,7 @@ class DummyScraperTest {
 		config = new ScraperConfig(
 				metadataDir,
 				checksumDir,
+				progress,
 				Logger.getLogger("test"),
 				false, // fromStart
 				10, // maxFailureCount
@@ -100,7 +112,7 @@ class DummyScraperTest {
 	void testScraperWithProgressLimit() {
 		// Given
 		ScraperConfig limitedConfig = new ScraperConfig(
-				metadataDir, checksumDir, Logger.getLogger("test"), false, 10, 2 // limit to 2 items
+				metadataDir, checksumDir, progress, Logger.getLogger("test"), false, 10, 2 // limit to 2 items
 				);
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
@@ -133,6 +145,7 @@ class DummyScraperTest {
 		ScraperConfig limitedConfig = new ScraperConfig(
 				metadataDir,
 				checksumDir,
+				progress,
 				Logger.getLogger("test"),
 				false,
 				2, // max 2 failures
@@ -172,6 +185,7 @@ class DummyScraperTest {
 		ScraperConfig configNoFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
+				progress,
 				Logger.getLogger("test"),
 				false, // fromStart = false
 				10,
@@ -195,6 +209,7 @@ class DummyScraperTest {
 		ScraperConfig configFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
+				progress,
 				Logger.getLogger("test"),
 				true, // fromStart = true
 				10,

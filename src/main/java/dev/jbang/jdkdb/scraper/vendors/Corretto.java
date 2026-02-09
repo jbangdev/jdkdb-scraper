@@ -50,8 +50,8 @@ public class Corretto extends GitHubReleaseScraper {
 			String filename = matcher.group(2);
 
 			if (metadataExists(filename)) {
-				log("Skipping " + filename + " (already exists)");
 				allMetadata.add(skipped(filename));
+				skip(filename);
 				continue;
 			}
 

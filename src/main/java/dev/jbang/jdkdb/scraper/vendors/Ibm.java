@@ -73,8 +73,8 @@ public class Ibm extends BaseScraper {
 						}
 
 						if (metadataExists(ibmFile)) {
-							log("Skipping " + ibmFile + " (already exists)");
 							allMetadata.add(skipped(ibmFile));
+							skip(ibmFile);
 							continue;
 						}
 

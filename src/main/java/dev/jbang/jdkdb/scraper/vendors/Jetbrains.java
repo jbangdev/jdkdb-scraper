@@ -57,8 +57,8 @@ public class Jetbrains extends GitHubReleaseScraper {
 			}
 
 			if (metadataExists(file)) {
-				log("Skipping " + file + " (already exists)");
 				allMetadata.add(skipped(file));
+				skip(file);
 				continue;
 			}
 

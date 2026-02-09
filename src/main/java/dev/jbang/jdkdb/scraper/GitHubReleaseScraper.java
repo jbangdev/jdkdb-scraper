@@ -59,8 +59,8 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			String assetName = asset.get("name").asText();
 			String metadataFilename = toMetadataFilename(release, asset);
 			if (metadataExists(metadataFilename)) {
-				log("Skipping " + assetName + " (already exists)");
-				metadataList.add(skipped(assetName));
+				metadataList.add(skipped(metadataFilename));
+				skip(metadataFilename);
 				continue;
 			}
 

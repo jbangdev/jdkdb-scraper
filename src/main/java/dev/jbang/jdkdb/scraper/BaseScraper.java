@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 public abstract class BaseScraper implements Scraper {
 	protected final Path metadataDir;
 	protected final Path checksumDir;
+	protected final ScraperProgress progress;
 	protected final Logger logger;
 	protected final HttpUtils httpUtils;
 	protected final boolean fromStart;
@@ -28,6 +29,7 @@ public abstract class BaseScraper implements Scraper {
 	public BaseScraper(ScraperConfig config) {
 		this.metadataDir = config.metadataDir();
 		this.checksumDir = config.checksumDir();
+		this.progress = config.progress();
 		this.logger = config.logger();
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
@@ -82,14 +84,21 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Log successful processing of single metadata item */
 	protected void success(String filename) {
+		progress.success(filename);
 		logger.info("Processed " + filename);
 		if (limitProgress > 0 && ++processedCount >= limitProgress) {
 			throw new InterruptedProgressException("Reached progress limit of " + limitProgress + " items, aborting");
 		}
 	}
 
+	protected void skip(String filename) {
+		progress.skipped(filename);
+		logger.info("Skipped " + filename + " (already exists)");
+	}
+
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
+		progress.fail(message, error);
 		logger.severe("Failed " + message + ": " + error.getMessage());
 		if (maxFailureCount > 0 && ++failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");

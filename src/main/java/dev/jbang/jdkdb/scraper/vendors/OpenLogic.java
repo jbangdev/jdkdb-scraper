@@ -83,8 +83,8 @@ public class OpenLogic extends BaseScraper {
 					String filename = HtmlUtils.extractFilename(url);
 
 					if (metadataExists(filename)) {
-						log("Skipping " + filename + " (already exists)");
 						allMetadata.add(skipped(filename));
+						skip(filename);
 						continue;
 					}
 
