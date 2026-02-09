@@ -9,6 +9,7 @@ import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import dev.jbang.jdkdb.util.HtmlUtils;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,10 +67,16 @@ public class Debian extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Download the directory listing
-		String html = httpUtils.downloadString(cdnUrl);
-		if (html.isEmpty()) {
-			log("Empty response from " + cdnUrl);
-			return null;
+		String html;
+		try {
+			html = httpUtils.downloadString(cdnUrl);
+			if (html.isEmpty()) {
+				fail("Empty response from " + cdnUrl, null);
+				return Collections.emptyList();
+			}
+		} catch (Exception e) {
+			fail("Could not download directory listing", e);
+			return Collections.emptyList();
 		}
 
 		// Extract all hrefs from the HTML

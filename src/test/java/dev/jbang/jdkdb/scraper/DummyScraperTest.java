@@ -7,10 +7,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 class DummyScraperTest {
 
@@ -40,7 +40,7 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				progress,
-				Logger.getLogger("test"),
+				LoggerFactory.getLogger("test"),
 				false, // fromStart
 				10, // maxFailureCount
 				0 // limitProgress (unlimited)
@@ -112,7 +112,7 @@ class DummyScraperTest {
 	void testScraperWithProgressLimit() {
 		// Given
 		ScraperConfig limitedConfig = new ScraperConfig(
-				metadataDir, checksumDir, progress, Logger.getLogger("test"), false, 10, 2 // limit to 2 items
+				metadataDir, checksumDir, progress, LoggerFactory.getLogger("test"), false, 10, 2 // limit to 2 items
 				);
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
@@ -146,7 +146,7 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				progress,
-				Logger.getLogger("test"),
+				LoggerFactory.getLogger("test"),
 				false,
 				2, // max 2 failures
 				0);
@@ -186,7 +186,7 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				progress,
-				Logger.getLogger("test"),
+				LoggerFactory.getLogger("test"),
 				false, // fromStart = false
 				10,
 				0);
@@ -210,7 +210,7 @@ class DummyScraperTest {
 				metadataDir,
 				checksumDir,
 				progress,
-				Logger.getLogger("test"),
+				LoggerFactory.getLogger("test"),
 				true, // fromStart = true
 				10,
 				0);

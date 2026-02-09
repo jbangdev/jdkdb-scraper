@@ -132,12 +132,16 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected void processRepo(List<JdkMetadata> allMetadata, String repo) throws IOException, InterruptedException {
 		log("Processing repository: " + repo);
 
-		String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), repo);
-
-		log("Fetching releases from " + releasesUrl);
-		String json = httpUtils.downloadString(releasesUrl);
-
-		JsonNode releases = readJson(json);
+		JsonNode releases;
+		try {
+			String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), repo);
+			log("Fetching releases from " + releasesUrl);
+			String json = httpUtils.downloadString(releasesUrl);
+			releases = readJson(json);
+		} catch (Exception e) {
+			fail("Could not download releases for repository " + repo, e);
+			return;
+		}
 
 		if (releases.isArray()) {
 			log("Found " + releases.size() + " releases");
@@ -184,8 +188,14 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			}
 			log("Fetching repositories from " + url);
 
-			String json = httpUtils.downloadString(url);
-			JsonNode reposArray = readJson(json);
+			JsonNode reposArray;
+			try {
+				String json = httpUtils.downloadString(url);
+				reposArray = readJson(json);
+			} catch (Exception e) {
+				fail("Could not download list of repositories", e);
+				continue;
+			}
 
 			if (!reposArray.isArray() || reposArray.size() == 0) {
 				hasMore = false;

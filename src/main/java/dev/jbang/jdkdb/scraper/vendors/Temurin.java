@@ -9,6 +9,7 @@ import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** Scraper for Adoptium Eclipse Temurin releases */
@@ -25,14 +26,20 @@ public class Temurin extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Get list of available releases
-		log("Fetching available releases");
-		String releasesJson = httpUtils.downloadString(API_BASE + "/info/available_releases");
-		JsonNode releasesData = readJson(releasesJson);
-		JsonNode availableReleases = releasesData.get("available_releases");
+		JsonNode availableReleases;
+		try {
+			log("Fetching available releases");
+			String releasesJson = httpUtils.downloadString(API_BASE + "/info/available_releases");
+			JsonNode releasesData = readJson(releasesJson);
+			availableReleases = releasesData.get("available_releases");
+		} catch (Exception e) {
+			fail("Failed to fetch available releases", e);
+			return Collections.emptyList();
+		}
 
 		if (availableReleases == null || !availableReleases.isArray()) {
-			log("No available releases found");
-			return allMetadata;
+			fail("No available releases found", null);
+			return Collections.emptyList();
 		}
 
 		try {
@@ -50,8 +57,14 @@ public class Temurin extends BaseScraper {
 							"%s/assets/feature_releases/%d/ga?page=%d&page_size=50&project=jdk&sort_order=ASC&vendor=adoptium",
 							API_BASE, release, page);
 
-					String assetsJson = httpUtils.downloadString(assetsUrl);
-					JsonNode assets = readJson(assetsJson);
+					JsonNode assets;
+					try {
+						String assetsJson = httpUtils.downloadString(assetsUrl);
+						assets = readJson(assetsJson);
+					} catch (Exception e) {
+						fail("Could not download list of assets", e);
+						continue;
+					}
 
 					if (assets.isArray() && assets.size() > 0) {
 						processAssets(assets, allMetadata);

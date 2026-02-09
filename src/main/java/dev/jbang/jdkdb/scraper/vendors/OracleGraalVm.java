@@ -8,6 +8,7 @@ import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,6 +38,7 @@ public class OracleGraalVm extends BaseScraper {
 			// Scrape archive releases for various major versions
 			int[] archiveVersions = {17, 20, 21, 22, 23, 24};
 			for (int version : archiveVersions) {
+				allMetadata.addAll(scrapeCurrentRelease(version));
 				allMetadata.addAll(scrapeArchive(version));
 			}
 		} catch (InterruptedProgressException e) {
@@ -53,15 +55,14 @@ public class OracleGraalVm extends BaseScraper {
 
 		log("Scraping Oracle GraalVM " + majorVersion + " archive from " + archiveUrl);
 
-		// First try to get current releases
-		try {
-			allMetadata.addAll(scrapeCurrentRelease(majorVersion));
-		} catch (Exception e) {
-			// Current release not found, continue with archive
-		}
-
 		// Then scrape archive
-		String html = httpUtils.downloadString(archiveUrl);
+		String html;
+		try {
+			html = httpUtils.downloadString(archiveUrl);
+		} catch (Exception e) {
+			fail("Could not download archive page for version " + majorVersion, e);
+			return Collections.emptyList();
+		}
 
 		// Find all download links using regex
 		Matcher matcher = LINK_PATTERN.matcher(html);
@@ -78,7 +79,9 @@ public class OracleGraalVm extends BaseScraper {
 			try {
 				JdkMetadata jdkMetadata = parseFilename(filename, downloadUrl);
 				if (jdkMetadata != null) {
+					saveMetadataFile(jdkMetadata);
 					allMetadata.add(jdkMetadata);
+					success(filename);
 				}
 			} catch (InterruptedProgressException | TooManyFailuresException e) {
 				throw e;
@@ -94,8 +97,14 @@ public class OracleGraalVm extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Try to find current release version from downloads page
-		String downloadsUrl = "https://www.oracle.com/java/technologies/downloads/";
-		String html = httpUtils.downloadString(downloadsUrl);
+		String html;
+		try {
+			String downloadsUrl = "https://www.oracle.com/java/technologies/downloads/";
+			html = httpUtils.downloadString(downloadsUrl);
+		} catch (Exception e) {
+			fail("Could not download downloads page to find current release version", e);
+			return Collections.emptyList();
+		}
 
 		Pattern versionPattern = Pattern.compile(
 				String.format("<h3 id=\"graalvmjava%d\">GraalVM for JDK ([0-9.+]+) downloads</h3>", majorVersion));

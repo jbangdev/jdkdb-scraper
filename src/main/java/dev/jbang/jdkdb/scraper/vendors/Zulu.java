@@ -8,6 +8,7 @@ import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -30,8 +31,14 @@ public class Zulu extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Download index page
-		log("Fetching index from " + INDEX_URL);
-		String html = httpUtils.downloadString(INDEX_URL);
+		String html;
+		try {
+			log("Fetching index from " + INDEX_URL);
+			html = httpUtils.downloadString(INDEX_URL);
+		} catch (Exception e) {
+			fail("Failed to fetch index page", e);
+			return Collections.emptyList();
+		}
 
 		// Extract file links
 		Matcher linkMatcher = LINK_PATTERN.matcher(html);

@@ -3,6 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -61,14 +62,20 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		// Get list of available releases
-		log("Fetching available releases");
-		String releasesJson = httpUtils.downloadString(getApiBase() + getAvailableReleasesPath());
+		String releasesJson;
+		try {
+			log("Fetching available releases");
+			releasesJson = httpUtils.downloadString(getApiBase() + getAvailableReleasesPath());
+		} catch (Exception e) {
+			fail("Could not download list of available releases", e);
+			throw e;
+		}
 		JsonNode releasesData = readJson(releasesJson);
 		JsonNode availableReleases = releasesData.get("available_releases");
 
 		if (availableReleases == null || !availableReleases.isArray()) {
-			log("No available releases found");
-			return allMetadata;
+			fail("No available releases found", null);
+			return Collections.emptyList();
 		}
 
 		try {
@@ -86,8 +93,14 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 							"%s%s?page=%d&page_size=20&sort_order=ASC",
 							getApiBase(), String.format(getAssetsPathTemplate(), release), page);
 
-					String assetsJson = httpUtils.downloadString(assetsUrl);
-					JsonNode assets = readJson(assetsJson);
+					JsonNode assets;
+					try {
+						String assetsJson = httpUtils.downloadString(assetsUrl);
+						assets = readJson(assetsJson);
+					} catch (Exception e) {
+						fail("Could not download list of assets", e);
+						continue;
+					}
 
 					if (assets.isArray() && assets.size() > 0) {
 						processAssets(assets, allMetadata);

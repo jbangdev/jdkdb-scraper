@@ -52,19 +52,31 @@ public class Oracle extends BaseScraper {
 
 	private List<JdkMetadata> scrapeLatestReleases() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
-		String versionsUrl = "https://java.oraclecloud.com/javaVersions";
 
-		log("Fetching Oracle JDK versions from " + versionsUrl);
-		String versionsJson = httpUtils.downloadString(versionsUrl);
-		JsonNode versionsNode = readJson(versionsJson);
+		JsonNode versionsNode;
+		try {
+			String versionsUrl = "https://java.oraclecloud.com/javaVersions";
+			log("Fetching Oracle JDK versions from " + versionsUrl);
+			String versionsJson = httpUtils.downloadString(versionsUrl);
+			versionsNode = readJson(versionsJson);
+		} catch (Exception e) {
+			fail("Could not fetch Oracle JDK versions", e);
+			return allMetadata;
+		}
 
 		for (JsonNode item : versionsNode.get("items")) {
 			String latestVersion = item.get("latestReleaseVersion").asText();
 			String releaseUrl = "https://java.oraclecloud.com/javaReleases/" + latestVersion;
 
 			log("Fetching release info for version " + latestVersion);
-			String releaseJson = httpUtils.downloadString(releaseUrl);
-			JsonNode releaseNode = readJson(releaseJson);
+			JsonNode releaseNode;
+			try {
+				String releaseJson = httpUtils.downloadString(releaseUrl);
+				releaseNode = readJson(releaseJson);
+			} catch (Exception e) {
+				fail("Could not fetch release info for version " + latestVersion, e);
+				continue;
+			}
 
 			// Skip OTN licensed versions (Oracle Technology Network - requires acceptance)
 			String licenseType =
@@ -106,7 +118,13 @@ public class Oracle extends BaseScraper {
 
 		log("Scraping Oracle JDK " + majorVersion + " archive from " + archiveUrl);
 
-		String html = httpUtils.downloadString(archiveUrl);
+		String html;
+		try {
+			html = httpUtils.downloadString(archiveUrl);
+		} catch (Exception e) {
+			fail("Could not download archive page for version " + majorVersion, e);
+			return allMetadata;
+		}
 
 		// Find all download links using regex
 		Matcher matcher = LINK_PATTERN.matcher(html);

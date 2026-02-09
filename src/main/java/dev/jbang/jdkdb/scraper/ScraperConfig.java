@@ -1,7 +1,7 @@
 package dev.jbang.jdkdb.scraper;
 
 import java.nio.file.Path;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
 
 /**
  * Configuration record for scraper instances. Encapsulates the metadata directory, checksum

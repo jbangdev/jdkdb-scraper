@@ -39,7 +39,13 @@ public class OpenLogic extends BaseScraper {
 				String pageUrl = BASE_URL + "?page=" + page;
 				log("Fetching page " + page + " from " + pageUrl);
 
-				String html = httpUtils.downloadString(pageUrl);
+				String html;
+				try {
+					html = httpUtils.downloadString(pageUrl);
+				} catch (Exception e) {
+					fail("Failed to fetch page " + page, e);
+					break;
+				}
 
 				// Extract all hrefs from the page
 				List<String> hrefs = HtmlUtils.extractHrefs(html);

@@ -3,9 +3,9 @@ package dev.jbang.jdkdb.scraper;
 import static org.assertj.core.api.Assertions.*;
 
 import java.nio.file.Path;
-import java.util.logging.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 class BaseScraperTest {
 
@@ -223,7 +223,7 @@ class BaseScraperTest {
 				tempDir.resolve("metadata"),
 				tempDir.resolve("checksums"),
 				progress,
-				Logger.getLogger("test"),
+				LoggerFactory.getLogger("test"),
 				false,
 				10,
 				0);

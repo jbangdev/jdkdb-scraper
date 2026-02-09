@@ -29,8 +29,14 @@ public class Ibm extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching index");
-		String indexHtml = httpUtils.downloadString(BASE_URL);
+		String indexHtml;
+		try {
+			log("Fetching index");
+			indexHtml = httpUtils.downloadString(BASE_URL);
+		} catch (Exception e) {
+			fail("Failed to fetch index page", e);
+			throw e;
+		}
 
 		// Extract JDK versions
 		Matcher versionMatcher = VERSION_PATTERN.matcher(indexHtml);
@@ -47,7 +53,13 @@ public class Ibm extends BaseScraper {
 
 				// Fetch architecture list
 				String archUrl = BASE_URL + jdkVersion + "/linux/";
-				String archHtml = httpUtils.downloadString(archUrl);
+				String archHtml;
+				try {
+					archHtml = httpUtils.downloadString(archUrl);
+				} catch (Exception e) {
+					log("Failed to fetch architecture list for " + jdkVersion + ": " + e.getMessage());
+					continue;
+				}
 
 				Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
 				List<String> architectures = new ArrayList<>();
@@ -60,7 +72,13 @@ public class Ibm extends BaseScraper {
 
 					// Fetch file list
 					String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
-					String filesHtml = httpUtils.downloadString(filesUrl);
+					String filesHtml;
+					try {
+						filesHtml = httpUtils.downloadString(filesUrl);
+					} catch (Exception e) {
+						log("Failed to fetch file list for " + jdkVersion + " " + architecture + ": " + e.getMessage());
+						continue;
+					}
 
 					Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
 					while (fileMatcher.find()) {

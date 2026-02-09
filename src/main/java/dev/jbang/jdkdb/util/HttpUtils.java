@@ -28,6 +28,9 @@ public class HttpUtils {
 	public void downloadFile(String url, Path destination) throws IOException, InterruptedException {
 		HttpRequest request = request(url).build();
 		HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+		if (response.statusCode() < 200 || response.statusCode() >= 300) {
+			throw new IOException("Failed to download file: " + url + " - HTTP status: " + response.statusCode());
+		}
 		try (InputStream inputStream = response.body()) {
 			Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
 		}
@@ -37,6 +40,9 @@ public class HttpUtils {
 	public String downloadString(String url) throws IOException, InterruptedException {
 		HttpRequest request = request(url).build();
 		HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		if (response.statusCode() < 200 || response.statusCode() >= 300) {
+			throw new IOException("Failed to download content: " + url + " - HTTP status: " + response.statusCode());
+		}
 		return response.body();
 	}
 

@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
 
 /** Base class for all vendor scrapers */
 public abstract class BaseScraper implements Scraper {
@@ -74,12 +74,12 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Log a progress message */
 	protected void log(String message) {
-		logger.fine(message);
+		logger.info(message);
 	}
 
 	/** Log a progress message */
 	protected void fine(String message) {
-		logger.finer(message);
+		logger.debug(message);
 	}
 
 	/** Log successful processing of single metadata item */
@@ -99,7 +99,7 @@ public abstract class BaseScraper implements Scraper {
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
 		progress.fail(message, error);
-		logger.severe("Failed " + message + ": " + error.getMessage());
+		logger.error("Failed " + message + ": " + error.getMessage());
 		if (maxFailureCount > 0 && ++failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");
 		}

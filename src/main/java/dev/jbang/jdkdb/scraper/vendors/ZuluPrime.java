@@ -9,6 +9,7 @@ import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -30,8 +31,14 @@ public class ZuluPrime extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		log("Fetching properties from " + PROPERTIES_URL);
-		String propertiesContent = httpUtils.downloadString(PROPERTIES_URL);
+		String propertiesContent;
+		try {
+			log("Fetching properties from " + PROPERTIES_URL);
+			propertiesContent = httpUtils.downloadString(PROPERTIES_URL);
+		} catch (Exception e) {
+			fail("Failed to fetch properties file", e);
+			return Collections.emptyList();
+		}
 
 		Properties props = new Properties();
 		props.load(new StringReader(propertiesContent));

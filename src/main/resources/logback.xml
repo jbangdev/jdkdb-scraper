@@ -19,6 +19,24 @@
         </encoder>
     </appender>
 
+    <!-- Sifting appender for vendor-specific log files -->
+    <appender name="SIFT" class="ch.qos.logback.classic.sift.SiftingAppender">
+        <!-- Use the logger name to determine which file to write to -->
+        <discriminator class="dev.jbang.jdkdb.util.VendorLoggerDiscriminator" />
+        <sift>
+            <appender name="FILE-${vendorName}" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>logs/vendors/${vendorName}.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>logs/vendors/${vendorName}.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>7</maxHistory>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+                </encoder>
+            </appender>
+        </sift>
+    </appender>
+
     <!-- Set root logger to ERROR to suppress debug messages from dependencies -->
     <root level="ERROR">
         <appender-ref ref="CONSOLE" />
@@ -29,6 +47,13 @@
     <logger name="dev.jbang.jdkdb" level="INFO" additivity="false">
         <appender-ref ref="CONSOLE" />
         <appender-ref ref="FILE" />
+    </logger>
+
+    <!-- Vendor scrapers - log to both main file and separate vendor-specific files -->
+    <logger name="vendors" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+        <appender-ref ref="SIFT" />
     </logger>
 
     <!-- Suppress verbose Apache HttpClient logging -->

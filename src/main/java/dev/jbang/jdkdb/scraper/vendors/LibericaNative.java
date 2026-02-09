@@ -31,9 +31,15 @@ public class LibericaNative extends BaseScraper {
 		// Query Liberica API for native image releases
 		String apiUrl = API_BASE_URL + "?bundle-type=nik&release-type=all&page-size=1000";
 
-		log("Fetching releases from " + apiUrl);
-		String json = httpUtils.downloadString(apiUrl);
-		JsonNode releases = readJson(json);
+		JsonNode releases;
+		try {
+			log("Fetching releases from " + apiUrl);
+			String json = httpUtils.downloadString(apiUrl);
+			releases = readJson(json);
+		} catch (Exception e) {
+			fail("Failed to fetch releases from API", e);
+			throw e;
+		}
 
 		if (!releases.isArray()) {
 			log("No releases found");

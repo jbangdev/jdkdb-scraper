@@ -3,7 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import dev.jbang.jdkdb.reporting.ProgressReporter;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Factory for creating scraper instances using ServiceLoader */
 public class ScraperFactory {
@@ -54,7 +54,7 @@ public class ScraperFactory {
 					metadataVendorDir.resolve(vendor),
 					checksumDir.resolve(vendor),
 					new ScraperProgress.Default(name, reporter),
-					Logger.getLogger("vendors." + name),
+					LoggerFactory.getLogger("vendors." + name),
 					fromStart,
 					maxFailureCount,
 					limitProgress);
@@ -77,7 +77,7 @@ public class ScraperFactory {
 					metadataDir.resolve("vendor").resolve(vendor),
 					checksumDir.resolve(vendor),
 					new ScraperProgress.Default(scraperName, reporter),
-					Logger.getLogger("vendors." + scraperName),
+					LoggerFactory.getLogger("vendors." + scraperName),
 					fromStart,
 					maxFailureCount,
 					limitProgress);
