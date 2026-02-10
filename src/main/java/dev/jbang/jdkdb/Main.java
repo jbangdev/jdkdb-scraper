@@ -220,13 +220,6 @@ public class Main implements Callable<Integer> {
 					}
 				}
 
-				System.out.println();
-				System.out.println("Total scrapers: " + results.size());
-				System.out.println("Successful: " + successful);
-				System.out.println("Failed: " + failed);
-				System.out.println("Total items processed: " + totalItems);
-				System.out.println("Total items skipped: " + totalSkipped);
-
 				// Per-scraper breakdown
 				System.out.println();
 				System.out.println("Per-Scraper Breakdown");
@@ -244,6 +237,17 @@ public class Main implements Callable<Integer> {
 								result.error() != null ? result.error().getMessage() : "Unknown error");
 					}
 				}
+				System.out.println();
+				System.out.println("Totals");
+				System.out.println("======");
+
+				System.out.println();
+				System.out.println("Total scrapers: " + results.size());
+				System.out.println("Successful: " + successful);
+				System.out.println("Failed: " + failed);
+				System.out.println("Total items processed: " + totalItems);
+				System.out.println("Total items skipped: " + totalSkipped);
+
 				var endTime = System.currentTimeMillis();
 				var duration = (endTime - startTime) / 1000.0;
 				System.out.println();

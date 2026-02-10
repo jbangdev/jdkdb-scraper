@@ -28,11 +28,11 @@ public class Debian extends BaseScraper {
 
 	// Pattern to match Debian package filenames
 	// Example: openjdk-17-jdk_17.0.8+7-1~deb12u1_amd64.deb
-	private static final Pattern DEB_PKG_PATTERN = Pattern.compile(
-			"(openjdk-)([0-9]{1,2})-(jre|jdk)_(([1-9]\\d*)((u(\\d+))|(\\.?(\\d+)?\\.?(\\d+)?\\.?(\\d+)?\\.?(\\d+)?\\.(\\d+)))?((_|b)(\\d+))?((-|\\+|\\.)([a-zA-Z0-9\\-\\+]+)(\\.[0-9]+)?)?)_(.*)(\\.deb)");
+	private static final Pattern DEB_PKG_PATTERN =
+			Pattern.compile("^openjdk-(?:[0-9]{1,2})-(jre|jdk)(?:-(headless|zero))?_([^_~-]+)([^_]*)_(.*)\\.deb$");
 
 	// LTS versions to scrape
-	private static final String[] LTS_VERSIONS = {"8", "11", "11-jre-dcevm", "17", "21"};
+	private static final String[] LTS_VERSIONS = {"8", "11", "11-jre-dcevm", "17", "21", "25", "26"};
 
 	public Debian(ScraperConfig config) {
 		super(config);
@@ -85,13 +85,8 @@ public class Debian extends BaseScraper {
 		for (String href : hrefs) {
 			String filename = HtmlUtils.extractFilename(href);
 
-			// Only process .deb files
-			if (!filename.endsWith(".deb")) {
-				continue;
-			}
-
-			// Skip source packages
-			if (filename.contains("-src") || filename.contains("-source")) {
+			// Only process hrefs that looks okay
+			if (!filename.startsWith("openjdk") || !filename.endsWith(".deb")) {
 				continue;
 			}
 
@@ -121,14 +116,22 @@ public class Debian extends BaseScraper {
 	private JdkMetadata processDebianPackage(String filename, String cdnUrl) throws Exception {
 		Matcher matcher = DEB_PKG_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			warn("Skipping " + filename + " (does not match pattern)");
+			if (!filename.contains("-dbg_")
+					&& !filename.contains("-demo_")
+					&& !filename.contains("-doc_")
+					&& !filename.contains("-source_")
+					&& !filename.contains("-testsupport_")) {
+				warn("Skipping " + filename + " (does not match pattern)");
+			}
 			return null;
 		}
 
 		// Extract information from the filename
-		String imageType = matcher.group(3); // jre or jdk
-		String version = matcher.group(4); // Full version string
-		String archString = matcher.group(22); // Architecture string
+		String imageType = matcher.group(1); // jre or jdk
+		String pkgfeat = matcher.group(2); // headless or zero (if present)
+		String version = matcher.group(3); // Java version string
+		String extraVersion = matcher.group(4); // Extra version string
+		String architecture = matcher.group(5); // Architecture string
 
 		// Build the download URL
 		String url = cdnUrl + filename;
@@ -139,20 +142,17 @@ public class Debian extends BaseScraper {
 			return null;
 		}
 
-		// Normalize architecture
-		String architecture = normalizeDebianArch(archString);
-		if (architecture.startsWith("unknown-arch-")) {
-			warn("Unknown architecture: " + archString);
-			return null;
-		}
-
 		// Build features list
 		List<String> features = new ArrayList<>();
 
+		// Add package feature if present
+		if (pkgfeat != null) {
+			features.add(pkgfeat);
+		}
 		// Add specific features based on architecture
-		if (archString.equals("armel")) {
+		if (architecture.equals("armel")) {
 			features.add("soft-float");
-		} else if (archString.equals("armhf")) {
+		} else if (architecture.equals("armhf")) {
 			features.add("hard-float");
 		}
 
@@ -163,40 +163,17 @@ public class Debian extends BaseScraper {
 		return JdkMetadata.builder()
 				.vendor(VENDOR)
 				.releaseType("ga") // Debian only packages GA releases
-				.version(version)
+				.version(version + extraVersion) // Combine version and extra version for full version string
 				.javaVersion(version)
 				.jvmImpl("hotspot") // Debian packages HotSpot
 				.os("linux") // Debian is Linux-only
-				.arch(architecture)
+				.arch(normalizeArch(architecture))
 				.fileType("deb")
 				.imageType(imageType)
 				.features(features)
 				.url(url)
 				.download(filename, download)
 				.build();
-	}
-
-	/** Normalize Debian architecture names to our standard names */
-	private String normalizeDebianArch(String arch) {
-		if (arch == null || arch.isEmpty()) {
-			return "unknown";
-		}
-
-		return switch (arch.toLowerCase()) {
-			case "amd64" -> "x86_64";
-			case "i386", "i586", "i686" -> "i686";
-			case "arm64", "aarch64" -> "aarch64";
-			case "arm", "armv7" -> "arm32";
-			case "armhf" -> "arm32-vfp-hflt";
-			case "armel" -> "arm32";
-			case "ppc" -> "ppc32";
-			case "ppc64" -> "ppc64";
-			case "ppc64le", "ppc64el" -> "ppc64le";
-			case "s390x" -> "s390x";
-			case "mips" -> "mips";
-			case "mipsel" -> "mipsel";
-			default -> "unknown-arch-" + arch;
-		};
 	}
 
 	/** Discovery for creating Debian scraper instances */

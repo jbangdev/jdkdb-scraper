@@ -37,6 +37,7 @@ public class DummyScraper extends BaseScraper {
 		// Save individual metadata files like real scrapers do
 		for (JdkMetadata metadata : metadataToReturn) {
 			saveMetadataFile(metadata);
+			success(metadata.getMetadataFilename());
 		}
 		return metadataToReturn;
 	}

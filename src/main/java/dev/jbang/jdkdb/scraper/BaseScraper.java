@@ -25,6 +25,7 @@ public abstract class BaseScraper implements Scraper {
 
 	private int failureCount = 0;
 	private int processedCount = 0;
+	private int skippedCount = 0;
 
 	public BaseScraper(ScraperConfig config) {
 		this.metadataDir = config.metadataDir();
@@ -50,22 +51,12 @@ public abstract class BaseScraper implements Scraper {
 			log("Starting scraper");
 
 			// Execute the scraping logic
-			var metadataList = scrape();
+			scrape();
 
-			int processed = 0;
-			int skipped = 0;
-			if (metadataList != null) {
-				for (var metadata : metadataList) {
-					if (metadata.getVendor() != null) {
-						processed++;
-					} else {
-						skipped++;
-					}
-				}
-			}
-			log("Completed successfully. Processed " + processed + " items, skipped " + skipped + " existing items");
+			log("Completed successfully. Processed " + processedCount + " items, skipped " + skippedCount
+					+ " existing items");
 
-			return ScraperResult.success(processed, skipped);
+			return ScraperResult.success(processedCount, skippedCount);
 		} catch (Exception e) {
 			warn("Failed with error: " + e.getMessage());
 			return ScraperResult.failure(e);
@@ -86,7 +77,8 @@ public abstract class BaseScraper implements Scraper {
 	protected void success(String filename) {
 		progress.success(filename);
 		logger.info("Processed " + filename);
-		if (limitProgress > 0 && ++processedCount >= limitProgress) {
+		processedCount++;
+		if (limitProgress > 0 && processedCount >= limitProgress) {
 			throw new InterruptedProgressException("Reached progress limit of " + limitProgress + " items, aborting");
 		}
 	}
@@ -94,13 +86,15 @@ public abstract class BaseScraper implements Scraper {
 	protected void skip(String filename) {
 		progress.skipped(filename);
 		logger.info("Skipped " + filename + " (already exists)");
+		skippedCount++;
 	}
 
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
 		progress.fail(message, error);
 		logger.error("Failed " + message + ": " + error.getMessage());
-		if (maxFailureCount > 0 && ++failureCount >= maxFailureCount) {
+		failureCount++;
+		if (maxFailureCount > 0 && failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");
 		}
 	}
@@ -195,14 +189,18 @@ public abstract class BaseScraper implements Scraper {
 			case String s when s.matches("amd64|x64|x86_64|x86-64") -> "x86_64";
 			case String s when s.matches("x32|x86|x86_32|x86-32|i386|i586|i686") -> "i686";
 			case String s when s.matches("aarch64|arm64|m\\d") -> "aarch64";
-			case String s when s.matches("arm|arm32|armv7|aarch32sf") -> "arm32";
+			case String s when s.matches("arm|arm32|armv7|aarch32sf|armel") -> "arm32";
 			case String s when s.matches("arm32-vfp-hflt|aarch32hf") -> "arm32-vfp-hflt";
 			case "ppc" -> "ppc32";
 			case "ppc64" -> "ppc64";
-			case "ppc64le" -> "ppc64le";
+			case String s when s.matches("ppc64le|ppc64el") -> "ppc64le";
 			case String s when s.matches("s390x|s390") -> "s390x";
 			case "sparcv9" -> "sparcv9";
 			case "riscv64" -> "riscv64";
+			case "mips" -> "mips";
+			case String s when s.matches("mipsel|mipsle") -> "mipsel";
+			case "mips64" -> "mips64";
+			case String s when s.matches("mips64el|mips64le") -> "mips64el";
 			default -> "unknown-arch-" + arch;
 		};
 	}
