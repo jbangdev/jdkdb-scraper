@@ -61,7 +61,7 @@ public class OpenLogic extends BaseScraper {
 				// Check stop criteria:
 				// 1. No download links found on this page
 				if (downloadLinks.isEmpty()) {
-					log("No download links found on page " + page + ", stopping");
+					warn("No download links found on page " + page + ", stopping");
 					hasMore = false;
 					break;
 				}
@@ -132,7 +132,7 @@ public class OpenLogic extends BaseScraper {
 	private JdkMetadata processFile(String filename, String url) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

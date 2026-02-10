@@ -164,7 +164,7 @@ public class Oracle extends BaseScraper {
 	private JdkMetadata parseFilename(String filename, String downloadUrl) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

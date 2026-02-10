@@ -80,7 +80,7 @@ public class Zulu extends BaseScraper {
 	private JdkMetadata processFile(String filename) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 
@@ -97,7 +97,7 @@ public class Zulu extends BaseScraper {
 		// Normalize release type
 		String releaseType = normalizeZuluReleaseType(releaseTypeStr);
 		if (releaseType == null) {
-			log("Unknown release type for: " + filename);
+			warn("Unknown release type for: " + filename);
 			return null;
 		}
 

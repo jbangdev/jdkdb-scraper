@@ -84,7 +84,7 @@ public class Corretto extends GitHubReleaseScraper {
 		String imageType = extractImageType(filename);
 
 		if (os == null || arch == null || ext == null) {
-			log("Could not parse OS/arch/extension from filename: " + filename);
+			warn("Could not parse OS/arch/extension from filename: " + filename);
 			return null;
 		}
 

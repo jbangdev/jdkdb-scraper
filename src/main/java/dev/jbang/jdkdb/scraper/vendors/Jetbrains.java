@@ -70,7 +70,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 			} catch (InterruptedProgressException | TooManyFailuresException e) {
 				throw e;
 			} catch (Exception e) {
-				log("Failed to process " + file + ": " + e.getMessage());
+				warn("Failed to process " + file + ": " + e.getMessage());
 			}
 		}
 	}
@@ -85,7 +85,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
-			log("Skipping " + assetName + " (does not match pattern)");
+			warn("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

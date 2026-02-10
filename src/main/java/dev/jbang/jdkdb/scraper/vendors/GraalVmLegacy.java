@@ -75,7 +75,7 @@ public class GraalVmLegacy extends GitHubReleaseScraper {
 			// Try regular pattern
 			Matcher regularMatcher = REGULAR_PATTERN.matcher(assetName);
 			if (!regularMatcher.matches()) {
-				log("Skipping " + assetName + " (does not match pattern)");
+				warn("Skipping " + assetName + " (does not match pattern)");
 				return null;
 			}
 

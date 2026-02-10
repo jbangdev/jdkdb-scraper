@@ -40,7 +40,7 @@ public class LibericaNative extends BaseScraper {
 		}
 
 		if (!assets.isArray()) {
-			log("No assets found");
+			warn("No assets found");
 			return allMetadata;
 		}
 
@@ -49,7 +49,7 @@ public class LibericaNative extends BaseScraper {
 			for (JsonNode asset : assets) {
 				JsonNode filenameNode = asset.get("filename");
 				if (filenameNode == null || !filenameNode.isTextual()) {
-					log("Skipping asset with missing or invalid filename");
+					warn("Skipping asset with missing or invalid filename");
 					continue;
 				}
 				String filename = filenameNode.asText();
@@ -85,7 +85,7 @@ public class LibericaNative extends BaseScraper {
 		if (downloadUrlNode == null
 				|| !downloadUrlNode.isTextual()
 				|| downloadUrlNode.asText().isEmpty()) {
-			log("Skipping asset with missing or invalid downloadUrl");
+			warn("Skipping asset with missing or invalid downloadUrl");
 			return null;
 		}
 		String downloadUrl = downloadUrlNode.asText();
@@ -100,7 +100,7 @@ public class LibericaNative extends BaseScraper {
 		if (versionNode == null
 				|| !versionNode.isTextual()
 				|| versionNode.asText().isEmpty()) {
-			log("Skipping asset with missing or invalid version");
+			warn("Skipping asset with missing or invalid version");
 			return null;
 		}
 		String version = versionNode.asText();
@@ -108,7 +108,7 @@ public class LibericaNative extends BaseScraper {
 		// Extract Java version from "components" node
 		JsonNode componentsNode = asset.get("components");
 		if (componentsNode == null || !componentsNode.isArray() || componentsNode.size() == 0) {
-			log("Skipping asset with missing or invalid 'components' object");
+			warn("Skipping asset with missing or invalid 'components' object");
 			return null;
 		}
 		JsonNode compNode = componentsNode.get(0);
@@ -116,7 +116,7 @@ public class LibericaNative extends BaseScraper {
 		if (javaVersionNode == null
 				|| !javaVersionNode.isTextual()
 				|| javaVersionNode.asText().isEmpty()) {
-			log("Skipping asset with missing or invalid javaVersion");
+			warn("Skipping asset with missing or invalid javaVersion");
 			return null;
 		}
 		String javaVersion = javaVersionNode.asText();
@@ -151,7 +151,7 @@ public class LibericaNative extends BaseScraper {
 		}
 
 		if (ext.isEmpty()) {
-			log("Skipping asset with unknown file extension");
+			warn("Skipping asset with unknown file extension");
 			return null;
 		}
 		if (ext.equals("src.tar.gz")) {

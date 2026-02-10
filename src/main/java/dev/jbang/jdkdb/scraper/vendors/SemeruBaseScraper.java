@@ -102,7 +102,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 					&& !filename.contains("-debugimage_")
 					&& !filename.contains("-testimage_")) {
 				// Only show message for unexpected files
-				log("Skipping " + filename + " (does not match pattern)");
+				warn("Skipping " + filename + " (does not match pattern)");
 			}
 			return null;
 		}

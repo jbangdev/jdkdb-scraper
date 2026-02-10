@@ -57,7 +57,7 @@ public class Ibm extends BaseScraper {
 				try {
 					archHtml = httpUtils.downloadString(archUrl);
 				} catch (Exception e) {
-					log("Failed to fetch architecture list for " + jdkVersion + ": " + e.getMessage());
+					warn("Failed to fetch architecture list for " + jdkVersion + ": " + e.getMessage());
 					continue;
 				}
 
@@ -76,7 +76,8 @@ public class Ibm extends BaseScraper {
 					try {
 						filesHtml = httpUtils.downloadString(filesUrl);
 					} catch (Exception e) {
-						log("Failed to fetch file list for " + jdkVersion + " " + architecture + ": " + e.getMessage());
+						warn("Failed to fetch file list for " + jdkVersion + " " + architecture + ": "
+								+ e.getMessage());
 						continue;
 					}
 
@@ -106,7 +107,7 @@ public class Ibm extends BaseScraper {
 						} catch (InterruptedProgressException | TooManyFailuresException e) {
 							throw e;
 						} catch (Exception e) {
-							log("Failed to process " + ibmFile + ": " + e.getMessage());
+							warn("Failed to process " + ibmFile + ": " + e.getMessage());
 						}
 					}
 				}

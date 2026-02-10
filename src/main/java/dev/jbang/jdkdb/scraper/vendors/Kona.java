@@ -56,7 +56,7 @@ public class Kona extends GitHubReleaseScraper {
 
 		ParsedFilename parsed = parseFilename(assetName);
 		if (parsed == null || parsed.version == null) {
-			log("Skipping " + assetName + " (does not match pattern)");
+			warn("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

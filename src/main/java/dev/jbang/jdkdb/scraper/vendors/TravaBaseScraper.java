@@ -50,7 +50,7 @@ public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 
 		Matcher filenameMatcher = getFilenamePattern().matcher(assetName);
 		if (!filenameMatcher.matches()) {
-			log("Skipping " + assetName + " (does not match pattern)");
+			warn("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 
@@ -89,7 +89,7 @@ public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 		String assetName = asset.get("name").asText();
 		Matcher filenameMatcher = getFilenamePattern().matcher(assetName);
 		if (!filenameMatcher.matches()) {
-			log("Skipping " + assetName + " (does not match pattern)");
+			warn("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 		String os = filenameMatcher.group(1);

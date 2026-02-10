@@ -79,7 +79,7 @@ public class ZuluPrime extends BaseScraper {
 	private JdkMetadata processFile(String filename, String url) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

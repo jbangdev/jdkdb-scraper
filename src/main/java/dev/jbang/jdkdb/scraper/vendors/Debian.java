@@ -53,7 +53,7 @@ public class Debian extends BaseScraper {
 				} catch (InterruptedProgressException e) {
 					throw e;
 				} catch (Exception e) {
-					log("Failed to scrape " + cdnUrl + ": " + e.getMessage());
+					warn("Failed to scrape " + cdnUrl + ": " + e.getMessage());
 				}
 			}
 		} catch (InterruptedProgressException e) {
@@ -121,7 +121,7 @@ public class Debian extends BaseScraper {
 	private JdkMetadata processDebianPackage(String filename, String cdnUrl) throws Exception {
 		Matcher matcher = DEB_PKG_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 
@@ -135,14 +135,14 @@ public class Debian extends BaseScraper {
 
 		// Check if URL exists
 		if (!httpUtils.urlExists(url)) {
-			fine("URL does not exist: " + url);
+			warn("URL does not exist: " + url);
 			return null;
 		}
 
 		// Normalize architecture
 		String architecture = normalizeDebianArch(archString);
 		if (architecture.startsWith("unknown-arch-")) {
-			fine("Unknown architecture: " + archString);
+			warn("Unknown architecture: " + archString);
 			return null;
 		}
 

@@ -62,7 +62,7 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
-			log("Skipping " + assetName + " (does not match pattern)");
+			warn("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

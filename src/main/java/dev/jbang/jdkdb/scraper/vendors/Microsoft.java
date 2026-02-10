@@ -78,7 +78,7 @@ public class Microsoft extends BaseScraper {
 	private JdkMetadata processFile(String filename) throws Exception {
 		var matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Skipping " + filename + " (does not match pattern)");
+			warn("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

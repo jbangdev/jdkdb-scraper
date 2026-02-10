@@ -67,19 +67,19 @@ public abstract class BaseScraper implements Scraper {
 
 			return ScraperResult.success(processed, skipped);
 		} catch (Exception e) {
-			log("Failed with error: " + e.getMessage());
+			warn("Failed with error: " + e.getMessage());
 			return ScraperResult.failure(e);
 		}
 	}
 
-	/** Log a progress message */
+	/** Log a informative message */
 	protected void log(String message) {
 		logger.info(message);
 	}
 
-	/** Log a progress message */
-	protected void fine(String message) {
-		logger.debug(message);
+	/** Log a warning message */
+	protected void warn(String message) {
+		logger.warn(message);
 	}
 
 	/** Log successful processing of single metadata item */

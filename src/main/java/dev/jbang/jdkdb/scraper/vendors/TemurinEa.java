@@ -65,7 +65,7 @@ public class TemurinEa extends GitHubReleaseScraper {
 					&& !assetName.endsWith(".sig")
 					&& !assetName.contains("-debugimage_")
 					&& !assetName.contains("-testimage_")) {
-				log("Skipping " + assetName + " (does not match pattern)");
+				warn("Skipping " + assetName + " (does not match pattern)");
 			}
 			return null;
 		}
