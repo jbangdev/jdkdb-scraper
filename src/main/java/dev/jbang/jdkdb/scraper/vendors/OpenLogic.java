@@ -20,7 +20,7 @@ public class OpenLogic extends BaseScraper {
 	private static final String BASE_URL = "https://www.openlogic.com/openjdk-downloads";
 	private static final String DOWNLOAD_PREFIX = "https://builds.openlogic.com/";
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
-			"^openlogic-openjdk-(?:(jre|jdk)-)?([0-9]+(?:u[0-9]+)?(?:\\.[0-9.]+)?(?:[-+]b?[0-9]+)?)-(linux|windows|mac)-(aarch64|x64|x32|arm32)\\.(tar\\.gz|zip|msi|dmg|deb|rpm)$");
+			"^openlogic-openjdk-(?:(jre|jdk)-)?([0-9]+(?:u[0-9]+)?(?:\\.[0-9.]+)?(?:[-+]b?[0-9]+)?)-(linux|windows|mac)-(aarch64|x64|x32|arm32)(?:-deb|-el)?\\.(tar\\.gz|zip|msi|dmg|deb|rpm|pkg)$");
 	private static final Random random = new Random();
 
 	public OpenLogic(ScraperConfig config) {
