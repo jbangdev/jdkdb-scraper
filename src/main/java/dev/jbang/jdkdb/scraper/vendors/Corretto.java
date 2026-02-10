@@ -37,14 +37,13 @@ public class Corretto extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
 		String version = release.get("tag_name").asText();
 
 		String body = release.get("body").asText("");
 
 		// Parse download links from the HTML table in the release body
 		Matcher matcher = DOWNLOAD_URL_PATTERN.matcher(body);
-		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		while (matcher.find()) {
 			String url = matcher.group(1);
@@ -69,8 +68,6 @@ public class Corretto extends GitHubReleaseScraper {
 				fail(filename, e);
 			}
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename, String url, String version) throws Exception {

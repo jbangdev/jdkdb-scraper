@@ -38,9 +38,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
 		boolean prerelease = release.get("prerelease").asBoolean();
 		String releaseType = prerelease ? "ea" : "ga";
 		String body = release.get("body").asText("");
@@ -75,8 +73,6 @@ public class Jetbrains extends GitHubReleaseScraper {
 				log("Failed to process " + file + ": " + e.getMessage());
 			}
 		}
-
-		return allMetadata;
 	}
 
 	protected boolean shouldProcessAsset(String assetName) {

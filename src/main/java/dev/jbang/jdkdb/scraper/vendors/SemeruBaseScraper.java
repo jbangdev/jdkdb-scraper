@@ -6,7 +6,6 @@ import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,16 +51,17 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	private static final Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
 
 	@Override
-	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 		Matcher versionMatcher = versionPattern.matcher(tagName);
 		if (!versionMatcher.matches()) {
-			return Collections.emptyList();
+			return;
 		}
 		String parsedJavaVersion = versionMatcher.group(1);
 		String openj9Version = versionMatcher.group(2);
 		String version = parsedJavaVersion + "_openj9-" + openj9Version;
-		return processReleaseAssets(release, (r, asset) -> processAsset(release, asset, version, parsedJavaVersion));
+		processReleaseAssets(
+				allMetadata, release, (r, asset) -> processAsset(release, asset, version, parsedJavaVersion));
 	}
 
 	@Override

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -24,7 +23,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected abstract List<String> getGitHubRepos() throws Exception;
 
 	/** Process a single release and extract metadata */
-	protected abstract List<JdkMetadata> processRelease(JsonNode release) throws Exception;
+	protected abstract void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception;
 
 	protected boolean shouldProcessAsset(JsonNode release, JsonNode asset) {
 		// By default, process all assets
@@ -39,17 +38,15 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	/**
 	 * Process release assets with common iteration and error handling logic.
 	 * This method reduces boilerplate by handling the standard asset processing pattern.
-	 *
+	 * @param allMetadata List to collect metadata results
 	 * @param release The GitHub release JSON node
 	 * @param assetProcessor Function to process each asset, returns null to skip the asset
-	 * @return List of successfully processed metadata
 	 */
-	protected List<JdkMetadata> processReleaseAssets(JsonNode release, AssetProcessor assetProcessor) throws Exception {
-		List<JdkMetadata> metadataList = new ArrayList<>();
-
+	protected void processReleaseAssets(List<JdkMetadata> allMetadata, JsonNode release, AssetProcessor assetProcessor)
+			throws Exception {
 		JsonNode assets = release.get("assets");
 		if (assets == null || !assets.isArray()) {
-			return Collections.emptyList();
+			return;
 		}
 
 		for (JsonNode asset : assets) {
@@ -60,7 +57,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			String assetName = asset.get("name").asText();
 			String metadataFilename = toMetadataFilename(release, asset);
 			if (metadataExists(metadataFilename)) {
-				metadataList.add(skipped(metadataFilename));
+				allMetadata.add(skipped(metadataFilename));
 				skip(metadataFilename);
 				continue;
 			}
@@ -69,7 +66,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 				JdkMetadata metadata = assetProcessor.process(release, asset);
 				if (metadata != null) {
 					saveMetadataFile(metadata);
-					metadataList.add(metadata);
+					allMetadata.add(metadata);
 					success(assetName);
 				}
 			} catch (InterruptedProgressException | TooManyFailuresException e) {
@@ -78,8 +75,6 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 				fail(assetName, e);
 			}
 		}
-
-		return metadataList;
 	}
 
 	/**
@@ -148,10 +143,9 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 			log("Found " + releases.size() + " releases");
 			for (JsonNode release : releases) {
 				try {
-					List<JdkMetadata> metadata = processRelease(release);
-					allMetadata.addAll(metadata);
+					processRelease(allMetadata, release);
 				} catch (InterruptedProgressException | TooManyFailuresException e) {
-					throw e;
+					break;
 				} catch (Exception e) {
 					String tagName =
 							release.has("tag_name") ? release.get("tag_name").asText() : "unknown";

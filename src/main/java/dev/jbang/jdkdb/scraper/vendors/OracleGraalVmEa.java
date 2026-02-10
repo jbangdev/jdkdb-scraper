@@ -6,7 +6,6 @@ import dev.jbang.jdkdb.scraper.DownloadResult;
 import dev.jbang.jdkdb.scraper.GitHubReleaseScraper;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,13 +31,13 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
+	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
 		// Only process releases with jdk tag prefix
 		String tagName = release.get("tag_name").asText();
 		if (!tagName.startsWith("jdk")) {
-			return Collections.emptyList();
+			return;
 		}
-		return processReleaseAssets(release, this::parseAsset);
+		processReleaseAssets(allMetadata, release, this::processAsset);
 	}
 
 	@Override
@@ -48,7 +47,7 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 		return assetName.startsWith("graalvm-jdk") && (assetName.endsWith(".tar.gz") || assetName.endsWith(".zip"));
 	}
 
-	private JdkMetadata parseAsset(JsonNode release, JsonNode asset) throws Exception {
+	private JdkMetadata processAsset(JsonNode release, JsonNode asset) throws Exception {
 		String assetName = asset.get("name").asText();
 		String downloadUrl = asset.get("browser_download_url").asText();
 

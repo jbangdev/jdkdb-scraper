@@ -31,8 +31,8 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> processRelease(JsonNode release) throws Exception {
-		return processReleaseAssets(release, this::processAsset);
+	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+		processReleaseAssets(allMetadata, release, this::processAsset);
 	}
 
 	@Override
