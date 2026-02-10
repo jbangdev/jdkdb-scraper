@@ -70,7 +70,7 @@ public class SapMachine extends GitHubReleaseScraper {
 		}
 
 		if (imageType == null) {
-			log("Filename doesn't match pattern: " + assetName);
+			log("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

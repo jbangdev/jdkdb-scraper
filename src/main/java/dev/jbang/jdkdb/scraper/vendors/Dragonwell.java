@@ -62,7 +62,7 @@ public class Dragonwell extends GitHubReleaseScraper {
 
 		ParsedFilename parsed = parseFilename(assetName);
 		if (parsed == null || parsed.version == null) {
-			log("Skipping non-matching file: " + assetName);
+			log("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

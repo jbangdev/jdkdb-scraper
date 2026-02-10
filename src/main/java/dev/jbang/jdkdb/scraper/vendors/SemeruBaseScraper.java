@@ -97,7 +97,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		}
 
 		if (imageType == null) {
-			log("Could not parse filename: " + filename);
+			log("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

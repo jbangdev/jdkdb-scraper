@@ -49,7 +49,7 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
-			log("Filename doesn't match pattern: " + assetName);
+			log("Skipping " + assetName + " (does not match pattern)");
 			return null;
 		}
 

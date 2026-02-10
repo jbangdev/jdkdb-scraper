@@ -121,7 +121,7 @@ public class Debian extends BaseScraper {
 	private JdkMetadata processDebianPackage(String filename, String cdnUrl) throws Exception {
 		Matcher matcher = DEB_PKG_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			fine("Filename doesn't match pattern: " + filename);
+			log("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

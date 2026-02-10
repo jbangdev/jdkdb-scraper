@@ -119,7 +119,7 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 	private JdkMetadata processFile(String filename, String url) throws Exception {
 		Matcher matcher = getFilenamePattern().matcher(filename);
 		if (!matcher.matches()) {
-			log("Filename doesn't match pattern: " + filename);
+			log("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 

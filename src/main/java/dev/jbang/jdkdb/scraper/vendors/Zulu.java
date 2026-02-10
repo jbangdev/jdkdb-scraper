@@ -80,7 +80,7 @@ public class Zulu extends BaseScraper {
 	private JdkMetadata processFile(String filename) throws Exception {
 		Matcher matcher = FILENAME_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			log("Filename doesn't match pattern: " + filename);
+			log("Skipping " + filename + " (does not match pattern)");
 			return null;
 		}
 
