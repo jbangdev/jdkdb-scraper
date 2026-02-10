@@ -14,9 +14,9 @@ import java.util.regex.Pattern;
 public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	// Parse filename patterns for both open and certified releases
 	protected Pattern rpmPattern = Pattern.compile(
-			"ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
+			"^ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
 	protected Pattern tarPattern = Pattern.compile(
-			"ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+_openj9-.+\\.(tar\\.gz|zip|msi)$");
+			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+_openj9-.+\\.(tar\\.gz|zip|msi|pkg)$");
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);
@@ -97,7 +97,13 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		}
 
 		if (imageType == null) {
-			log("Skipping " + filename + " (does not match pattern)");
+			if (!filename.endsWith(".txt")
+					&& !filename.endsWith(".sig")
+					&& !filename.contains("-debugimage_")
+					&& !filename.contains("-testimage_")) {
+				// Only show message for unexpected files
+				log("Skipping " + filename + " (does not match pattern)");
+			}
 			return null;
 		}
 
