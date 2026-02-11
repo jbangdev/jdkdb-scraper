@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 /** Scraper for Gluon GraalVM releases */
 public class GluonGraalVm extends GitHubReleaseScraper {
 	private static final String VENDOR = "gluon-graalvm";
+	private static final String GITHUB_ORG = "gluonhq";
+	private static final String GITHUB_REPO = "graal";
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^graalvm-svm(?:-java([0-9]+))?-(linux|darwin|windows)(?:-(aarch64|x86_64|amd64|m\\d))?-gluon-([0-9.+]+(?:-dev|-[Ff]inal)?)\\.(zip|tar\\.gz)$");
 
@@ -21,12 +23,12 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "gluonhq";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("graal");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override

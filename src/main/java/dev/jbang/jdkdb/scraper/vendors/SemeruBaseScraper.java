@@ -28,9 +28,9 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		// Use the helper method to fetch all semeru repositories
-		return getGitHubReposFromOrg(getGitHubOrg(), getRepoSearchString(), getRepoPattern());
+		return getReposFromOrg(getGitHubOrg(), getRepoSearchString(), getRepoPattern());
 	}
 
 	/** Get the search string for repository names */

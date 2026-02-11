@@ -12,6 +12,9 @@ import java.util.regex.Pattern;
 /** Scraper for Oracle GraalVM Early Access (EA) builds from GitHub. */
 public class OracleGraalVmEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "oracle-graalvm";
+	private static final String GITHUB_ORG = "graalvm";
+	private static final String GITHUB_REPO = "oracle-graalvm-ea-builds";
+
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^graalvm-jdk(?:-[0-9]{1,2}e[0-9]{1})?-([0-9]{1,2}\\.[0-9]{1}\\.[0-9]{1,3}-ea\\.[0-9]{1,2})_(linux|macos|windows)-(aarch64|x64)_bin(?:-(notarized))?\\.(?:zip|tar\\.gz)$");
 
@@ -21,12 +24,12 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "graalvm";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("oracle-graalvm-ea-builds");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override

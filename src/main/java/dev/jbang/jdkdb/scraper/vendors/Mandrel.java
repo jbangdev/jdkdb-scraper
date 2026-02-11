@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 /** Scraper for Mandrel (Red Hat's downstream distribution of GraalVM) releases */
 public class Mandrel extends GitHubReleaseScraper {
 	private static final String VENDOR = "mandrel";
+	private static final String GITHUB_ORG = "graalvm";
+	private static final String GITHUB_REPO = "mandrel";
 
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^mandrel-java(\\d{1,2})-(linux|macos|windows)-(amd64|aarch64)-([\\d+.]{2,}.*)\\.tar\\.gz$");
@@ -22,12 +24,12 @@ public class Mandrel extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "graalvm";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("mandrel");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override
@@ -73,8 +75,7 @@ public class Mandrel extends GitHubReleaseScraper {
 		}
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s",
-				getGitHubOrg(), getGitHubRepos().get(0), tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s", getGitHubOrg(), GITHUB_REPO, tagName, assetName);
 
 		// Create metadata
 		return JdkMetadata.create()

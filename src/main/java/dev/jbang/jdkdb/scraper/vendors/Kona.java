@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 /** Unified scraper for all Tencent Kona releases across multiple Java versions */
 public class Kona extends GitHubReleaseScraper {
 	private static final String VENDOR = "kona";
+	private static final String GITHUB_ORG = "Tencent";
 
 	// Pattern for Kona 8
 	private static final Pattern KONA8_SIMPLE_PATTERN =
@@ -35,13 +36,13 @@ public class Kona extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "Tencent";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		// Use the helper method to fetch all TencentKona repositories
-		return getGitHubReposFromOrg(getGitHubOrg(), "TencentKona", "^TencentKona-\\d+$");
+		return getReposFromOrg(getGitHubOrg(), "TencentKona", "^TencentKona-\\d+$");
 	}
 
 	@Override

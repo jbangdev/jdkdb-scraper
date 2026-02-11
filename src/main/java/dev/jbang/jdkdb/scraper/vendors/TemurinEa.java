@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 /** Scraper for Adoptium Eclipse Temurin Early Access releases from GitHub */
 public class TemurinEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "temurin";
+	private static final String GITHUB_ORG = "adoptium";
 
 	// Filename pattern: OpenJDK{version}U-{type}_{arch}_{os}_{timestamp}_{version}.{ext}
 	private static final Pattern FILENAME_PATTERN =
@@ -24,13 +25,13 @@ public class TemurinEa extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "adoptium";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		// Use the helper method to fetch all temurin EA repositories
-		return getGitHubReposFromOrg(getGitHubOrg(), "temurin", "^temurin\\d+-binaries$");
+		return getReposFromOrg(getGitHubOrg(), "temurin", "^temurin\\d+-binaries$");
 	}
 
 	@Override

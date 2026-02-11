@@ -13,6 +13,8 @@ import java.util.regex.Pattern;
 /** Scraper for JetBrains Runtime releases */
 public class Jetbrains extends GitHubReleaseScraper {
 	private static final String VENDOR = "jetbrains";
+	private static final String GITHUB_ORG = "JetBrains";
+	private static final String GITHUB_REPO = "JetBrainsRuntime";
 
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^jbr(sdk)?(?:_\\w+)?-([0-9][0-9\\+._]{1,})-(linux-musl|linux|osx|macos|windows)-(aarch64|x64|x86)(?:-\\w+)?-(b[0-9\\+.]{1,})(?:_\\w+)?\\.(tar\\.gz|zip|pkg)$");
@@ -26,12 +28,12 @@ public class Jetbrains extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "JetBrains";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("JetBrainsRuntime");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override

@@ -2,9 +2,10 @@ package dev.jbang.jdkdb.scraper;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.regex.Pattern;
 
 /** Base class for scrapers that fetch releases from GitHub */
@@ -20,7 +21,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected abstract String getGitHubOrg();
 
 	/** Get the GitHub repository names to scrape */
-	protected abstract List<String> getGitHubRepos() throws Exception;
+	protected abstract Iterable<String> getGitHubRepos() throws Exception;
 
 	/** Process a single release and extract metadata */
 	protected abstract void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception;
@@ -89,112 +90,171 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected List<JdkMetadata> scrape() throws Exception {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
-		try {
-			for (String repo : getGitHubRepos()) {
-				processRepo(allMetadata, repo);
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
+		Iterable<String> repos = getGitHubRepos();
+		for (String repo : repos) {
+			processRepo(allMetadata, repo);
 		}
 
 		return allMetadata;
 	}
 
-	protected void processRepo(List<JdkMetadata> allMetadata, String repo) throws IOException, InterruptedException {
+	protected void processRepo(List<JdkMetadata> allMetadata, String repo) {
 		log("Processing repository: " + repo);
 
-		JsonNode releases;
-		try {
-			String releasesUrl = String.format("%s/%s/%s/releases?per_page=100", GITHUB_API_BASE, getGitHubOrg(), repo);
-			log("Fetching releases from " + releasesUrl);
-			String json = httpUtils.downloadString(releasesUrl);
-			releases = readJson(json);
-		} catch (Exception e) {
-			fail("Could not download releases for repository " + repo, e);
-			return;
-		}
-
-		if (releases.isArray()) {
-			log("Found " + releases.size() + " releases");
-			for (JsonNode release : releases) {
-				try {
-					processRelease(allMetadata, release);
-				} catch (InterruptedProgressException | TooManyFailuresException e) {
-					break;
-				} catch (Exception e) {
-					String tagName =
-							release.has("tag_name") ? release.get("tag_name").asText() : "unknown";
-					warn("Failed to process release " + tagName + ": " + e.getMessage());
-				}
+		Iterable<JsonNode> releases = getReleasesFromRepos(getGitHubOrg(), repo);
+		for (JsonNode release : releases) {
+			try {
+				processRelease(allMetadata, release);
+			} catch (Exception e) {
+				String tagName =
+						release.has("tag_name") ? release.get("tag_name").asText() : "unknown";
+				warn("Failed to process release " + tagName + ": " + e.getMessage());
 			}
 		}
 	}
 
 	/**
 	 * Fetch repository names from a GitHub organization that match a given pattern.
-	 * This is useful for organizations with multiple repositories following a naming convention.
+	 * Returns a lazy Iterable that fetches pages on-demand as the iterator is consumed.
 	 *
 	 * @param orgName The GitHub organization name
 	 * @param searchString A string to search for in repository names
 	 * @param repoNamePattern A regex pattern to match repository names against
-	 * @return List of repository names that match the pattern
-	 * @throws IOException If the API call fails
-	 * @throws InterruptedException If the download is interrupted
+	 * @return Iterable of repository names that match the pattern
 	 */
-	protected List<String> getGitHubReposFromOrg(String orgName, String searchString, String repoNamePattern)
-			throws IOException, InterruptedException {
-		List<String> repos = new ArrayList<>();
+	protected Iterable<String> getReposFromOrg(String orgName, String searchString, String repoNamePattern) {
 		Pattern pattern = Pattern.compile(repoNamePattern);
 
-		// GitHub API pagination
-		int page = 1;
-		boolean hasMore = true;
+		return () -> new PaginatedIterator<String>() {
+			@Override
+			protected List<String> fetchPage(int pageNumber) throws Exception {
+				String url = String.format(
+						"%s/%s/repos?type=public&per_page=100&page=%d", GITHUB_ORGS_API_BASE, orgName, pageNumber);
+				if (searchString != null && !searchString.isEmpty()) {
+					url += "&q=" + searchString;
+				}
+				log("Fetching repositories from " + url);
 
-		while (hasMore) {
-			String url =
-					String.format("%s/%s/repos?type=public&per_page=100&page=%d", GITHUB_ORGS_API_BASE, orgName, page);
-			if (searchString != null && !searchString.isEmpty()) {
-				url += "&q=" + searchString;
-			}
-			log("Fetching repositories from " + url);
-
-			JsonNode reposArray;
-			try {
 				String json = httpUtils.downloadString(url);
-				reposArray = readJson(json);
-			} catch (Exception e) {
-				fail("Could not download list of repositories", e);
-				continue;
-			}
+				JsonNode reposArray = readJson(json);
 
-			if (!reposArray.isArray() || reposArray.size() == 0) {
-				hasMore = false;
-			} else {
+				if (reposArray == null || !reposArray.isArray() || reposArray.size() == 0) {
+					return null;
+				}
+
+				List<String> matched = new ArrayList<>();
 				for (JsonNode repo : reposArray) {
 					String repoName = repo.get("name").asText();
 					if (pattern.matcher(repoName).matches()) {
-						repos.add(repoName);
+						matched.add(repoName);
 						log("Matched repository: " + repoName);
 					}
 				}
-				page++;
+				return matched;
+			}
+
+			@Override
+			protected void handleFetchError(Exception e) {
+				fail("Could not download list of repositories", e);
+			}
+		};
+	}
+
+	/**
+	 * Fetch releases from a GitHub repository. Returns an Iterable of release JSON nodes.
+	 *
+	 * @param orgName The GitHub organization name
+	 * @param repoName The GitHub repository name
+	 * @return Iterable of release JSON nodes
+	 */
+	protected Iterable<JsonNode> getReleasesFromRepos(String orgName, String repoName) {
+		return () -> new PaginatedIterator<JsonNode>() {
+			@Override
+			protected List<JsonNode> fetchPage(int pageNumber) throws Exception {
+				String url = String.format(
+						"%s/%s/%s/releases?per_page=100&page=%d", GITHUB_API_BASE, orgName, repoName, pageNumber);
+				log("Fetching releases from " + url);
+
+				String json = httpUtils.downloadString(url);
+				JsonNode releasesArray = readJson(json);
+
+				if (releasesArray == null || !releasesArray.isArray() || releasesArray.size() == 0) {
+					return null;
+				}
+
+				List<JsonNode> releases = new ArrayList<>();
+				for (JsonNode release : releasesArray) {
+					releases.add(release);
+				}
+				return releases;
+			}
+
+			@Override
+			protected void handleFetchError(Exception e) {
+				fail("Could not download list of releases for repository " + orgName + "/" + repoName, e);
+			}
+		};
+	}
+
+	/**
+	 * Abstract base class for paginated iteration over GitHub API results.
+	 * Handles lazy fetching of pages as the iterator is consumed.
+	 */
+	protected abstract class PaginatedIterator<T> implements Iterator<T> {
+		private int currentPage = 1;
+		private Iterator<T> currentBatch = null;
+		private boolean hasMore = true;
+
+		@Override
+		public boolean hasNext() {
+			if (currentBatch != null && currentBatch.hasNext()) {
+				return true;
+			}
+			if (!hasMore) {
+				return false;
+			}
+			fetchNextBatch();
+			return currentBatch != null && currentBatch.hasNext();
+		}
+
+		@Override
+		public T next() {
+			if (!hasNext()) {
+				throw new NoSuchElementException();
+			}
+			return currentBatch.next();
+		}
+
+		private void fetchNextBatch() {
+			try {
+				List<T> items = fetchPage(currentPage);
+
+				if (items == null || items.isEmpty()) {
+					hasMore = false;
+					currentBatch = null;
+					return;
+				}
+
+				currentBatch = items.iterator();
+				currentPage++;
+			} catch (Exception e) {
+				handleFetchError(e);
+				hasMore = false;
+				currentBatch = null;
 			}
 		}
 
-		log("Found " + repos.size() + " matching repositories");
-		return repos;
-	}
+		/**
+		 * Fetch a page of results from the GitHub API.
+		 * @param pageNumber The page number to fetch (1-based)
+		 * @return List of items for this page, or null/empty if no more pages
+		 */
+		protected abstract List<T> fetchPage(int pageNumber) throws Exception;
 
-	/** Parse filename to extract metadata components */
-	protected static class FilenameParser {
-		public String version;
-		public String os;
-		public String arch;
-		public String extension;
-		public String imageType;
-
-		public boolean isValid() {
-			return version != null && os != null && arch != null && extension != null;
-		}
+		/**
+		 * Handle errors that occur during page fetching.
+		 * @param e The exception that occurred
+		 */
+		protected abstract void handleFetchError(Exception e);
 	}
 }

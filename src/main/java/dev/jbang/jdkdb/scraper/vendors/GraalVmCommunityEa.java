@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 /** Scraper for GraalVM Community Early Access releases from graalvm-ce-dev-builds repository */
 public class GraalVmCommunityEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "graalvm-community";
+	private static final String GITHUB_ORG = "graalvm";
+	private static final String GITHUB_REPO = "graalvm-ce-dev-builds";
 
 	// Pattern for community dev builds: graalvm-community-jdk-17.0.8_linux-x64_bin.tar.gz
 	// or with build number: graalvm-community-jdk-21.0.1-dev_linux-x64_bin.tar.gz
@@ -24,12 +26,12 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "graalvm";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("graalvm-ce-dev-builds");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override
@@ -76,8 +78,7 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 		String ext = matcher.group(4);
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s",
-				getGitHubOrg(), getGitHubRepos().get(0), tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s", getGitHubOrg(), GITHUB_REPO, tagName, assetName);
 
 		// Create metadata using builder
 		return JdkMetadata.create()

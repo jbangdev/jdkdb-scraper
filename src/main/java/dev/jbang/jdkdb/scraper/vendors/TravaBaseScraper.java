@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 /** Abstract base class for Trava OpenJDK releases with DCEVM */
 public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 	protected static final String VENDOR = "trava";
+	private static final String GITHUB_ORG = "TravaOpenJDK";
 
 	public TravaBaseScraper(ScraperConfig config) {
 		super(config);
@@ -18,11 +19,11 @@ public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "TravaOpenJDK";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		return List.of(getRepo());
 	}
 

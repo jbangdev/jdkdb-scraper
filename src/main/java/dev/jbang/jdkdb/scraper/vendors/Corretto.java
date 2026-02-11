@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 /** Scraper for Amazon Corretto releases */
 public class Corretto extends GitHubReleaseScraper {
 	private static final String VENDOR = "corretto";
+	private static final String GITHUB_ORG = "corretto";
 
 	// Pattern to extract download links from MD table in release body
 	private static final Pattern DOWNLOAD_URL_PATTERN = Pattern.compile(
@@ -24,13 +25,13 @@ public class Corretto extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "corretto";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		// Use the helper method to fetch all corretto repositories
-		return getGitHubReposFromOrg(getGitHubOrg(), "corretto", "^corretto-(\\d+|jdk)$");
+		return getReposFromOrg(getGitHubOrg(), "corretto", "^corretto-(\\d+|jdk)$");
 	}
 
 	@Override

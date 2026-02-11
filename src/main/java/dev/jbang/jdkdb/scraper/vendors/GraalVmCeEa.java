@@ -12,6 +12,8 @@ import java.util.regex.Pattern;
 /** Scraper for GraalVM CE Early Access releases from graalvm-ce-dev-builds repository */
 public class GraalVmCeEa extends GitHubReleaseScraper {
 	private static final String VENDOR = "graalvm";
+	private static final String GITHUB_ORG = "graalvm";
+	private static final String GITHUB_REPO = "graalvm-ce-dev-builds";
 
 	// Pattern for dev builds: graalvm-ce-java17-darwin-amd64-dev.tar.gz or similar
 	// Also handles: graalvm-ce-java11-linux-aarch64-22.3.0-dev-20220823_1000.tar.gz
@@ -24,12 +26,12 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "graalvm";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("graalvm-ce-dev-builds");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override
@@ -76,8 +78,7 @@ public class GraalVmCeEa extends GitHubReleaseScraper {
 		String ext = matcher.group(5);
 
 		String url = String.format(
-				"https://github.com/%s/%s/releases/download/%s/%s",
-				getGitHubOrg(), getGitHubRepos().get(0), tagName, assetName);
+				"https://github.com/%s/%s/releases/download/%s/%s", getGitHubOrg(), GITHUB_REPO, tagName, assetName);
 
 		// Create metadata
 		return JdkMetadata.create()

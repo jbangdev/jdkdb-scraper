@@ -29,7 +29,7 @@ public class GraalVmCe extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
+	protected Iterable<String> getGitHubRepos() {
 		return List.of(GITHUB_REPO);
 	}
 

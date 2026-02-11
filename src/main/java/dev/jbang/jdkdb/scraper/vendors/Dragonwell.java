@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 /** Unified scraper for all Alibaba Dragonwell releases across multiple Java versions */
 public class Dragonwell extends GitHubReleaseScraper {
 	private static final String VENDOR = "dragonwell";
+	private static final String GITHUB_ORG = "dragonwell-project";
 
 	// Multiple patterns to handle different filename formats
 	private static final Pattern STANDARD_EXTENDED_PATTERN_8 = Pattern.compile(
@@ -34,13 +35,13 @@ public class Dragonwell extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "dragonwell-project";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() throws Exception {
+	protected Iterable<String> getGitHubRepos() throws Exception {
 		// Use the helper method to fetch all dragonwell repositories
-		return getGitHubReposFromOrg(getGitHubOrg(), "dragonwell", "^dragonwell\\d+$");
+		return getReposFromOrg(getGitHubOrg(), "dragonwell", "^dragonwell\\d+$");
 	}
 
 	@Override

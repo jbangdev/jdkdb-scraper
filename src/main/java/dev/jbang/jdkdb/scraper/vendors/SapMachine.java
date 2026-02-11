@@ -12,6 +12,9 @@ import java.util.regex.Pattern;
 /** Scraper for SAP Machine releases */
 public class SapMachine extends GitHubReleaseScraper {
 	private static final String VENDOR = "sapmachine";
+	private static final String GITHUB_ORG = "SAP";
+	private static final String GITHUB_REPO = "SapMachine";
+
 	private static final Pattern RPM_PATTERN =
 			Pattern.compile("^sapmachine-(jdk|jre)-([0-9].+)\\.(aarch64|ppc64le|x86_64)\\.rpm$");
 	private static final Pattern BIN_PATTERN = Pattern.compile(
@@ -23,12 +26,12 @@ public class SapMachine extends GitHubReleaseScraper {
 
 	@Override
 	protected String getGitHubOrg() {
-		return "SAP";
+		return GITHUB_ORG;
 	}
 
 	@Override
-	protected List<String> getGitHubRepos() {
-		return List.of("SapMachine");
+	protected Iterable<String> getGitHubRepos() {
+		return List.of(GITHUB_REPO);
 	}
 
 	@Override
