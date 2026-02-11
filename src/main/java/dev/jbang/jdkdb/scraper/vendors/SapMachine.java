@@ -46,7 +46,7 @@ public class SapMachine extends GitHubReleaseScraper {
 			// Try BIN pattern
 			Matcher binMatcher = BIN_PATTERN.matcher(assetName);
 			if (!binMatcher.matches()) {
-				if (!assetName.endsWith(".txt")) {
+				if (!assetName.endsWith(".txt") && !assetName.contains("-symbols.")) {
 					warn("Skipping " + assetName + " (does not match pattern)");
 				}
 				return false;
