@@ -56,14 +56,15 @@ public abstract class BaseScraper implements Scraper {
 			// Process each metadata: download files, save metadata, track progress
 			for (JdkMetadata metadata : allMetadata) {
 				// Skip if this is a skipped placeholder (no filename set)
+				String filename = metadata.filename();
 				if (metadata.filename() == null || metadata.url() == null) {
+					skip(filename);
 					continue;
 				}
 
-				String filename = metadata.filename();
-				// If already processed (has checksums), just call skip()
+				// Skip if already processed (has checksums)
 				if (metadata.md5() != null) {
-					skip(filename);
+					success(filename);
 					continue;
 				}
 
@@ -76,6 +77,12 @@ public abstract class BaseScraper implements Scraper {
 						saveMetadataFile(metadata);
 						success(filename);
 					}
+				} catch (InterruptedProgressException e) {
+					log("Progress limit reached, stopping scraper");
+					break;
+				} catch (TooManyFailuresException e) {
+					warn("Too many failures, stopping scraper");
+					break;
 				} catch (Exception e) {
 					fail("Failed to download " + filename, e);
 					// Continue with other files

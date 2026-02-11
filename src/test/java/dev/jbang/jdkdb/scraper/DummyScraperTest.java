@@ -117,17 +117,7 @@ class DummyScraperTest {
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
 		// Create a scraper that tracks progress
-		DummyScraper scraper = new DummyScraper(limitedConfig, metadata) {
-			@Override
-			protected List<JdkMetadata> scrape() throws Exception {
-				// Simulate processing with success() calls
-				// Note: the exception is thrown when processedCount reaches limitProgress
-				for (JdkMetadata md : metadataToReturn) {
-					success(md.metadataFilename());
-				}
-				return metadataToReturn;
-			}
-		};
+		DummyScraper scraper = new DummyScraper(limitedConfig, metadata);
 
 		// When
 		ScraperResult result = scraper.call();
