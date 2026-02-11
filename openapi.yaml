@@ -1,0 +1,347 @@
+openapi: "3.0.0"
+info:
+  description: "Java Metadata API"
+  version: "1.0.0"
+  title: "Java Metadata API"
+  contact:
+    name: "GitHub"
+    url: "https://github.com/joschi/java-metadata/"
+servers:
+  - url: "https://joschi.github.io/java-metadata/"
+tags:
+- name: "checksum"
+  description: "Checksum files for JRE/JDK download artifacts"
+- name: "metadata"
+  description: "Meta data of JRE/JDK download artifacts"
+components:
+  schemas:
+    hashAlgorithms:
+      type: string
+      enum:
+        - "md5"
+        - "sha1"
+        - "sha256"
+        - "sha512"
+    vendors:
+      type: string
+      enum:
+        - "adoptopenjdk"
+        - "bisheng"
+        - "corretto"
+        - "dragonwell"
+        - "graalvm"
+        - "graalvm-community"
+        - "ibm"
+        - "java-se-ri"
+        - "jetbrains"
+        - "kona"
+        - "liberica"
+        - "mandrel"
+        - "microsoft"
+        - "openjdk"
+        - "oracle"
+        - "oracle-graalvm"
+        - "redhat"
+        - "sapmachine"
+        - "semeru"
+        - "temurin"
+        - "trava"
+        - "zulu"
+    operatingSystems:
+      type: string
+      enum:
+        - "linux"
+        - "macosx"
+        - "windows"
+        - "solaris"
+        - "aix"
+    architectures:
+      type: string
+      enum:
+        - "x86_64"
+        - "i686"
+        - "aarch64"
+        - "arm32"
+        - "arm32-vfp-hflt"
+        - "ppc32"
+        - "ppc64"
+        - "ppc64le"
+        - "s390"
+        - "s390x"
+        - "sparcv9"
+        - "riscv64"
+    releaseTypes:
+      type: string
+      enum:
+        - "ea"
+        - "ga"
+    imageTypes:
+      type: string
+      enum:
+        - "jre"
+        - "jdk"
+    jvmImpls:
+      type: string
+      enum:
+        - "hotspot"
+        - "openj9"
+        - "graalvm"
+    metadata:
+      type: "object"
+      properties:
+        vendor:
+          $ref: '#/components/schemas/vendors'
+        filename:
+          type: string
+        file_type:
+          type: string
+        release_type:
+          $ref: '#/components/schemas/releaseTypes'
+        version:
+          type: string
+        java_version:
+          type: string
+        jvm_impl:
+          $ref: '#/components/schemas/jvmImpls'
+        os:
+          $ref: '#/components/schemas/operatingSystems'
+        architecture:
+          $ref: '#/components/schemas/architectures'
+        image_type:
+          $ref: '#/components/schemas/imageTypes'
+        features:
+          type: "array"
+          items:
+            type: string
+        url:
+          type: string
+          format: uri
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+        md5_file:
+          type: string
+        sha1:
+          type: string
+          pattern: '^[a-fA-F0-9]{40}$'
+        sha1_file:
+          type: string
+        sha256:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+        sha256_file:
+          type: string
+        sha512:
+          type: string
+          pattern: '^[a-fA-F0-9]{128}$'
+        sha512_file:
+          type: string
+        size:
+          type: integer
+          format: int32
+      example:
+        {
+          "vendor": "adoptopenjdk",
+          "filename": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz",
+          "release_type": "ga",
+          "version": "14.0.0+36.1",
+          "java_version": "14+36",
+          "jvm_impl": "hotspot",
+          "os": "linux",
+          "architecture": "x86_64",
+          "file_type": "tar.gz",
+          "image_type": "jdk",
+          "features": [],
+          "url": "https://github.com/AdoptOpenJDK/openjdk14-binaries/releases/download/jdk-14%2B36/OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz",
+          "md5": "320a1f6dbff0a37f2fdac5ddd34a9742",
+          "md5_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.md5",
+          "sha1": "bf76d736f4b738e3e16ea747134a5bda4cf3b1e9",
+          "sha1_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha1",
+          "sha256": "6c06853332585ab58834d9e8a02774b388e6e062ef6c4084b4f058c67f2e81b5",
+          "sha256_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha256",
+          "sha512": "1851cf24db0b48007a2373d8596cf4b8d832d10a2f41316799c4af2bd37cbab4b211e7913d431b59f6bc212957cdbae401c6bcd389635c248c939433cef63516",
+          "sha512_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha512",
+          "size": 216382990
+        }
+    response:
+      type: array
+      items:
+        $ref: '#/components/schemas/metadata'
+      example:
+        [
+          {
+            "vendor": "adoptopenjdk",
+            "filename": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz",
+            "release_type": "ga",
+            "version": "14.0.0+36.1",
+            "java_version": "14+36",
+            "jvm_impl": "hotspot",
+            "os": "linux",
+            "architecture": "x86_64",
+            "file_type": "tar.gz",
+            "image_type": "jdk",
+            "features": [],
+            "url": "https://github.com/AdoptOpenJDK/openjdk14-binaries/releases/download/jdk-14%2B36/OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz",
+            "md5": "320a1f6dbff0a37f2fdac5ddd34a9742",
+            "md5_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.md5",
+            "sha1": "bf76d736f4b738e3e16ea747134a5bda4cf3b1e9",
+            "sha1_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha1",
+            "sha256": "6c06853332585ab58834d9e8a02774b388e6e062ef6c4084b4f058c67f2e81b5",
+            "sha256_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha256",
+            "sha512": "1851cf24db0b48007a2373d8596cf4b8d832d10a2f41316799c4af2bd37cbab4b211e7913d431b59f6bc212957cdbae401c6bcd389635c248c939433cef63516",
+            "sha512_file": "OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz.sha512",
+            "size": 216382990
+          }
+        ]
+paths:
+  "/checksums/{vendor}/{artifact_name}.{hash_algorithm}":
+    get:
+      description: "Get the checksum file for a download artifact"
+      tags:
+      - "checksum"
+      operationId: "getChecksum"
+      parameters:
+        - name: "vendor"
+          in: path
+          description: "The JDK/JRE vendor"
+          required: true
+          schema:
+            $ref: '#/components/schemas/vendors'
+        - name: "artifact_name"
+          in: path
+          description: "The (file) name of the download artifact"
+          required: true
+          schema:
+            type: string
+        - name: "hash_algorithm"
+          in: path
+          description: "The hash algorithm"
+          required: true
+          schema:
+            $ref: '#/components/schemas/hashAlgorithms'
+      responses:
+        200:
+          description: "Checksum file for the download artifact"
+          content:
+            "text/plain":
+              schema:
+                type: string
+              example: >-
+                6c06853332585ab58834d9e8a02774b388e6e062ef6c4084b4f058c67f2e81b5  OpenJDK14U-jdk_x64_linux_hotspot_14_36.tar.gz
+        404:
+          description: "Invalid input"
+  "/metadata/all.json":
+    get:
+      description: "List of information about all indexed Java distributions"
+      tags:
+      - "metadata"
+      operationId: "findAll"
+      responses:
+        200:
+          description: "Meta data about download artifact"
+          content:
+            "application/json":
+              schema:
+                $ref: '#/components/schemas/response'
+  "/metadata/vendor/{vendor}/{artifact_name}.json":
+    get:
+      description: "List of information about the given Java distribution by the given vendor"
+      tags:
+      - "metadata"
+      operationId: "findByVendorArtifact"
+      parameters:
+        - name: "vendor"
+          in: path
+          description: "The JDK/JRE vendor"
+          required: true
+          schema:
+            $ref: '#/components/schemas/vendors'
+        - name: artifact_name
+          in: path
+          description: "The (file) name of the download artifact"
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: "Meta data about download artifact"
+          content:
+            "application/json":
+              schema:
+                $ref: '#/components/schemas/metadata'
+        404:
+          description: "Invalid input"
+  "/metadata/vendor/{vendor}/all.json":
+    get:
+      description: "List of information about Java distributions by the given vendor"
+      tags:
+      - "metadata"
+      operationId: "findByVendor"
+      parameters:
+        - name: "vendor"
+          in: path
+          description: "The JVM vendor"
+          required: true
+          schema:
+            $ref: '#/components/schemas/vendors'
+      responses:
+        200:
+          description: "Meta data about download artifact"
+          content:
+            "application/json":
+              schema:
+                $ref: '#/components/schemas/response'
+        404:
+          description: "Invalid input"
+  "/metadata/{release_type}/{os}/{arch}/{image_type}/{jvm_impl}/{vendor}.json":
+    get:
+      description: "List of information about Java distributions that match the current query"
+      tags:
+      - "metadata"
+      operationId: "findByReleaseTypeOsArchVariantJvmImpl/Vendor"
+      parameters:
+        - name: "release_type"
+          in: path
+          description: "The release type"
+          required: true
+          schema:
+            $ref: '#/components/schemas/releaseTypes'
+        - name: "os"
+          in: path
+          description: "The operating system"
+          required: true
+          schema:
+            $ref: '#/components/schemas/operatingSystems'
+        - name: "arch"
+          in: path
+          description: "The machine architecture"
+          required: true
+          schema:
+            $ref: '#/components/schemas/architectures'
+        - name: "image_type"
+          in: path
+          description: "The distribution image type"
+          required: true
+          schema:
+            $ref: '#/components/schemas/imageTypes'
+        - name: "jvm_impl"
+          in: path
+          description: "The JVM implementation"
+          required: true
+          schema:
+            $ref: '#/components/schemas/jvmImpls'
+        - name: "vendor"
+          in: path
+          description: "The JVM vendor"
+          required: true
+          schema:
+            $ref: '#/components/schemas/vendors'
+      responses:
+        200:
+          description: "Meta data about download artifact"
+          content:
+            "application/json":
+              schema:
+                $ref: '#/components/schemas/response'
+        404:
+          description: "Invalid input"
