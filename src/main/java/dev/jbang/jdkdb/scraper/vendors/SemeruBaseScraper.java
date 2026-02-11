@@ -13,10 +13,11 @@ import java.util.regex.Pattern;
 /** Base class for IBM Semeru scrapers (both Open and Certified editions) */
 public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	// Parse filename patterns for both open and certified releases
-	protected Pattern rpmPattern = Pattern.compile(
+	protected static final Pattern rpmPattern = Pattern.compile(
 			"^ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
-	protected Pattern tarPattern = Pattern.compile(
-			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+_openj9-.+\\.(tar\\.gz|zip|msi|pkg)$");
+	protected static final Pattern tarPattern = Pattern.compile(
+			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+\\.(tar\\.gz|zip|msi|pkg)$");
+	protected static final Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);
@@ -48,24 +49,19 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	/** Get additional features to add to metadata */
 	protected abstract List<String> getAdditionalFeatures();
 
-	private static final Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
-
 	@Override
 	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
-		String tagName = release.get("tag_name").asText();
-		Matcher versionMatcher = versionPattern.matcher(tagName);
-		if (!versionMatcher.matches()) {
-			return;
-		}
-		String parsedJavaVersion = versionMatcher.group(1);
-		String openj9Version = versionMatcher.group(2);
-		String version = parsedJavaVersion + "_openj9-" + openj9Version;
-		processReleaseAssets(
-				allMetadata, release, (r, asset) -> processAsset(release, asset, version, parsedJavaVersion));
+		processReleaseAssets(allMetadata, release, this::processAsset);
 	}
 
 	@Override
 	protected boolean shouldProcessAsset(JsonNode release, JsonNode asset) {
+		String tagName = release.get("tag_name").asText();
+		Matcher versionMatcher = versionPattern.matcher(tagName);
+		if (!versionMatcher.matches()) {
+			warn("Skipping release " + tagName + " (tag does not match expected pattern)");
+			return false;
+		}
 		String filename = asset.get("name").asText();
 		String imageType = null;
 		Matcher rpmMatcher = rpmPattern.matcher(filename);
@@ -81,6 +77,8 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			if (!filename.endsWith(".txt")
 					&& !filename.endsWith(".json")
 					&& !filename.endsWith(".sig")
+					&& !filename.endsWith(".tap.zip")
+					&& !filename.endsWith(".bin")
 					&& !filename.contains("-debugimage_")
 					&& !filename.contains("-testimage_")) {
 				// Only show message for unexpected files
@@ -96,8 +94,14 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		return true;
 	}
 
-	private JdkMetadata processAsset(JsonNode release, JsonNode asset, String version, String parsedJavaVersion)
-			throws Exception {
+	protected JdkMetadata processAsset(JsonNode release, JsonNode asset) throws Exception {
+		String tagName = release.get("tag_name").asText();
+		Matcher versionMatcher = versionPattern.matcher(tagName);
+		versionMatcher.matches();
+		String parsedJavaVersion = versionMatcher.group(1);
+		String openj9Version = versionMatcher.group(2);
+		String version = parsedJavaVersion + "_openj9-" + openj9Version;
+
 		String filename = asset.get("name").asText();
 		String url = asset.get("browser_download_url").asText();
 
