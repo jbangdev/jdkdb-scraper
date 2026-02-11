@@ -92,9 +92,13 @@ public class Debian extends BaseScraper {
 	}
 
 	private JdkMetadata processAsset(String filename, String cdnUrl) {
+		// Silently ignore anything that is not a .deb file
+		if (filename == null || !filename.endsWith(".deb")) {
+			return null;
+		}
 		Matcher matcher = DEB_PKG_PATTERN.matcher(filename);
 		if (!matcher.matches()) {
-			if (!filename.startsWith("openjdk-")
+			if (filename.startsWith("openjdk-")
 					&& !filename.contains("-dbg_")
 					&& !filename.contains("-demo_")
 					&& !filename.contains("-doc_")

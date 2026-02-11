@@ -58,7 +58,7 @@ public abstract class BaseScraper implements Scraper {
 				// Skip if this is a skipped placeholder (no filename set)
 				String filename = metadata.filename();
 				if (metadata.filename() == null || metadata.url() == null) {
-					skip(filename);
+					skip(metadata.metadataFilename());
 					continue;
 				}
 
@@ -126,7 +126,6 @@ public abstract class BaseScraper implements Scraper {
 
 	protected void skip(String filename) {
 		progress.skipped(filename);
-		logger.info("Skipping " + filename + " (already exists)");
 		skippedCount++;
 	}
 

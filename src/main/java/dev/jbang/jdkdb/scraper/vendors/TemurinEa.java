@@ -49,20 +49,15 @@ public class TemurinEa extends GitHubReleaseScraper {
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
 			if (!assetName.endsWith(".txt")
+					&& !assetName.endsWith(".json")
 					&& !assetName.endsWith(".sig")
+					&& !assetName.contains("-sources_")
 					&& !assetName.contains("-debugimage_")
 					&& !assetName.contains("-testimage_")) {
 				warn("Skipping " + assetName + " (does not match pattern)");
 			}
 			return null;
 		}
-
-		String metadataFilename = toMetadataFilename(release, asset);
-		if (metadataExists(metadataFilename)) {
-			return skipped(metadataFilename);
-		}
-
-		String downloadUrl = asset.get("browser_download_url").asText();
 
 		String versionStr = matcher.group(1);
 		String imageType = matcher.group(2);
@@ -76,6 +71,13 @@ public class TemurinEa extends GitHubReleaseScraper {
 		if (!imageType.equals("jdk") && !imageType.equals("jre")) {
 			return null;
 		}
+
+		String metadataFilename = toMetadataFilename(release, asset);
+		if (metadataExists(metadataFilename)) {
+			return skipped(metadataFilename);
+		}
+
+		String downloadUrl = asset.get("browser_download_url").asText();
 
 		// Extract Java version from filename
 		int javaVersion = Integer.parseInt(versionStr);

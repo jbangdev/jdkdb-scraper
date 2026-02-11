@@ -16,7 +16,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			"^ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
 	protected static final Pattern tarPattern = Pattern.compile(
 			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+\\.(tar\\.gz|zip|msi|pkg)$");
-	protected static final Pattern versionPattern = Pattern.compile("jdk-(.*)_openj9-(.*)");
+	protected static final Pattern versionPattern = Pattern.compile("jdk(.*)[_-]openj9-(.*)");
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);
@@ -50,25 +50,35 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 
 	@Override
 	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
-		processReleaseAssets(allMetadata, release, this::processAsset);
-	}
-
-	protected JdkMetadata processAsset(JsonNode release, JsonNode asset) {
 		String tagName = release.get("tag_name").asText();
 		Matcher versionMatcher = versionPattern.matcher(tagName);
 		if (!versionMatcher.matches()) {
 			warn("Skipping release " + tagName + " (tag does not match expected pattern)");
-			return null;
+			return;
 		}
 
-		String imageType = null;
-		String arch = null;
-		String os = null;
-		String extension = null;
+		processReleaseAssets(allMetadata, release, this::processAsset);
+	}
+
+	protected JdkMetadata processAsset(JsonNode release, JsonNode asset) {
+		String imageType;
+		String arch;
+		String os;
+		String extension;
 
 		String filename = asset.get("name").asText();
-		Matcher rpmMatcher = rpmPattern.matcher(filename);
-		if (rpmMatcher.matches()) {
+		if (filename == null) {
+			warn("Skipping asset with no name");
+			return null;
+		}
+		if (filename.endsWith(".rpm")) {
+			Matcher rpmMatcher = rpmPattern.matcher(filename);
+			if (!rpmMatcher.matches()) {
+				if (!filename.endsWith(".src.rpm")) {
+					warn("Skipping " + filename + " (RPM does not match pattern)");
+				}
+				return null;
+			}
 			imageType = rpmMatcher.group(1);
 			arch = rpmMatcher.group(3);
 			os = "linux";
@@ -105,6 +115,9 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			return skipped(metadataFilename);
 		}
 
+		String tagName = release.get("tag_name").asText();
+		Matcher versionMatcher = versionPattern.matcher(tagName);
+		versionMatcher.matches(); // Already verified in processRelease()
 		String parsedJavaVersion = versionMatcher.group(1);
 		String openj9Version = versionMatcher.group(2);
 		String version = parsedJavaVersion + "_openj9-" + openj9Version;

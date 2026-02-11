@@ -253,7 +253,7 @@ public class JdkMetadata {
 	}
 
 	public String metadataFilename() {
-		if (metadataFilename == null) {
+		if (metadataFilename == null && filename != null) {
 			return filename + ".json";
 		}
 		return metadataFilename;

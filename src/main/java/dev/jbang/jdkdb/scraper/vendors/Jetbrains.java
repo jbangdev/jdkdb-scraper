@@ -57,7 +57,9 @@ public class Jetbrains extends GitHubReleaseScraper {
 	private JdkMetadata processAsset(String assetName, String url, String releaseType, String description) {
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
-			warn("Skipping " + assetName + " (does not match pattern)");
+			if (!assetName.endsWith(".checksum")) {
+				warn("Skipping " + assetName + " (does not match pattern)");
+			}
 			return null;
 		}
 
@@ -65,7 +67,6 @@ public class Jetbrains extends GitHubReleaseScraper {
 			return skipped(assetName);
 		}
 
-		matcher.matches();
 		String sdkMarker = matcher.group(1);
 		String versionPart = matcher.group(2).replace("_", ".");
 		String os = matcher.group(3);
