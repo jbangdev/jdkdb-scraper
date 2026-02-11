@@ -45,7 +45,7 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 		String assetName = asset.get("name").asText();
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
-			if (!assetName.endsWith(".sha256")) {
+			if (!assetName.endsWith(".sha256") && !assetName.startsWith("maven-resource-bundle-")) {
 				warn("Skipping " + assetName + " (does not match pattern)");
 			}
 			return false;

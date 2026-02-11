@@ -90,7 +90,7 @@ public abstract class BaseScraper implements Scraper {
 
 	protected void skip(String filename) {
 		progress.skipped(filename);
-		logger.info("Skipped " + filename + " (already exists)");
+		logger.info("Skipping " + filename + " (already exists)");
 		skippedCount++;
 	}
 
