@@ -2,11 +2,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Pattern;
 
 /** Scraper for Microsoft OpenJDK builds */
@@ -20,9 +18,7 @@ public class Microsoft extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		var allMetadata = new ArrayList<JdkMetadata>();
-
+	protected void scrape() throws Exception {
 		// Download the Microsoft JDK download page
 		String html;
 		try {
@@ -46,18 +42,12 @@ public class Microsoft extends BaseScraper {
 
 		log("Found " + files.size() + " files to process");
 
-		try {
-			for (var filename : files) {
-				var metadata = processAsset(filename);
-				if (metadata != null) {
-					allMetadata.add(metadata);
-				}
+		for (var filename : files) {
+			var metadata = processAsset(filename);
+			if (metadata != null) {
+				process(metadata);
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename) {

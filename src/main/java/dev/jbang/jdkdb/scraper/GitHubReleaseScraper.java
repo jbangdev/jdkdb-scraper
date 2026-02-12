@@ -24,7 +24,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	protected abstract Iterable<String> getGitHubRepos() throws Exception;
 
 	/** Process a single release and extract metadata */
-	protected abstract void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception;
+	protected abstract void processRelease(JsonNode release) throws Exception;
 
 	/** Return metadata filename based on asset name */
 	protected String toMetadataFilename(JsonNode release, JsonNode asset) {
@@ -34,12 +34,10 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	/**
 	 * Process release assets with common iteration and error handling logic.
 	 * This method reduces boilerplate by handling the standard asset processing pattern.
-	 * @param allMetadata List to collect metadata results
 	 * @param release The GitHub release JSON node
 	 * @param assetProcessor Function to process each asset, returns null to skip the asset
 	 */
-	protected void processReleaseAssets(
-			List<JdkMetadata> allMetadata, JsonNode release, AssetProcessor assetProcessor) {
+	protected void processReleaseAssets(JsonNode release, AssetProcessor assetProcessor) {
 		JsonNode assets = release.get("assets");
 		if (assets == null || !assets.isArray()) {
 			return;
@@ -48,7 +46,7 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 		for (JsonNode asset : assets) {
 			JdkMetadata metadata = assetProcessor.process(release, asset);
 			if (metadata != null) {
-				allMetadata.add(metadata);
+				process(metadata);
 			}
 		}
 	}
@@ -87,24 +85,22 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		Iterable<String> repos = getGitHubRepos();
 		for (String repo : repos) {
-			processRepo(allMetadata, repo);
+			processRepo(repo);
 		}
-
-		return allMetadata;
 	}
 
-	protected void processRepo(List<JdkMetadata> allMetadata, String repo) {
+	protected void processRepo(String repo) {
 		log("Processing repository: " + repo);
 
 		Iterable<JsonNode> releases = getReleasesFromRepos(getGitHubOrg(), repo);
 		for (JsonNode release : releases) {
 			try {
-				processRelease(allMetadata, release);
+				processRelease(release);
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e; // Rethrow to be handled at a higher level
 			} catch (Exception e) {
 				String tagName =
 						release.has("tag_name") ? release.get("tag_name").asText() : "unknown";

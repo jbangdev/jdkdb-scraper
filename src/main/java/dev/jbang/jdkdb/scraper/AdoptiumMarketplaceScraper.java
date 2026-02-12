@@ -3,7 +3,6 @@ package dev.jbang.jdkdb.scraper;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -46,21 +45,17 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 
 	/**
 	 * Process a single binary from an asset
-	 *
 	 * @param binary the binary JSON node
 	 * @param version the version string
 	 * @param javaVersion the Java version string
-	 * @param allMetadata list to add processed metadata to
+	 *
 	 * @return the JdkMetadata object, or null if not processed
 	 * @throws Exception on processing errors
 	 */
-	protected abstract JdkMetadata processAsset(
-			JsonNode binary, String version, String javaVersion, List<JdkMetadata> allMetadata);
+	protected abstract JdkMetadata processAsset(JsonNode binary, String version, String javaVersion);
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		// Get list of available releases
 		String releasesJson;
 		try {
@@ -76,7 +71,7 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 
 		if (availableReleases == null || !availableReleases.isArray()) {
 			fail("No available releases found", null);
-			return Collections.emptyList();
+			return;
 		}
 
 		try {
@@ -109,7 +104,7 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 					}
 
 					if (assets.isArray() && assets.size() > 0) {
-						processAssets(assets, allMetadata);
+						processAssets(assets);
 						page++;
 						if (page >= 25) { // Safety limit to prevent infinite pagination
 							log("Reached page limit for release " + release + ", moving to next release");
@@ -123,11 +118,9 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 		} catch (InterruptedProgressException e) {
 			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
-	private void processAssets(JsonNode assets, List<JdkMetadata> allMetadata) throws Exception {
+	private void processAssets(JsonNode assets) throws Exception {
 		for (JsonNode asset : assets) {
 			String javaVersion = extractJavaVersion(asset);
 			String version = extractVersion(asset);
@@ -135,9 +128,9 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 			JsonNode binaries = asset.get("binaries");
 			if (binaries != null && binaries.isArray()) {
 				for (JsonNode binary : binaries) {
-					JdkMetadata metadata = processAsset(binary, version, javaVersion, allMetadata);
+					JdkMetadata metadata = processAsset(binary, version, javaVersion);
 					if (metadata != null) {
-						allMetadata.add(metadata);
+						process(metadata);
 					}
 				}
 			}
@@ -146,11 +139,7 @@ public abstract class AdoptiumMarketplaceScraper extends BaseScraper {
 
 	/** Helper to create standard metadata from binary JSON */
 	protected JdkMetadata createStandardMetadata(
-			JsonNode binary,
-			String version,
-			String javaVersion,
-			List<JdkMetadata> allMetadata,
-			List<String> additionalFeatures) {
+			JsonNode binary, String version, String javaVersion, List<String> additionalFeatures) {
 		// Only process JDK and JRE
 		String imageType = binary.path("image_type").asText();
 		if (!imageType.equals("jdk") && !imageType.equals("jre")) {

@@ -124,9 +124,8 @@ class DummyScraperTest {
 
 		// Then
 		// The exception should be caught by call() and returned as a failure
-		assertThat(result.success()).isFalse();
-		assertThat(result.error()).isInstanceOf(InterruptedProgressException.class);
-		assertThat(result.error().getMessage()).contains("Reached progress limit of 2 items");
+		assertThat(result.success()).isTrue();
+		assertThat(result.itemsProcessed()).isEqualTo(2);
 	}
 
 	@Test
@@ -143,7 +142,7 @@ class DummyScraperTest {
 
 		DummyScraper scraper = new DummyScraper(limitedConfig) {
 			@Override
-			protected List<JdkMetadata> scrape() throws Exception {
+			protected void scrape() throws Exception {
 				// Note: The fail() method has a condition that only increments failureCount
 				// when failureCount > 0, so it won't actually throw with the current implementation.
 				// This test documents the actual behavior, not the expected behavior.
@@ -152,7 +151,6 @@ class DummyScraperTest {
 				fail("item1", new RuntimeException("error1"));
 				fail("item2", new RuntimeException("error2"));
 				fail("item3", new RuntimeException("error3"));
-				return new ArrayList<>();
 			}
 		};
 

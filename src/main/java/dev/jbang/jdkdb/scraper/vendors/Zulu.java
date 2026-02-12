@@ -2,11 +2,9 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,9 +23,7 @@ public class Zulu extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		// Download index page
 		String html;
 		try {
@@ -35,7 +31,7 @@ public class Zulu extends BaseScraper {
 			html = httpUtils.downloadString(INDEX_URL);
 		} catch (Exception e) {
 			fail("Failed to fetch index page", e);
-			return Collections.emptyList();
+			return;
 		}
 
 		// Extract file links
@@ -47,18 +43,12 @@ public class Zulu extends BaseScraper {
 
 		log("Found " + files.size() + " files to process");
 
-		try {
-			for (String filename : files) {
-				JdkMetadata metadata = processAsset(filename);
-				if (metadata != null) {
-					allMetadata.add(metadata);
-				}
+		for (String filename : files) {
+			JdkMetadata metadata = processAsset(filename);
+			if (metadata != null) {
+				process(metadata);
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename) {

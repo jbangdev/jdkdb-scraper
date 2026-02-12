@@ -30,15 +30,14 @@ public class DummyScraper extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected void scrape() throws Exception {
 		if (shouldThrowException) {
 			throw new RuntimeException(exceptionMessage != null ? exceptionMessage : "Test exception");
 		}
 		// Save individual metadata files like real scrapers do
 		for (JdkMetadata metadata : metadataToReturn) {
-			saveMetadataFile(metadata);
+			process(metadata);
 		}
-		return metadataToReturn;
 	}
 
 	/** Discovery implementation for ServiceLoader testing */

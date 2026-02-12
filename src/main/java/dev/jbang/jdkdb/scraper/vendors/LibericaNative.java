@@ -3,7 +3,6 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
@@ -21,9 +20,7 @@ public class LibericaNative extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		// Query Liberica API for native image releases
 		String apiUrl = API_BASE_URL + "?bundle-type=full&components=liberica&components=nik";
 
@@ -39,22 +36,16 @@ public class LibericaNative extends BaseScraper {
 
 		if (!assets.isArray()) {
 			warn("No assets found");
-			return allMetadata;
+			return;
 		}
 
 		log("Found " + assets.size() + " assets");
-		try {
-			for (JsonNode asset : assets) {
-				JdkMetadata metadata = processAsset(asset);
-				if (metadata != null) {
-					allMetadata.add(metadata);
-				}
+		for (JsonNode asset : assets) {
+			JdkMetadata metadata = processAsset(asset);
+			if (metadata != null) {
+				process(metadata);
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(JsonNode asset) {
@@ -63,7 +54,12 @@ public class LibericaNative extends BaseScraper {
 			warn("Skipping asset (missing or invalid filename)");
 			return null;
 		}
+
 		String filename = filenameNode.asText();
+		if (filename.endsWith(".src.tar.gz")) {
+			return null;
+		}
+
 		JsonNode downloadUrlNode = asset.get("downloadUrl");
 		if (downloadUrlNode == null
 				|| !downloadUrlNode.isTextual()
@@ -140,10 +136,6 @@ public class LibericaNative extends BaseScraper {
 
 		if (ext.isEmpty()) {
 			warn("Skipping asset with unknown file extension");
-			return null;
-		}
-		if (ext.equals("src.tar.gz")) {
-			log("Skipping source asset");
 			return null;
 		}
 

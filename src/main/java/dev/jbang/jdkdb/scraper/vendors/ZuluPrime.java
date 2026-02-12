@@ -2,12 +2,10 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -26,16 +24,14 @@ public class ZuluPrime extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		String propertiesContent;
 		try {
 			log("Fetching properties from " + PROPERTIES_URL);
 			propertiesContent = httpUtils.downloadString(PROPERTIES_URL);
 		} catch (Exception e) {
 			fail("Failed to fetch properties file", e);
-			return Collections.emptyList();
+			return;
 		}
 
 		Properties props = new Properties();
@@ -43,21 +39,15 @@ public class ZuluPrime extends BaseScraper {
 
 		log("Found " + props.size() + " entries in properties file");
 
-		try {
-			for (String key : props.stringPropertyNames()) {
-				String url = props.getProperty(key);
-				String filename = url.substring(url.lastIndexOf('/') + 1);
+		for (String key : props.stringPropertyNames()) {
+			String url = props.getProperty(key);
+			String filename = url.substring(url.lastIndexOf('/') + 1);
 
-				JdkMetadata metadata = processAsset(filename, url);
-				if (metadata != null) {
-					allMetadata.add(metadata);
-				}
+			JdkMetadata metadata = processAsset(filename, url);
+			if (metadata != null) {
+				process(metadata);
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename, String url) {

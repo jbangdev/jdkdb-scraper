@@ -37,7 +37,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		boolean prerelease = release.get("prerelease").asBoolean();
 		String releaseType = prerelease ? "ea" : "ga";
 		String body = release.get("body").asText("");
@@ -51,7 +51,7 @@ public class Jetbrains extends GitHubReleaseScraper {
 
 			JdkMetadata metadata = processAsset(file, url, releaseType, description);
 			if (metadata != null) {
-				allMetadata.add(metadata);
+				process(metadata);
 			}
 		}
 	}

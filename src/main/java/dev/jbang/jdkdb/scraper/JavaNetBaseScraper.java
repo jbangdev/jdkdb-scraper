@@ -47,9 +47,7 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		// Fetch all index pages and extract download URLs
 		List<String> downloadUrls = new ArrayList<>();
 		for (String indexUrl : getIndexUrls()) {
@@ -64,25 +62,13 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 
 		log("Found " + downloadUrls.size() + " download URLs");
 
-		try {
-			// Process each download URL
-			for (String url : downloadUrls) {
-				String filename = extractFilename(url);
-				if (filename == null) {
-					fine("Could not extract filename from URL: " + url);
-					continue;
-				}
-
-				JdkMetadata metadata = processAsset(filename, url);
-				if (metadata != null) {
-					allMetadata.add(metadata);
-				}
+		// Process each download URL
+		for (String url : downloadUrls) {
+			JdkMetadata metadata = processAsset(url);
+			if (metadata != null) {
+				process(metadata);
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
 	private void extractUrls(String html, List<String> downloadUrls) {
@@ -103,7 +89,13 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 		return null;
 	}
 
-	private JdkMetadata processAsset(String filename, String url) {
+	private JdkMetadata processAsset(String url) {
+		String filename = extractFilename(url);
+		if (filename == null) {
+			fine("Could not extract filename from URL: " + url);
+			return null;
+		}
+
 		Matcher matcher = getFilenamePattern().matcher(filename);
 		if (!matcher.matches()) {
 			warn("Skipping " + filename + " (does not match pattern)");

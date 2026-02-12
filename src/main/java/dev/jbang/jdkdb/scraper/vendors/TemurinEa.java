@@ -35,14 +35,14 @@ public class TemurinEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		// Only process prereleases (EA releases)
 		boolean isPrerelease = release.path("prerelease").asBoolean(false);
 		if (!isPrerelease) {
 			return;
 		}
 
-		processReleaseAssets(allMetadata, release, this::processAsset);
+		processReleaseAssets(release, this::processAsset);
 	}
 
 	private JdkMetadata processAsset(JsonNode release, JsonNode asset) {

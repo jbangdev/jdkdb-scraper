@@ -28,8 +28,8 @@ public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
-		processReleaseAssets(allMetadata, release, this::processAsset);
+	protected void processRelease(JsonNode release) throws Exception {
+		processReleaseAssets(release, this::processAsset);
 	}
 
 	private JdkMetadata processAsset(JsonNode release, JsonNode asset) {

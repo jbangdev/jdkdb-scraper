@@ -35,7 +35,7 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		// Only process Community releases (which start with "jdk")
 		String tagName = release.get("tag_name").asText();
 		if (!tagName.startsWith("jdk")) {
@@ -48,7 +48,7 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 			return;
 		}
 
-		processReleaseAssets(allMetadata, release, this::processAsset);
+		processReleaseAssets(release, this::processAsset);
 	}
 
 	private JdkMetadata processAsset(JsonNode release, JsonNode asset) {

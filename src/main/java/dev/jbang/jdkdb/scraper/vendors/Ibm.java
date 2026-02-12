@@ -2,7 +2,6 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
@@ -24,9 +23,7 @@ public class Ibm extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		String indexHtml;
 		try {
 			log("Fetching index");
@@ -45,60 +42,52 @@ public class Ibm extends BaseScraper {
 
 		log("Found " + jdkVersions.size() + " JDK versions");
 
-		try {
-			for (String jdkVersion : jdkVersions) {
-				log("Processing JDK version: " + jdkVersion);
+		for (String jdkVersion : jdkVersions) {
+			log("Processing JDK version: " + jdkVersion);
 
-				// Fetch architecture list
-				String archUrl = BASE_URL + jdkVersion + "/linux/";
-				String archHtml;
+			// Fetch architecture list
+			String archUrl = BASE_URL + jdkVersion + "/linux/";
+			String archHtml;
+			try {
+				archHtml = httpUtils.downloadString(archUrl);
+			} catch (Exception e) {
+				warn("Failed to fetch architecture list for " + jdkVersion + ": " + e.getMessage());
+				continue;
+			}
+
+			Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
+			List<String> architectures = new ArrayList<>();
+			while (archMatcher.find()) {
+				architectures.add(archMatcher.group(1));
+			}
+
+			for (String architecture : architectures) {
+				log("Processing architecture: " + architecture);
+
+				// Fetch file list
+				String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
+				String filesHtml;
 				try {
-					archHtml = httpUtils.downloadString(archUrl);
+					filesHtml = httpUtils.downloadString(filesUrl);
 				} catch (Exception e) {
-					warn("Failed to fetch architecture list for " + jdkVersion + ": " + e.getMessage());
+					warn("Failed to fetch file list for " + jdkVersion + " " + architecture + ": " + e.getMessage());
 					continue;
 				}
 
-				Matcher archMatcher = ARCH_PATTERN.matcher(archHtml);
-				List<String> architectures = new ArrayList<>();
-				while (archMatcher.find()) {
-					architectures.add(archMatcher.group(1));
-				}
+				Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
+				while (fileMatcher.find()) {
+					String ibmFile = fileMatcher.group(1);
 
-				for (String architecture : architectures) {
-					log("Processing architecture: " + architecture);
-
-					// Fetch file list
-					String filesUrl = BASE_URL + jdkVersion + "/linux/" + architecture + "/";
-					String filesHtml;
-					try {
-						filesHtml = httpUtils.downloadString(filesUrl);
-					} catch (Exception e) {
-						warn("Failed to fetch file list for " + jdkVersion + " " + architecture + ": "
-								+ e.getMessage());
-						continue;
-					}
-
-					Matcher fileMatcher = FILE_PATTERN.matcher(filesHtml);
-					while (fileMatcher.find()) {
-						String ibmFile = fileMatcher.group(1);
-
-						JdkMetadata metadata = processAsset(ibmFile, jdkVersion, architecture, allMetadata);
-						if (metadata != null) {
-							allMetadata.add(metadata);
-						}
+					JdkMetadata metadata = processAsset(ibmFile, jdkVersion, architecture);
+					if (metadata != null) {
+						process(metadata);
 					}
 				}
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
-	private JdkMetadata processAsset(
-			String ibmFile, String jdkVersion, String architecture, List<JdkMetadata> allMetadata) {
+	private JdkMetadata processAsset(String ibmFile, String jdkVersion, String architecture) {
 
 		// Skip SFJ files
 		if (ibmFile.contains("sfj")) {

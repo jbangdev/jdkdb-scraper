@@ -33,13 +33,13 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		// Only process releases with jdk tag prefix
 		String tagName = release.get("tag_name").asText();
 		if (!tagName.startsWith("jdk")) {
 			return;
 		}
-		processReleaseAssets(allMetadata, release, this::processAsset);
+		processReleaseAssets(release, this::processAsset);
 	}
 
 	private JdkMetadata processAsset(JsonNode release, JsonNode asset) {

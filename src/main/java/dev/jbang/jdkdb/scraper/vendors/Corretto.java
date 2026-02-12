@@ -35,7 +35,7 @@ public class Corretto extends GitHubReleaseScraper {
 	}
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		String version = release.get("tag_name").asText();
 
 		String body = release.get("body").asText("");
@@ -49,7 +49,7 @@ public class Corretto extends GitHubReleaseScraper {
 
 			JdkMetadata metadata = processAsset(filename, url, version);
 			if (metadata != null) {
-				allMetadata.add(metadata);
+				process(metadata);
 			}
 		}
 	}

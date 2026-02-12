@@ -2,12 +2,8 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,27 +23,18 @@ public class OracleGraalVm extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected void scrape() throws Exception {
 		log("Scraping Oracle GraalVM releases");
 
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
-		try {
-			// Scrape archive releases for various major versions
-			int[] archiveVersions = {17, 20, 21, 22, 23, 24};
-			for (int version : archiveVersions) {
-				allMetadata.addAll(scrapeCurrentRelease(version));
-				allMetadata.addAll(scrapeArchive(version));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
+		// Scrape archive releases for various major versions
+		int[] archiveVersions = {17, 20, 21, 22, 23, 24};
+		for (int version : archiveVersions) {
+			scrapeCurrentRelease(version);
+			scrapeArchive(version);
 		}
-
-		return allMetadata;
 	}
 
-	private List<JdkMetadata> scrapeArchive(int majorVersion) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
+	private void scrapeArchive(int majorVersion) throws Exception {
 		String archiveUrl = String.format(
 				"https://www.oracle.com/java/technologies/javase/graalvm-jdk%d-archive-downloads.html", majorVersion);
 
@@ -59,7 +46,7 @@ public class OracleGraalVm extends BaseScraper {
 			html = httpUtils.downloadString(archiveUrl);
 		} catch (Exception e) {
 			fail("Could not download archive page for version " + majorVersion, e);
-			return Collections.emptyList();
+			return;
 		}
 
 		// Find all download links using regex
@@ -68,23 +55,14 @@ public class OracleGraalVm extends BaseScraper {
 			String downloadUrl = matcher.group(1);
 			String filename = matcher.group(2);
 
-			if (metadataExists(filename)) {
-				allMetadata.add(skipped(filename));
-				continue;
-			}
-
 			JdkMetadata jdkMetadata = processAsset(filename, downloadUrl);
 			if (jdkMetadata != null) {
-				allMetadata.add(jdkMetadata);
+				process(jdkMetadata);
 			}
 		}
-
-		return allMetadata;
 	}
 
-	private List<JdkMetadata> scrapeCurrentRelease(int majorVersion) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	private void scrapeCurrentRelease(int majorVersion) throws Exception {
 		// Try to find current release version from downloads page
 		String html;
 		try {
@@ -92,7 +70,7 @@ public class OracleGraalVm extends BaseScraper {
 			html = httpUtils.downloadString(downloadsUrl);
 		} catch (Exception e) {
 			fail("Could not download downloads page to find current release version", e);
-			return Collections.emptyList();
+			return;
 		}
 
 		Pattern versionPattern = Pattern.compile(
@@ -122,12 +100,10 @@ public class OracleGraalVm extends BaseScraper {
 
 				JdkMetadata jdkMetadata = processAsset(filename, downloadUrl);
 				if (jdkMetadata != null) {
-					allMetadata.add(jdkMetadata);
+					process(jdkMetadata);
 				}
 			}
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename, String downloadUrl) {

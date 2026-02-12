@@ -2,7 +2,6 @@ package dev.jbang.jdkdb.scraper.vendors;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import dev.jbang.jdkdb.util.HtmlUtils;
@@ -26,91 +25,82 @@ public class OpenLogic extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		int page = 0;
 		boolean hasMore = true;
 
-		try {
-			while (hasMore) {
-				String pageUrl = BASE_URL + "?page=" + page;
-				log("Fetching page " + page + " from " + pageUrl);
+		while (hasMore) {
+			String pageUrl = BASE_URL + "?page=" + page;
+			log("Fetching page " + page + " from " + pageUrl);
 
-				String html;
-				try {
-					html = httpUtils.downloadString(pageUrl);
-				} catch (Exception e) {
-					fail("Failed to fetch page " + page, e);
-					break;
+			String html;
+			try {
+				html = httpUtils.downloadString(pageUrl);
+			} catch (Exception e) {
+				fail("Failed to fetch page " + page, e);
+				break;
+			}
+
+			// Extract all hrefs from the page
+			List<String> hrefs = HtmlUtils.extractHrefs(html);
+
+			// Find download links
+			List<String> downloadLinks = new ArrayList<>();
+			for (String href : hrefs) {
+				if (href.startsWith(DOWNLOAD_PREFIX)) {
+					downloadLinks.add(href);
 				}
+			}
 
-				// Extract all hrefs from the page
-				List<String> hrefs = HtmlUtils.extractHrefs(html);
+			// Check stop criteria:
+			// 1. No download links found on this page
+			if (downloadLinks.isEmpty()) {
+				warn("No download links found on page " + page + ", stopping");
+				hasMore = false;
+				break;
+			}
 
-				// Find download links
-				List<String> downloadLinks = new ArrayList<>();
-				for (String href : hrefs) {
-					if (href.startsWith(DOWNLOAD_PREFIX)) {
-						downloadLinks.add(href);
-					}
-				}
-
-				// Check stop criteria:
-				// 1. No download links found on this page
-				if (downloadLinks.isEmpty()) {
-					warn("No download links found on page " + page + ", stopping");
-					hasMore = false;
-					break;
-				}
-
-				// 2. Check if "last" page link is missing (indicating we're on the last page)
-				boolean hasLastPageLink = false;
-				for (String href : hrefs) {
-					if (href.startsWith("?page=")) {
-						// Check if this anchor tag has "last" in its class
-						// We need to check the HTML more carefully
-						Pattern lastLinkPattern = Pattern.compile(
-								"<a[^>]*class=\"[^\"]*last[^\"]*\"[^>]*href=\"\\?page=[^\"]*\"",
-								Pattern.CASE_INSENSITIVE);
-						if (lastLinkPattern.matcher(html).find()) {
-							hasLastPageLink = true;
-							break;
-						}
-					}
-				}
-
-				log("Found " + downloadLinks.size() + " download links on page " + page);
-
-				// Process download links
-				for (String url : downloadLinks) {
-					String filename = HtmlUtils.extractFilename(url);
-
-					JdkMetadata metadata = processAsset(filename, url);
-					if (metadata != null) {
-						allMetadata.add(metadata);
-					}
-				}
-
-				// If there's no "last" page link, we're on the last page
-				if (!hasLastPageLink) {
-					log("No 'last' page link found, stopping");
-					hasMore = false;
-				} else {
-					page++;
-					// Add random delay between 2-6 seconds before next page
-					if (hasMore) {
-						int delaySeconds = 2 + random.nextInt(5); // 2 to 6 seconds
-						log("Waiting " + delaySeconds + " seconds before fetching next page...");
-						Thread.sleep(delaySeconds * 1000L);
+			// 2. Check if "last" page link is missing (indicating we're on the last page)
+			boolean hasLastPageLink = false;
+			for (String href : hrefs) {
+				if (href.startsWith("?page=")) {
+					// Check if this anchor tag has "last" in its class
+					// We need to check the HTML more carefully
+					Pattern lastLinkPattern = Pattern.compile(
+							"<a[^>]*class=\"[^\"]*last[^\"]*\"[^>]*href=\"\\?page=[^\"]*\"", Pattern.CASE_INSENSITIVE);
+					if (lastLinkPattern.matcher(html).find()) {
+						hasLastPageLink = true;
+						break;
 					}
 				}
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
-		}
 
-		return allMetadata;
+			log("Found " + downloadLinks.size() + " download links on page " + page);
+
+			// Process download links
+			for (String url : downloadLinks) {
+				String filename = HtmlUtils.extractFilename(url);
+
+				JdkMetadata metadata = processAsset(filename, url);
+				if (metadata != null) {
+					process(metadata);
+				}
+			}
+
+			// If there's no "last" page link, we're on the last page
+			if (!hasLastPageLink) {
+				log("No 'last' page link found, stopping");
+				hasMore = false;
+			} else {
+				page++;
+				// Add random delay between 2-6 seconds before next page
+				if (hasMore) {
+					int delaySeconds = 2 + random.nextInt(5); // 2 to 6 seconds
+					log("Waiting " + delaySeconds + " seconds before fetching next page...");
+					Thread.sleep(delaySeconds * 1000L);
+				}
+			}
+		}
 	}
 
 	private JdkMetadata processAsset(String filename, String url) {

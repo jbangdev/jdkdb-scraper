@@ -9,6 +9,7 @@ import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 
@@ -23,6 +24,7 @@ public abstract class BaseScraper implements Scraper {
 	protected final int maxFailureCount;
 	protected final int limitProgress;
 
+	private List<JdkMetadata> allMetadata = new ArrayList<>();
 	private int failureCount = 0;
 	private int processedCount = 0;
 	private int skippedCount = 0;
@@ -39,7 +41,7 @@ public abstract class BaseScraper implements Scraper {
 	}
 
 	/** Execute the scraping logic */
-	protected abstract List<JdkMetadata> scrape() throws Exception;
+	protected abstract void scrape() throws Exception;
 
 	@Override
 	public ScraperResult call() {
@@ -51,42 +53,10 @@ public abstract class BaseScraper implements Scraper {
 			log("Starting scraper");
 
 			// Execute the scraping logic
-			List<JdkMetadata> allMetadata = scrape();
-
-			// Process each metadata: download files, save metadata, track progress
-			for (JdkMetadata metadata : allMetadata) {
-				// Skip if this is a skipped placeholder (no filename set)
-				String filename = metadata.filename();
-				if (metadata.filename() == null || metadata.url() == null) {
-					skip(metadata.metadataFilename());
-					continue;
-				}
-
-				// Skip if already processed (has checksums)
-				if (metadata.md5() != null) {
-					success(filename);
-					continue;
-				}
-
-				// Download and process the file
-				try {
-					String url = metadata.url();
-					if (url != null) {
-						DownloadResult download = downloadFile(url, filename);
-						metadata.download(download);
-						saveMetadataFile(metadata);
-						success(filename);
-					}
-				} catch (InterruptedProgressException e) {
-					log("Progress limit reached, stopping scraper");
-					break;
-				} catch (TooManyFailuresException e) {
-					warn("Too many failures, stopping scraper");
-					break;
-				} catch (Exception e) {
-					fail("Failed to download " + filename, e);
-					// Continue with other files
-				}
+			try {
+				scrape();
+			} catch (InterruptedProgressException e) {
+				// We can simply ignore these
 			}
 
 			log("Completed successfully. Processed " + processedCount + " items, skipped " + skippedCount
@@ -116,8 +86,8 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Log successful processing of single metadata item */
 	protected void success(String filename) {
-		progress.success(filename);
 		logger.info("Processed " + filename);
+		progress.success(filename);
 		processedCount++;
 		if (limitProgress > 0 && processedCount >= limitProgress) {
 			throw new InterruptedProgressException("Reached progress limit of " + limitProgress + " items, aborting");
@@ -125,17 +95,53 @@ public abstract class BaseScraper implements Scraper {
 	}
 
 	protected void skip(String filename) {
+		logger.info("Skipping " + filename + " (already exists)");
 		progress.skipped(filename);
 		skippedCount++;
 	}
 
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
-		progress.fail(message, error);
 		logger.error("Failed " + message + ": " + error.getMessage());
+		progress.fail(message, error);
 		failureCount++;
 		if (maxFailureCount > 0 && failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");
+		}
+	}
+
+	protected void process(JdkMetadata metadata) {
+		allMetadata.add(metadata);
+		downloadAndProcess(metadata);
+	}
+
+	protected void downloadAndProcess(JdkMetadata metadata) {
+		// Skip if this is a skipped placeholder (no filename set)
+		String filename = metadata.filename();
+		if (metadata.filename() == null || metadata.url() == null) {
+			skip(metadata.metadataFilename());
+			return;
+		}
+
+		// Skip if already processed (has checksums)
+		if (metadata.md5() != null) {
+			success(filename);
+			return;
+		}
+
+		// Download and process the file
+		try {
+			String url = metadata.url();
+			if (url != null) {
+				DownloadResult download = downloadFile(url, filename);
+				metadata.download(download);
+				saveMetadataFile(metadata);
+				success(filename);
+			}
+		} catch (InterruptedProgressException | TooManyFailuresException e) {
+			throw e; // Rethrow to be handled at a higher level
+		} catch (Exception e) {
+			fail("Failed to download " + filename, e);
 		}
 	}
 

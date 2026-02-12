@@ -49,7 +49,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	protected abstract List<String> getAdditionalFeatures();
 
 	@Override
-	protected void processRelease(List<JdkMetadata> allMetadata, JsonNode release) throws Exception {
+	protected void processRelease(JsonNode release) throws Exception {
 		String tagName = release.get("tag_name").asText();
 		Matcher versionMatcher = versionPattern.matcher(tagName);
 		if (!versionMatcher.matches()) {
@@ -57,7 +57,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			return;
 		}
 
-		processReleaseAssets(allMetadata, release, this::processAsset);
+		processReleaseAssets(release, this::processAsset);
 	}
 
 	protected JdkMetadata processAsset(JsonNode release, JsonNode asset) {

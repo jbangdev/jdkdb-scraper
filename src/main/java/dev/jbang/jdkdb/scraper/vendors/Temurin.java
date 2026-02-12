@@ -7,7 +7,6 @@ import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /** Scraper for Adoptium Eclipse Temurin releases */
@@ -20,9 +19,7 @@ public class Temurin extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	protected void scrape() throws Exception {
 		// Get list of available releases
 		JsonNode availableReleases;
 		try {
@@ -32,12 +29,12 @@ public class Temurin extends BaseScraper {
 			availableReleases = releasesData.get("available_releases");
 		} catch (Exception e) {
 			fail("Failed to fetch available releases", e);
-			return Collections.emptyList();
+			return;
 		}
 
 		if (availableReleases == null || !availableReleases.isArray()) {
 			fail("No available releases found", null);
-			return Collections.emptyList();
+			return;
 		}
 
 		try {
@@ -70,7 +67,7 @@ public class Temurin extends BaseScraper {
 					}
 
 					if (assets.isArray() && assets.size() > 0) {
-						processAssets(assets, allMetadata);
+						processAssets(assets);
 						page++;
 					} else {
 						hasMore = false;
@@ -80,11 +77,9 @@ public class Temurin extends BaseScraper {
 		} catch (InterruptedProgressException e) {
 			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
-	private void processAssets(JsonNode assets, List<JdkMetadata> allMetadata) {
+	private void processAssets(JsonNode assets) {
 		for (JsonNode asset : assets) {
 			String javaVersion =
 					asset.path("version_data").path("openjdk_version").asText();
@@ -93,17 +88,16 @@ public class Temurin extends BaseScraper {
 			JsonNode binaries = asset.get("binaries");
 			if (binaries != null && binaries.isArray()) {
 				for (JsonNode binary : binaries) {
-					JdkMetadata metadata = processAsset(binary, version, javaVersion, allMetadata);
+					JdkMetadata metadata = processAsset(binary, version, javaVersion);
 					if (metadata != null) {
-						allMetadata.add(metadata);
+						process(metadata);
 					}
 				}
 			}
 		}
 	}
 
-	private JdkMetadata processAsset(
-			JsonNode binary, String version, String javaVersion, List<JdkMetadata> allMetadata) {
+	private JdkMetadata processAsset(JsonNode binary, String version, String javaVersion) {
 		String filename = binary.has("package") && binary.get("package").has("name")
 				? binary.get("package").get("name").asText()
 				: "unknown";

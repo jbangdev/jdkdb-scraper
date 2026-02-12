@@ -3,11 +3,8 @@ package dev.jbang.jdkdb.scraper.vendors;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.BaseScraper;
-import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,30 +24,20 @@ public class Oracle extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
+	protected void scrape() throws Exception {
 		log("Scraping Oracle JDK releases");
 
-		List<JdkMetadata> allMetadata = new ArrayList<>();
+		// First, scrape latest releases from Oracle Cloud API
+		scrapeLatestReleases();
 
-		try {
-			// First, scrape latest releases from Oracle Cloud API
-			allMetadata.addAll(scrapeLatestReleases());
-
-			// Then scrape archive releases for various major versions
-			int[] archiveVersions = {17, 18, 19, 20, 21, 22, 23, 24};
-			for (int version : archiveVersions) {
-				allMetadata.addAll(scrapeArchive(version));
-			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
+		// Then scrape archive releases for various major versions
+		int[] archiveVersions = {17, 18, 19, 20, 21, 22, 23, 24};
+		for (int version : archiveVersions) {
+			scrapeArchive(version);
 		}
-
-		return allMetadata;
 	}
 
-	private List<JdkMetadata> scrapeLatestReleases() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	private void scrapeLatestReleases() throws Exception {
 		JsonNode versionsNode;
 		try {
 			String versionsUrl = "https://java.oraclecloud.com/javaVersions";
@@ -59,7 +46,7 @@ public class Oracle extends BaseScraper {
 			versionsNode = readJson(versionsJson);
 		} catch (Exception e) {
 			fail("Could not fetch Oracle JDK versions", e);
-			return allMetadata;
+			return;
 		}
 
 		for (JsonNode item : versionsNode.get("items")) {
@@ -92,17 +79,14 @@ public class Oracle extends BaseScraper {
 
 					JdkMetadata jdkMetadata = processAsset(filename, downloadUrl);
 					if (jdkMetadata != null) {
-						allMetadata.add(jdkMetadata);
+						process(jdkMetadata);
 					}
 				}
 			}
 		}
-
-		return allMetadata;
 	}
 
-	private List<JdkMetadata> scrapeArchive(int majorVersion) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
+	private void scrapeArchive(int majorVersion) throws Exception {
 		String archiveUrl = String.format(
 				"https://www.oracle.com/java/technologies/javase/jdk%d-archive-downloads.html", majorVersion);
 
@@ -113,7 +97,7 @@ public class Oracle extends BaseScraper {
 			html = httpUtils.downloadString(archiveUrl);
 		} catch (Exception e) {
 			fail("Could not download archive page for version " + majorVersion, e);
-			return allMetadata;
+			return;
 		}
 
 		// Find all download links using regex
@@ -124,11 +108,9 @@ public class Oracle extends BaseScraper {
 
 			JdkMetadata jdkMetadata = processAsset(filename, downloadUrl);
 			if (jdkMetadata != null) {
-				allMetadata.add(jdkMetadata);
+				process(jdkMetadata);
 			}
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename, String downloadUrl) {

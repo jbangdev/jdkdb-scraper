@@ -5,9 +5,9 @@ import dev.jbang.jdkdb.scraper.BaseScraper;
 import dev.jbang.jdkdb.scraper.InterruptedProgressException;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.TooManyFailuresException;
 import dev.jbang.jdkdb.util.HtmlUtils;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,44 +37,34 @@ public class Debian extends BaseScraper {
 	}
 
 	@Override
-	protected List<JdkMetadata> scrape() throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
+	protected void scrape() throws Exception {
+		// Process each LTS version
+		for (String majorVersion : LTS_VERSIONS) {
+			String cdnUrl = CDN_URL + "openjdk-" + majorVersion + "/";
+			log("Processing OpenJDK " + majorVersion + " from " + cdnUrl);
 
-		try {
-			// Process each LTS version
-			for (String majorVersion : LTS_VERSIONS) {
-				String cdnUrl = CDN_URL + "openjdk-" + majorVersion + "/";
-				log("Processing OpenJDK " + majorVersion + " from " + cdnUrl);
-
-				try {
-					allMetadata.addAll(scrapeVersionDirectory(cdnUrl));
-				} catch (InterruptedProgressException e) {
-					throw e;
-				} catch (Exception e) {
-					warn("Failed to scrape " + cdnUrl + ": " + e.getMessage());
-				}
+			try {
+				scrapeVersionDirectory(cdnUrl);
+			} catch (InterruptedProgressException | TooManyFailuresException e) {
+				throw e;
+			} catch (Exception e) {
+				warn("Failed to scrape " + cdnUrl + ": " + e.getMessage());
 			}
-		} catch (InterruptedProgressException e) {
-			log("Reached progress limit, aborting");
 		}
-
-		return allMetadata;
 	}
 
-	private List<JdkMetadata> scrapeVersionDirectory(String cdnUrl) throws Exception {
-		List<JdkMetadata> allMetadata = new ArrayList<>();
-
+	private void scrapeVersionDirectory(String cdnUrl) throws Exception {
 		// Download the directory listing
 		String html;
 		try {
 			html = httpUtils.downloadString(cdnUrl);
 			if (html.isEmpty()) {
 				fail("Empty response from " + cdnUrl, null);
-				return Collections.emptyList();
+				return;
 			}
 		} catch (Exception e) {
 			fail("Could not download directory listing", e);
-			return Collections.emptyList();
+			return;
 		}
 
 		// Extract all hrefs from the HTML
@@ -84,11 +74,9 @@ public class Debian extends BaseScraper {
 			String filename = HtmlUtils.extractFilename(href);
 			JdkMetadata metadata = processAsset(filename, cdnUrl);
 			if (metadata != null) {
-				allMetadata.add(metadata);
+				process(metadata);
 			}
 		}
-
-		return allMetadata;
 	}
 
 	private JdkMetadata processAsset(String filename, String cdnUrl) {
