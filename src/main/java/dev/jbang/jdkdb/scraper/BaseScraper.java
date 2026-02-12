@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 public abstract class BaseScraper implements Scraper {
 	protected final Path metadataDir;
 	protected final Path checksumDir;
-	protected final ScraperProgress progress;
 	protected final Logger logger;
 	protected final HttpUtils httpUtils;
 	protected final boolean fromStart;
@@ -26,13 +25,12 @@ public abstract class BaseScraper implements Scraper {
 
 	private List<JdkMetadata> allMetadata = new ArrayList<>();
 	private int failureCount = 0;
-	private int processedCount = 0;
+	private int processingCount = 0;
 	private int skippedCount = 0;
 
 	public BaseScraper(ScraperConfig config) {
 		this.metadataDir = config.metadataDir();
 		this.checksumDir = config.checksumDir();
-		this.progress = config.progress();
 		this.logger = config.logger();
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
@@ -60,10 +58,10 @@ public abstract class BaseScraper implements Scraper {
 				// We can simply ignore these
 			}
 
-			log("Completed successfully. Processed " + processedCount + " items, skipped " + skippedCount
+			log("Completed successfully. Marked " + processingCount + " items for processing, skipped " + skippedCount
 					+ " existing items");
 
-			return ScraperResult.success(processedCount, skippedCount);
+			return ScraperResult.success(processingCount, skippedCount);
 		} catch (Exception e) {
 			warn("Failed with error: " + e.getMessage());
 			return ScraperResult.failure(e);
@@ -85,26 +83,14 @@ public abstract class BaseScraper implements Scraper {
 		logger.warn(message);
 	}
 
-	/** Log successful processing of single metadata item */
-	protected void success(String filename) {
-		logger.info("Processed " + filename);
-		progress.success(filename);
-		processedCount++;
-		if (limitProgress > 0 && processedCount >= limitProgress) {
-			throw new InterruptedProgressException("Reached progress limit of " + limitProgress + " items, aborting");
-		}
-	}
-
 	protected void skip(String filename) {
-		logger.info("Skipping " + filename + " (already exists)");
-		progress.skipped(filename);
+		logger.debug("Skipping " + filename + " (already exists)");
 		skippedCount++;
 	}
 
 	/** Log failure to process single metadata item */
 	protected void fail(String message, Exception error) {
 		logger.error("Failed " + message + ": " + error.getMessage());
-		progress.fail(message, error);
 		failureCount++;
 		if (maxFailureCount > 0 && failureCount >= maxFailureCount) {
 			throw new TooManyFailuresException("Too many failures, aborting");
@@ -126,7 +112,6 @@ public abstract class BaseScraper implements Scraper {
 
 		// Skip if already processed (has checksums)
 		if (metadata.md5() != null) {
-			success(filename);
 			return;
 		}
 
@@ -135,7 +120,15 @@ public abstract class BaseScraper implements Scraper {
 			String url = metadata.url();
 			if (url != null) {
 				downloadManager.submit(metadata, this);
+				processingCount++;
+				if (limitProgress > 0 && processingCount >= limitProgress) {
+					logger.info("Reached progress limit of " + limitProgress + " items, aborting");
+					throw new InterruptedProgressException(
+							"Reached progress limit of " + limitProgress + " items, aborting");
+				}
 			}
+		} catch (InterruptedProgressException e) {
+			throw e;
 		} catch (Exception e) {
 			fail("Failed to submit download for " + filename, e);
 		}
@@ -164,7 +157,7 @@ public abstract class BaseScraper implements Scraper {
 		MetadataUtils.saveMetadataFile(metadataFile, metadata);
 	}
 
-	protected JdkMetadata skipped(String metadataFilename) {
+	public static JdkMetadata skipped(String metadataFilename) {
 		if (!metadataFilename.endsWith(".json")) {
 			metadataFilename += ".json";
 		}

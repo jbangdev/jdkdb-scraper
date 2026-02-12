@@ -1,7 +1,5 @@
 package dev.jbang.jdkdb;
 
-import dev.jbang.jdkdb.reporting.ProgressEvent;
-import dev.jbang.jdkdb.reporting.ProgressReporter;
 import dev.jbang.jdkdb.scraper.DefaultDownloadManager;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
@@ -105,183 +103,162 @@ public class Main implements Callable<Integer> {
 		System.out.println("Started download manager with " + threadCount + " download threads");
 		System.out.println();
 
-		// Create progress reporter
-		try (var reporter = new ProgressReporter()) {
-			reporter.start();
-
-			// Create scrapers
-			var fact = ScraperFactory.create(
-					metadataDir, checksumDir, reporter, fromStart, maxFailures, limitProgress, downloadManager);
-			var allDiscoveries = ScraperFactory.getAvailableScraperDiscoveries();
-			if (scraperIds == null) {
-				scraperIds = new ArrayList<>(allDiscoveries.keySet());
-			}
-			var scrapers = new HashMap<String, Scraper>();
-			var affectedVendors = new HashSet<String>();
-			for (var scraperId : scraperIds) {
-				var discovery = allDiscoveries.get(scraperId);
-				if (discovery == null) {
-					System.err.println("Warning: Unknown scraper ID: " + scraperId);
-					continue;
-				}
-
-				// Check if scraper should run based on schedule
-				if (!shouldRunScraper(discovery, metadataDir)) {
-					System.out.println("Skipping scraper '" + scraperId + "' - not scheduled to run yet ("
-							+ discovery.when() + ")");
-					continue;
-				}
-
-				scrapers.put(scraperId, fact.createScraper(scraperId));
-				// Track which vendor this scraper affects
-				affectedVendors.add(discovery.vendor());
-			}
-			if (scrapers.isEmpty()) {
-				System.out.println("No scrapers scheduled to run.");
-				return 0;
+		// Create scrapers
+		var fact =
+				ScraperFactory.create(metadataDir, checksumDir, fromStart, maxFailures, limitProgress, downloadManager);
+		var allDiscoveries = ScraperFactory.getAvailableScraperDiscoveries();
+		if (scraperIds == null) {
+			scraperIds = new ArrayList<>(allDiscoveries.keySet());
+		}
+		var scrapers = new HashMap<String, Scraper>();
+		var affectedVendors = new HashSet<String>();
+		for (var scraperId : scraperIds) {
+			var discovery = allDiscoveries.get(scraperId);
+			if (discovery == null) {
+				System.err.println("Warning: Unknown scraper ID: " + scraperId);
+				continue;
 			}
 
-			System.out.println("Running scrapers: " + String.join(", ", scrapers.keySet()));
-			System.out.println("Total scrapers: " + scrapers.size());
-			System.out.println();
+			// Check if scraper should run based on schedule
+			if (!shouldRunScraper(discovery, metadataDir)) {
+				System.out.println(
+						"Skipping scraper '" + scraperId + "' - not scheduled to run yet (" + discovery.when() + ")");
+				continue;
+			}
 
-			long startTime = System.currentTimeMillis();
+			scrapers.put(scraperId, fact.createScraper(scraperId));
+			// Track which vendor this scraper affects
+			affectedVendors.add(discovery.vendor());
+		}
+		if (scrapers.isEmpty()) {
+			System.out.println("No scrapers scheduled to run.");
+			return 0;
+		}
 
-			// Execute scrapers in parallel
-			try (var executor = Executors.newFixedThreadPool(threadCount)) {
-				// Submit all scrapers and wrap them to report start/complete/failed events
-				var futures = new ArrayList<Future<ScraperResult>>();
-				for (var scraperEntry : scrapers.entrySet()) {
-					Future<ScraperResult> future = executor.submit(() -> {
-						String scraperName = scraperEntry.getKey();
-						reporter.report(ProgressEvent.started(scraperName));
-						try {
-							ScraperResult result = scraperEntry.getValue().call();
-							if (result.success()) {
-								reporter.report(ProgressEvent.completed(scraperName));
-							} else {
-								reporter.report(ProgressEvent.failed(
-										scraperName,
-										result.error() != null ? result.error().getMessage() : "Unknown error",
-										result.error()));
-							}
-							return result;
-						} catch (Exception e) {
-							reporter.report(ProgressEvent.failed(scraperName, e.getMessage(), e));
-							return ScraperResult.failure(e);
-						}
-					});
-					futures.add(future);
-				}
+		System.out.println("Running scrapers: " + String.join(", ", scrapers.keySet()));
+		System.out.println("Total scrapers: " + scrapers.size());
+		System.out.println();
 
-				// Wait for all scrapers to complete and collect results
-				var results = new HashMap<String, ScraperResult>();
-				var scraperNames = new ArrayList<>(scrapers.keySet());
-				for (int i = 0; i < futures.size(); i++) {
+		long startTime = System.currentTimeMillis();
+
+		// Execute scrapers in parallel
+		try (var executor = Executors.newFixedThreadPool(threadCount)) {
+			// Submit all scrapers and wrap them to report start/complete/failed events
+			var futures = new ArrayList<Future<ScraperResult>>();
+			for (var scraperEntry : scrapers.entrySet()) {
+				Future<ScraperResult> future = executor.submit(() -> {
 					try {
-						results.put(scraperNames.get(i), futures.get(i).get());
-					} catch (ExecutionException e) {
-						System.err.println(
-								"Scraper execution failed: " + e.getCause().getMessage());
-					} catch (InterruptedException e) {
-						Thread.currentThread().interrupt();
-						System.err.println("Scraper execution interrupted");
+						return scraperEntry.getValue().call();
+					} catch (Exception e) {
+						return ScraperResult.failure(e);
 					}
-				}
-
-				// All scrapers have completed, signal download manager to shut down
-				System.out.println();
-				System.out.println("All scrapers completed. Waiting for downloads to complete...");
-				downloadManager.shutdown();
-
-				try {
-					downloadManager.awaitCompletion();
-					System.out.println("All downloads completed.");
-					System.out.println("  Total completed: " + downloadManager.getCompletedCount());
-					System.out.println("  Total failed: " + downloadManager.getFailedCount());
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					System.err.println("Download manager interrupted while waiting for completion");
-				}
-
-				// Generate all.json files for affected vendor directories only
-				System.out.println();
-				System.out.println("Generating all.json files for affected vendor directories...");
-				try {
-					generateAllJsonFiles(metadataDir, affectedVendors);
-					System.out.println("Successfully generated all.json files");
-				} catch (Exception e) {
-					System.err.println("Failed to generate all.json files: " + e.getMessage());
-					e.printStackTrace();
-				}
-
-				// Allow time for async logging to flush before printing summary
-				try {
-					Thread.sleep(200);
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-				}
-
-				// Print summary
-				System.out.println();
-				System.out.println("Execution Summary");
-				System.out.println("=================");
-
-				var successful = 0;
-				var failed = 0;
-				var totalItems = 0;
-				var totalSkipped = 0;
-
-				for (var result : results.values()) {
-					System.out.println(result);
-					if (result.success()) {
-						successful++;
-						totalItems += result.itemsProcessed();
-						totalSkipped += result.itemsSkipped();
-					} else {
-						failed++;
-					}
-				}
-
-				// Per-scraper breakdown
-				System.out.println();
-				System.out.println("Per-Scraper Breakdown");
-				System.out.println("=====================");
-				for (var entry : results.entrySet()) {
-					var scraperName = entry.getKey();
-					var result = entry.getValue();
-					System.out.printf("  %s:%n", scraperName);
-					System.out.printf("    Status: %s%n", result.success() ? "SUCCESS" : "FAILED");
-					System.out.printf("    Processed: %d%n", result.itemsProcessed());
-					System.out.printf("    Skipped: %d%n", result.itemsSkipped());
-					if (!result.success()) {
-						System.out.printf(
-								"    Error: %s%n",
-								result.error() != null ? result.error().getMessage() : "Unknown error");
-					}
-				}
-				System.out.println();
-				System.out.println("Totals");
-				System.out.println("======");
-
-				System.out.println();
-				System.out.println("Total scrapers: " + results.size());
-				System.out.println("Successful: " + successful);
-				System.out.println("Failed: " + failed);
-				System.out.println("Total items processed: " + totalItems);
-				System.out.println("Total items skipped: " + totalSkipped);
-
-				var endTime = System.currentTimeMillis();
-				var duration = (endTime - startTime) / 1000.0;
-				System.out.println();
-				System.out.println("All scrapers completed in " + duration + " seconds");
-
-				return failed > 0 ? 1 : 0;
+				});
+				futures.add(future);
 			}
-		} catch (Exception e) {
-			System.err.println("Error: " + e.getMessage());
-			e.printStackTrace();
-			return 1;
+
+			// Wait for all scrapers to complete and collect results
+			var results = new HashMap<String, ScraperResult>();
+			var scraperNames = new ArrayList<>(scrapers.keySet());
+			for (int i = 0; i < futures.size(); i++) {
+				try {
+					results.put(scraperNames.get(i), futures.get(i).get());
+				} catch (ExecutionException e) {
+					System.err.println(
+							"Scraper execution failed: " + e.getCause().getMessage());
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					System.err.println("Scraper execution interrupted");
+				}
+			}
+
+			// All scrapers have completed, signal download manager to shut down
+			System.out.println();
+			System.out.println("All scrapers completed. Waiting for downloads to complete...");
+			downloadManager.shutdown();
+
+			try {
+				downloadManager.awaitCompletion();
+				System.out.println("All downloads completed.");
+				System.out.println("  Total completed: " + downloadManager.getCompletedCount());
+				System.out.println("  Total failed: " + downloadManager.getFailedCount());
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				System.err.println("Download manager interrupted while waiting for completion");
+			}
+
+			// Generate all.json files for affected vendor directories only
+			System.out.println();
+			System.out.println("Generating all.json files for affected vendor directories...");
+			try {
+				generateAllJsonFiles(metadataDir, affectedVendors);
+				System.out.println("Successfully generated all.json files");
+			} catch (Exception e) {
+				System.err.println("Failed to generate all.json files: " + e.getMessage());
+				e.printStackTrace();
+			}
+
+			// Allow time for async logging to flush before printing summary
+			try {
+				Thread.sleep(200);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+
+			// Print summary
+			System.out.println();
+			System.out.println("Execution Summary");
+			System.out.println("=================");
+
+			var successful = 0;
+			var failed = 0;
+			var totalItems = 0;
+			var totalSkipped = 0;
+
+			for (var result : results.values()) {
+				System.out.println(result);
+				if (result.success()) {
+					successful++;
+					totalItems += result.itemsProcessed();
+					totalSkipped += result.itemsSkipped();
+				} else {
+					failed++;
+				}
+			}
+
+			// Per-scraper breakdown
+			System.out.println();
+			System.out.println("Per-Scraper Breakdown");
+			System.out.println("=====================");
+			for (var entry : results.entrySet()) {
+				var scraperName = entry.getKey();
+				var result = entry.getValue();
+				System.out.printf("  %s:%n", scraperName);
+				System.out.printf("    Status: %s%n", result.success() ? "SUCCESS" : "FAILED");
+				System.out.printf("    Processed: %d%n", result.itemsProcessed());
+				System.out.printf("    Skipped: %d%n", result.itemsSkipped());
+				if (!result.success()) {
+					System.out.printf(
+							"    Error: %s%n",
+							result.error() != null ? result.error().getMessage() : "Unknown error");
+				}
+			}
+			System.out.println();
+			System.out.println("Totals");
+			System.out.println("======");
+
+			System.out.println();
+			System.out.println("Total scrapers: " + results.size());
+			System.out.println("Successful: " + successful);
+			System.out.println("Failed: " + failed);
+			System.out.println("Total items processed: " + totalItems);
+			System.out.println("Total items skipped: " + totalSkipped);
+
+			var endTime = System.currentTimeMillis();
+			var duration = (endTime - startTime) / 1000.0;
+			System.out.println();
+			System.out.println("All scrapers completed in " + duration + " seconds");
+
+			return failed > 0 ? 1 : 0;
 		}
 	}
 

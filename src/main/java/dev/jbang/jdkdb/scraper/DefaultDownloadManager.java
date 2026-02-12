@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Default implementation that manages parallel downloads of JDK files across multiple threads.
@@ -24,6 +26,8 @@ public class DefaultDownloadManager implements DownloadManager {
 	private final Path metadataDir;
 	private final Path checksumDir;
 	private volatile boolean shutdownRequested;
+
+	private static final Logger logger = LoggerFactory.getLogger(DefaultDownloadManager.class);
 
 	/**
 	 * Create a new DefaultDownloadManager.
@@ -48,6 +52,8 @@ public class DefaultDownloadManager implements DownloadManager {
 	 * Start the download worker threads. Should be called once after construction.
 	 */
 	public void start() {
+		logger.info(
+				"Starting DownloadManager with {} threads", ((ThreadPoolExecutor) executorService).getCorePoolSize());
 		int threadCount = ((ThreadPoolExecutor) executorService).getCorePoolSize();
 		for (int i = 0; i < threadCount; i++) {
 			executorService.submit(this::downloadWorker);
@@ -65,9 +71,20 @@ public class DefaultDownloadManager implements DownloadManager {
 		if (shutdownRequested) {
 			throw new IllegalStateException("Cannot submit downloads after shutdown requested");
 		}
+		if (metadata.url() == null || metadata.filename() == null) {
+			return;
+		}
 		try {
 			downloadQueue.put(new DownloadTask(metadata, scraper));
 			scraper.log("Queued download for " + metadata.filename());
+			logger.debug(
+					"Scraper {} submitted download for {}", scraper.getClass().getSimpleName(), metadata.filename());
+			logger.info(
+					"Downloads: {} queued, {} active, {} completed, {} failed",
+					downloadQueue.size(),
+					activeDownloads.get(),
+					completedDownloads.get(),
+					failedDownloads.get());
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new RuntimeException("Interrupted while submitting download", e);
@@ -78,6 +95,7 @@ public class DefaultDownloadManager implements DownloadManager {
 	 * Signal that no more downloads will be submitted. Call this after all scrapers have finished.
 	 */
 	public void shutdown() {
+		logger.info("Shutting down DownloadManager");
 		shutdownRequested = true;
 	}
 
@@ -144,12 +162,26 @@ public class DefaultDownloadManager implements DownloadManager {
 					try {
 						processDownload(task);
 						completedDownloads.incrementAndGet();
+						logger.debug(
+								"Succeeded download for {} [{}]",
+								task.metadata.filename(),
+								task.scraper.getClass().getSimpleName());
 					} catch (Exception e) {
 						failedDownloads.incrementAndGet();
 						task.scraper.fail("Failed to download " + task.metadata.filename(), e);
+						logger.debug(
+								"Failed download for {} [{}]",
+								task.metadata.filename(),
+								task.scraper.getClass().getSimpleName());
 					} finally {
 						activeDownloads.decrementAndGet();
 					}
+					logger.info(
+							"Downloads: {} queued, {} active, {} completed, {} failed",
+							downloadQueue.size(),
+							activeDownloads.get(),
+							completedDownloads.get(),
+							failedDownloads.get());
 				}
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
@@ -198,7 +230,7 @@ public class DefaultDownloadManager implements DownloadManager {
 			MetadataUtils.saveMetadataFile(metadataFile, metadata);
 
 			// Report success
-			task.scraper.success(filename);
+			task.scraper.log("Processed " + filename);
 		} finally {
 			Files.deleteIfExists(tempFile);
 		}

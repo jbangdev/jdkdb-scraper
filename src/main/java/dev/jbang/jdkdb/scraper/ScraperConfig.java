@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 public record ScraperConfig(
 		Path metadataDir,
 		Path checksumDir,
-		ScraperProgress progress,
 		Logger logger,
 		boolean fromStart,
 		int maxFailureCount,

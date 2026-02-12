@@ -209,21 +209,10 @@ class BaseScraperTest {
 	}
 
 	private DummyScraper createScraper() {
-		ScraperProgress progress = new ScraperProgress() {
-			@Override
-			public void success(String filename) {}
-
-			@Override
-			public void skipped(String filename) {}
-
-			@Override
-			public void fail(String message, Exception error) {}
-		};
 		DownloadManager downloadManager = new DummyDownloadManager();
 		ScraperConfig config = new ScraperConfig(
 				tempDir.resolve("metadata"),
 				tempDir.resolve("checksums"),
-				progress,
 				LoggerFactory.getLogger("test"),
 				false,
 				10,

@@ -3,6 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import static org.assertj.core.api.Assertions.*;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -21,17 +22,6 @@ class DummyScraperTest {
 	private Path checksumDir;
 	private ScraperConfig config;
 
-	private static final ScraperProgress progress = new ScraperProgress() {
-		@Override
-		public void success(String filename) {}
-
-		@Override
-		public void skipped(String filename) {}
-
-		@Override
-		public void fail(String message, Exception error) {}
-	};
-
 	private DownloadManager downloadManager;
 
 	@BeforeEach
@@ -42,7 +32,6 @@ class DummyScraperTest {
 		config = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				progress,
 				LoggerFactory.getLogger("test"),
 				false, // fromStart
 				10, // maxFailureCount
@@ -71,7 +60,7 @@ class DummyScraperTest {
 		// Given - create metadata without download results (no md5 set)
 		DummyDownloadManager testDownloadManager = new DummyDownloadManager();
 		ScraperConfig testConfig = new ScraperConfig(
-				metadataDir, checksumDir, progress, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
+				metadataDir, checksumDir, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
 
 		List<JdkMetadata> metadata = new ArrayList<>();
 		for (int i = 0; i < 3; i++) {
@@ -104,19 +93,26 @@ class DummyScraperTest {
 	}
 
 	@Test
-	void testScraperSkipsAlreadyDownloadedFiles() {
+	void testScraperSkipsAlreadyDownloadedFiles() throws IOException {
 		// Given - create metadata WITH download results (md5 already set)
 		DummyDownloadManager testDownloadManager = new DummyDownloadManager();
 		ScraperConfig testConfig = new ScraperConfig(
-				metadataDir, checksumDir, progress, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
+				metadataDir, checksumDir, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
 
-		List<JdkMetadata> metadata = createTestMetadata(3); // These have download() already set
+		List<JdkMetadata> metadata = createSkippedMetadata(3); // These have download() already set
+		Files.createDirectories(metadataDir);
+		for (JdkMetadata meta : metadata) {
+			// Create empty metadata files to simulate already processed items
+			Files.writeString(metadataDir.resolve(meta.metadataFilename()), "{}");
+		}
+
 		DummyScraper scraper = new DummyScraper(testConfig, metadata);
 
 		// When
 		scraper.call();
 
-		// Then - should NOT submit to download manager since they already have checksums
+		// Then - should NOT submit to download manager since their metadata files already exist (simulating already
+		// processed)
 		assertThat(testDownloadManager.getSubmittedCount()).isEqualTo(0);
 	}
 
@@ -171,7 +167,6 @@ class DummyScraperTest {
 		ScraperConfig limitedConfig = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				progress,
 				LoggerFactory.getLogger("test"),
 				false,
 				10,
@@ -197,7 +192,6 @@ class DummyScraperTest {
 		ScraperConfig limitedConfig = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				progress,
 				LoggerFactory.getLogger("test"),
 				false,
 				2, // max 2 failures
@@ -237,7 +231,6 @@ class DummyScraperTest {
 		ScraperConfig configNoFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				progress,
 				LoggerFactory.getLogger("test"),
 				false, // fromStart = false
 				10,
@@ -262,7 +255,6 @@ class DummyScraperTest {
 		ScraperConfig configFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				progress,
 				LoggerFactory.getLogger("test"),
 				true, // fromStart = true
 				10,
@@ -282,8 +274,8 @@ class DummyScraperTest {
 		List<JdkMetadata> result = new ArrayList<>();
 		for (int i = 0; i < count; i++) {
 			// Create a mock DownloadResult for testing
-			DownloadResult download =
-					new DownloadResult("md5-" + i, "sha1-" + i, "sha256-" + i, "sha512-" + i, 100_000_000L + i);
+			// DownloadResult download =
+			//		new DownloadResult("md5-" + i, "sha1-" + i, "sha256-" + i, "sha512-" + i, 100_000_000L + i);
 			JdkMetadata metadata = JdkMetadata.create()
 					.vendor("test-vendor")
 					.releaseType("ga")
@@ -294,8 +286,17 @@ class DummyScraperTest {
 					.fileType("tar.gz")
 					.imageType("jdk")
 					.url("https://example.com/jdk-" + i + ".tar.gz")
-					.filename("test-jdk-" + i + ".tar.gz")
-					.download(download);
+					.filename("test-jdk-" + i + ".tar.gz");
+			// .download(download);
+			result.add(metadata);
+		}
+		return result;
+	}
+
+	private List<JdkMetadata> createSkippedMetadata(int count) {
+		List<JdkMetadata> result = new ArrayList<>();
+		for (int i = 0; i < count; i++) {
+			JdkMetadata metadata = BaseScraper.skipped("skipped-file-" + i + ".json");
 			result.add(metadata);
 		}
 		return result;

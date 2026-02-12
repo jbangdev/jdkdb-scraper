@@ -1,6 +1,5 @@
 package dev.jbang.jdkdb.scraper;
 
-import dev.jbang.jdkdb.reporting.ProgressReporter;
 import java.nio.file.Path;
 import java.util.*;
 import org.slf4j.LoggerFactory;
@@ -9,7 +8,6 @@ import org.slf4j.LoggerFactory;
 public class ScraperFactory {
 	private final Path metadataDir;
 	private final Path checksumDir;
-	private final ProgressReporter reporter;
 	private final boolean fromStart;
 	private final int maxFailureCount;
 	private final int limitProgress;
@@ -18,26 +16,22 @@ public class ScraperFactory {
 	public static ScraperFactory create(
 			Path metadataDir,
 			Path checksumDir,
-			ProgressReporter reporter,
 			boolean fromStart,
 			int maxFailureCount,
 			int limitProgress,
 			DownloadManager downloadManager) {
-		return new ScraperFactory(
-				metadataDir, checksumDir, reporter, fromStart, maxFailureCount, limitProgress, downloadManager);
+		return new ScraperFactory(metadataDir, checksumDir, fromStart, maxFailureCount, limitProgress, downloadManager);
 	}
 
 	private ScraperFactory(
 			Path metadataDir,
 			Path checksumDir,
-			ProgressReporter reporter,
 			boolean fromStart,
 			int maxFailureCount,
 			int limitProgress,
 			DownloadManager downloadManager) {
 		this.metadataDir = metadataDir;
 		this.checksumDir = checksumDir;
-		this.reporter = reporter;
 		this.fromStart = fromStart;
 		this.maxFailureCount = maxFailureCount;
 		this.limitProgress = limitProgress;
@@ -58,7 +52,6 @@ public class ScraperFactory {
 			ScraperConfig config = new ScraperConfig(
 					metadataVendorDir.resolve(vendor),
 					checksumDir.resolve(vendor),
-					new ScraperProgress.Default(name, reporter),
 					LoggerFactory.getLogger("vendors." + name),
 					fromStart,
 					maxFailureCount,
@@ -82,7 +75,6 @@ public class ScraperFactory {
 			ScraperConfig config = new ScraperConfig(
 					metadataDir.resolve("vendor").resolve(vendor),
 					checksumDir.resolve(vendor),
-					new ScraperProgress.Default(scraperName, reporter),
 					LoggerFactory.getLogger("vendors." + scraperName),
 					fromStart,
 					maxFailureCount,
