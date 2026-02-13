@@ -32,8 +32,8 @@ public class NoOpDownloadManager implements DownloadManager {
 	public void submit(JdkMetadata metadata, BaseScraper scraper) {
 		if (metadata.url() != null && metadata.filename() != null) {
 			completedDownloads.incrementAndGet();
-			logger.debug("Ignoring download request for: {}", metadata.filename());
-			scraper.log("Ignoring download request for: " + metadata.filename());
+			logger.debug("Ignoring download request for: {} (no-download option specified)", metadata.filename());
+			scraper.log("Ignoring download request for: " + metadata.filename() + " (no-download option specified)");
 		}
 	}
 

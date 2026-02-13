@@ -56,7 +56,7 @@ public class Liberica extends BaseScraper {
 		}
 
 		String filename = filenameNode.asText();
-		if (filename.endsWith(".src.tar.gz")) {
+		if (filename.contains(".src.") || filename.contains("-src.") || filename.contains("-src-")) {
 			return null;
 		}
 
