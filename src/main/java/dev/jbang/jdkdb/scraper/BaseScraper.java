@@ -124,6 +124,9 @@ public abstract class BaseScraper implements Scraper {
 		try {
 			String url = metadata.url();
 			if (url != null) {
+				// We save the metadata file before downloading, meaning the checksums
+				// will be missing until the download completes!
+				saveMetadataFile(metadata);
 				downloadManager.submit(metadata, this);
 				processingCount++;
 				if (limitProgress > 0 && processingCount >= limitProgress) {
