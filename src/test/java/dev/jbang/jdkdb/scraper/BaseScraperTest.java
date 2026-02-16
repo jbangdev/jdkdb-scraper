@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.*;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class BaseScraperTest {
@@ -210,14 +211,15 @@ class BaseScraperTest {
 
 	private DummyScraper createScraper() {
 		DownloadManager downloadManager = new DummyDownloadManager();
+		Logger dl = LoggerFactory.getLogger("test");
 		ScraperConfig config = new ScraperConfig(
 				tempDir.resolve("metadata"),
 				tempDir.resolve("checksums"),
-				LoggerFactory.getLogger("test"),
+				dl,
 				false,
 				10,
 				0,
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 		return new DummyScraper(config);
 	}
 }

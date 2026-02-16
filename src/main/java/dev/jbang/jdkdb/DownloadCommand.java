@@ -1,10 +1,9 @@
 package dev.jbang.jdkdb;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.BaseScraper;
 import dev.jbang.jdkdb.scraper.DefaultDownloadManager;
 import dev.jbang.jdkdb.scraper.DownloadManager;
-import dev.jbang.jdkdb.scraper.ScraperConfig;
+import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -47,6 +48,18 @@ public class DownloadCommand implements Callable<Integer> {
 			defaultValue = "-1")
 	private int maxThreads;
 
+	@Option(
+			names = {"--limit-progress"},
+			description =
+					"Maximum number of metadata items to process per scraper before aborting (default: unlimited)",
+			defaultValue = "-1")
+	private int limitProgress;
+
+	@Option(
+			names = {"--stats-only"},
+			description = "Skip downloading files and only show statistics (for testing/dry-run)")
+	private boolean statsOnly;
+
 	@Override
 	public Integer call() throws Exception {
 		System.out.println("Java Metadata Scraper - Download");
@@ -79,14 +92,16 @@ public class DownloadCommand implements Callable<Integer> {
 		}
 		System.out.println();
 
-		// Create download manager
+		// Create vendor-specific download manager
 		var threadCount = maxThreads > 0 ? maxThreads : Runtime.getRuntime().availableProcessors();
+		DownloadManager downloadManager = statsOnly
+				? new NoOpDownloadManager()
+				: new DefaultDownloadManager(threadCount, metadataDir, checksumDir);
+		downloadManager.start();
 
 		int totalFiles = 0;
 		int filesWithMissingChecksums = 0;
 		int filesProcessed = 0;
-		int totalCompleted = 0;
-		int totalFailed = 0;
 		List<String> processedVendors = new ArrayList<>();
 
 		// Scan each vendor directory
@@ -99,17 +114,7 @@ public class DownloadCommand implements Callable<Integer> {
 
 			System.out.println("Scanning vendor: " + vendorName);
 
-			// Create vendor-specific download manager
-			Path vendorMetadataDir = metadataDir.resolve("vendor").resolve(vendorName);
-			Path vendorChecksumDir = checksumDir.resolve(vendorName);
-			DownloadManager downloadManager =
-					new DefaultDownloadManager(threadCount, vendorMetadataDir, vendorChecksumDir);
-			downloadManager.start();
-
-			// Create a simple scraper adapter for logging
-			DummyScraper scraper = new DummyScraper();
-
-			int vendorFilesWithMissing = 0;
+			int vendorMissing = 0;
 
 			try (Stream<Path> files = Files.list(vendorPath)) {
 				List<Path> metadataFiles = files.filter(Files::isRegularFile)
@@ -128,9 +133,17 @@ public class DownloadCommand implements Callable<Integer> {
 
 						// Check if any checksums are missing
 						if (hasMissingChecksums(metadata)) {
-							System.out.println("  Found missing checksums: " + metadata.filename());
-							downloadManager.submit(metadata, scraper);
-							vendorFilesWithMissing++;
+							Logger dl = LoggerFactory.getLogger("vendors." + vendorName);
+							downloadManager.submit(metadata, vendorName, dl);
+							filesWithMissingChecksums++;
+							vendorMissing++;
+							if (limitProgress > 0 && vendorMissing >= limitProgress) {
+								dl.info("Reached progress limit of " + limitProgress + " items for vendor " + vendorName
+										+ ", skipping remaining files for this vendor");
+								System.out.println("Reached progress limit of " + limitProgress + " items for vendor "
+										+ vendorName + ", skipping remaining files for this vendor");
+								break;
+							}
 						} else {
 							filesProcessed++;
 						}
@@ -144,28 +157,21 @@ public class DownloadCommand implements Callable<Integer> {
 					processedVendors.add(vendorName);
 				}
 			}
+		}
+		downloadManager.shutdown();
 
-			// Wait for this vendor's downloads to complete
-			if (vendorFilesWithMissing > 0) {
-				filesWithMissingChecksums += vendorFilesWithMissing;
-				System.out.println("  Waiting for " + vendorFilesWithMissing + " downloads to complete...");
-				downloadManager.shutdown();
+		int totalCompleted = 0;
+		int totalFailed = 0;
 
-				try {
-					downloadManager.awaitCompletion();
-					System.out.println("  Completed: " + downloadManager.getCompletedCount() + ", Failed: "
-							+ downloadManager.getFailedCount());
-					totalCompleted += downloadManager.getCompletedCount();
-					totalFailed += downloadManager.getFailedCount();
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-					System.err.println("Download manager interrupted while waiting for completion");
-					return 1;
-				}
-			} else {
-				downloadManager.shutdown();
-			}
-			System.out.println();
+		System.out.println("Waiting for downloads to complete...");
+		try {
+			downloadManager.awaitCompletion();
+			totalCompleted = downloadManager.getCompletedCount();
+			totalFailed = downloadManager.getFailedCount();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			System.err.println("Download manager interrupted while waiting for completion");
+			return 1;
 		}
 
 		System.out.println("Summary");
@@ -198,27 +204,5 @@ public class DownloadCommand implements Callable<Integer> {
 				|| metadata.sha1() == null
 				|| metadata.sha256() == null
 				|| metadata.sha512() == null;
-	}
-
-	/**
-	 * Simple scraper adapter for logging purposes only. The download command doesn't have a real
-	 * scraper, so we use this dummy implementation.
-	 */
-	private static class DummyScraper extends BaseScraper {
-		public DummyScraper() {
-			super(new ScraperConfig(
-					Path.of("docs/metadata"),
-					Path.of("docs/checksums"),
-					org.slf4j.LoggerFactory.getLogger("download-command"),
-					false,
-					10,
-					-1,
-					null));
-		}
-
-		@Override
-		protected void scrape() throws Exception {
-			// Not used
-		}
 	}
 }

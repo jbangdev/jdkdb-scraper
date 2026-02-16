@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.*;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -80,6 +79,11 @@ public class UpdateCommand implements Callable<Integer> {
 			names = {"--no-download"},
 			description = "Skip downloading files and only generate metadata (for testing/dry-run)")
 	private boolean noDownload;
+
+	@Option(
+			names = {"--no-index"},
+			description = "Skip generating index files (for testing/dry-run)")
+	private boolean noIndex;
 
 	@Override
 	public Integer call() throws Exception {
@@ -195,15 +199,26 @@ public class UpdateCommand implements Callable<Integer> {
 				System.err.println("Download manager interrupted while waiting for completion");
 			}
 
-			// Generate all.json files for affected vendor directories only
-			System.out.println();
-			System.out.println("Generating all.json files for affected vendor directories...");
-			try {
-				generateAllJsonFiles(metadataDir, affectedVendors);
-				System.out.println("Successfully generated all.json files");
-			} catch (Exception e) {
-				System.err.println("Failed to generate all.json files: " + e.getMessage());
-				e.printStackTrace();
+			if (!noIndex) {
+				// Generate all.json files for affected vendor directories only
+				System.out.println();
+				System.out.println("Generating all.json files for affected vendor directories...");
+				try {
+					IndexCommand.generateIndices(metadataDir, new ArrayList<>(affectedVendors), false);
+					System.out.println("Successfully generated all.json files");
+				} catch (Exception e) {
+					System.err.println("Failed to generate all.json files: " + e.getMessage());
+					e.printStackTrace();
+				}
+
+				// Generate comprehensive indices (all.json, ga.json, ea.json, and nested structures)
+				System.out.println();
+				try {
+					MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+				} catch (Exception e) {
+					System.err.println("Failed to generate comprehensive indices: " + e.getMessage());
+					e.printStackTrace();
+				}
 			}
 
 			// Allow time for async logging to flush before printing summary
@@ -272,34 +287,6 @@ public class UpdateCommand implements Callable<Integer> {
 			System.out.println("All scrapers completed in " + duration + " seconds");
 
 			return failed > 0 ? 1 : 0;
-		}
-	}
-
-	/**
-	 * Generate all.json files for affected vendor directories. This method only generates all.json
-	 * for vendors that were involved in the scrapers that ran.
-	 *
-	 * @param metadataDir The metadata directory
-	 * @param affectedVendors Set of vendor names that were affected by the scrapers that ran
-	 */
-	private void generateAllJsonFiles(Path metadataDir, Set<String> affectedVendors) throws Exception {
-		Path vendorDir = metadataDir.resolve("vendor");
-		if (!Files.exists(vendorDir) || !Files.isDirectory(vendorDir)) {
-			System.out.println("No vendor directory found, skipping all.json generation");
-			return;
-		}
-
-		// Generate all.json only for affected vendors
-		for (String vendorName : affectedVendors) {
-			Path vendorPath = vendorDir.resolve(vendorName);
-			if (Files.exists(vendorPath) && Files.isDirectory(vendorPath)) {
-				try {
-					System.out.println("  Generating all.json for vendor: " + vendorName);
-					MetadataUtils.generateAllJsonFromDirectory(vendorPath);
-				} catch (Exception e) {
-					System.err.println("    Failed for vendor " + vendorName + ": " + e.getMessage());
-				}
-			}
 		}
 	}
 

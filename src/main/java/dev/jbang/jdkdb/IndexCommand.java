@@ -29,6 +29,11 @@ public class IndexCommand implements Callable<Integer> {
 			split = ",")
 	private List<String> vendorNames;
 
+	@Option(
+			names = {"--allow-incomplete"},
+			description = "Allow incomplete metadata files (missing checksums) to be included")
+	private boolean allowIncomplete;
+
 	@Override
 	public Integer call() throws Exception {
 		System.out.println("Java Metadata Scraper - Index");
@@ -60,8 +65,20 @@ public class IndexCommand implements Callable<Integer> {
 		}
 		System.out.println();
 
+		int result = generateIndices(metadataDir, vendorsToProcess, allowIncomplete);
+
+		return result;
+	}
+
+	public static Integer generateIndices(Path metadataDir, List<String> vendorsToProcess, boolean allowIncomplete) {
 		int successful = 0;
 		int failed = 0;
+
+		Path vendorDir = metadataDir.resolve("vendor");
+		if (!Files.exists(vendorDir) || !Files.isDirectory(vendorDir)) {
+			System.err.println("Error: Vendor directory not found: " + vendorDir.toAbsolutePath());
+			return 1;
+		}
 
 		for (String vendorName : vendorsToProcess) {
 			Path vendorPath = vendorDir.resolve(vendorName);
@@ -72,14 +89,21 @@ public class IndexCommand implements Callable<Integer> {
 			}
 
 			try {
-				System.out.println("Generating all.json for vendor: " + vendorName);
-				MetadataUtils.generateAllJsonFromDirectory(vendorPath);
+				MetadataUtils.generateAllJsonFromDirectory(vendorPath, allowIncomplete);
 				successful++;
 			} catch (Exception e) {
 				System.err.println("  Failed for vendor " + vendorName + ": " + e.getMessage());
 				e.printStackTrace();
 				failed++;
 			}
+		}
+
+		try {
+			MetadataUtils.generateComprehensiveIndices(metadataDir, allowIncomplete);
+		} catch (Exception e) {
+			System.err.println("  Failed to generate comprehensive indices: " + e.getMessage());
+			e.printStackTrace();
+			failed++;
 		}
 
 		System.out.println();

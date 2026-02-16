@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper;
 
 import java.nio.file.Path;
 import java.util.*;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Factory for creating scraper instances using ServiceLoader */
@@ -49,14 +50,15 @@ public class ScraperFactory {
 			String vendor = discovery.vendor();
 			String name = discovery.name();
 
+			Logger dl = LoggerFactory.getLogger("vendors." + name);
 			ScraperConfig config = new ScraperConfig(
 					metadataVendorDir.resolve(vendor),
 					checksumDir.resolve(vendor),
-					LoggerFactory.getLogger("vendors." + name),
+					dl,
 					fromStart,
 					maxFailureCount,
 					limitProgress,
-					downloadManager);
+					md -> downloadManager.submit(md, vendor, dl));
 
 			Scraper scraper = discovery.create(config);
 			scrapers.add(scraper);
@@ -72,14 +74,15 @@ public class ScraperFactory {
 		Scraper.Discovery discovery = allDiscoveries.get(scraperName);
 		if (discovery != null) {
 			String vendor = discovery.vendor();
+			Logger dl = LoggerFactory.getLogger("vendors." + scraperName);
 			ScraperConfig config = new ScraperConfig(
 					metadataDir.resolve("vendor").resolve(vendor),
 					checksumDir.resolve(vendor),
-					LoggerFactory.getLogger("vendors." + scraperName),
+					dl,
 					fromStart,
 					maxFailureCount,
 					limitProgress,
-					downloadManager);
+					md -> downloadManager.submit(md, vendor, dl));
 			return discovery.create(config);
 		} else {
 			throw new IllegalArgumentException("Unknown scraper ID: " + scraperName);

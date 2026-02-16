@@ -79,10 +79,10 @@ class MetadataUtilsTest {
 		Files.createDirectories(tempDir.resolve("metadata"));
 
 		// When
-		MetadataUtils.saveMetadata(tempDir.resolve("metadata"), List.of(metadata));
+		Path metadataFile = tempDir.resolve("metadata").resolve("all.json");
+		MetadataUtils.saveMetadata(metadataFile, List.of(metadata));
 
 		// Then
-		Path metadataFile = tempDir.resolve("metadata").resolve("all.json");
 		assertThat(metadataFile).exists();
 		String fileContent = Files.readString(metadataFile);
 		assertThat(fileContent).isEqualTo(expected);
@@ -133,7 +133,7 @@ class MetadataUtilsTest {
 		assertThat(vendorDir.resolve("custom-metadata-filename.json")).exists();
 
 		// When - generate all.json from directory
-		MetadataUtils.generateAllJsonFromDirectory(vendorDir);
+		MetadataUtils.generateAllJsonFromDirectory(vendorDir, true);
 
 		// Then - all.json should be created
 		Path allJson = vendorDir.resolve("all.json");
@@ -172,7 +172,7 @@ class MetadataUtilsTest {
 		Files.writeString(vendorDir.resolve("all.json"), "[{\"old\": \"data\"}]");
 
 		// When - regenerate all.json
-		MetadataUtils.generateAllJsonFromDirectory(vendorDir);
+		MetadataUtils.generateAllJsonFromDirectory(vendorDir, true);
 
 		// Then - new all.json should contain current metadata, not old data
 		String allJsonContent = Files.readString(vendorDir.resolve("all.json"));
@@ -186,7 +186,7 @@ class MetadataUtilsTest {
 		Path nonExistent = tempDir.resolve("does-not-exist");
 
 		// When/Then - should not throw exception
-		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent))
+		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent, true))
 				.doesNotThrowAnyException();
 	}
 
@@ -266,10 +266,10 @@ class MetadataUtilsTest {
 		// When - save in random order
 		Path metadataDir = tempDir.resolve("metadata");
 		Files.createDirectories(metadataDir);
-		MetadataUtils.saveMetadata(metadataDir, List.of(metadata3, metadata1, metadata5, metadata4, metadata2));
+		Path allJson = metadataDir.resolve("all.json");
+		MetadataUtils.saveMetadata(allJson, List.of(metadata3, metadata1, metadata5, metadata4, metadata2));
 
 		// Then - all.json should be sorted by version first, then filename
-		Path allJson = metadataDir.resolve("all.json");
 		assertThat(allJson).exists();
 
 		String content = Files.readString(allJson);
@@ -292,5 +292,525 @@ class MetadataUtilsTest {
 
 		assertThat(result[4].version()).isEqualTo("17.0.5");
 		assertThat(result[4].filename()).isEqualTo("temurin-jdk-17.0.5");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesBasic() throws Exception {
+		// Given - create vendor directories with metadata files
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk-17-linux-x64.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/temurin-17.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk-17-windows-x64.zip")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("windows")
+				.arch("x86_64")
+				.fileType("zip")
+				.imageType("jdk")
+				.url("https://example.com/temurin-17.zip")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify metadata/all.json exists
+		Path allJson = metadataDir.resolve("all.json");
+		assertThat(allJson).exists();
+		String allJsonContent = Files.readString(allJson);
+		assertThat(allJsonContent).contains("temurin-jdk-17-linux-x64.tar.gz");
+		assertThat(allJsonContent).contains("temurin-jdk-17-windows-x64.zip");
+
+		// Verify hierarchical structure: ga.json
+		Path gaDir = metadataDir.resolve("ga");
+		assertThat(gaDir).exists().isDirectory();
+		Path gaJson = metadataDir.resolve("ga.json");
+		assertThat(gaJson).exists();
+
+		// Verify OS level: ga/linux/, ga/linux.json and ga/windows/, ga/windows.json
+		Path linuxDir = gaDir.resolve("linux");
+		assertThat(linuxDir).exists().isDirectory();
+		assertThat(gaDir.resolve("linux.json")).exists();
+
+		Path windowsDir = gaDir.resolve("windows");
+		assertThat(windowsDir).exists().isDirectory();
+		assertThat(gaDir.resolve("windows.json")).exists();
+
+		// Verify architecture level: ga/linux/x86_64/x86_64.json
+		Path archLinuxDir = linuxDir.resolve("x86_64");
+		assertThat(archLinuxDir).exists().isDirectory();
+		assertThat(linuxDir.resolve("x86_64.json")).exists();
+
+		// Verify image_type level: ga/linux/x86_64/jdk/jdk.json
+		Path imageTypeDir = archLinuxDir.resolve("jdk");
+		assertThat(imageTypeDir).exists().isDirectory();
+		assertThat(archLinuxDir.resolve("jdk.json")).exists();
+
+		// Verify jvm_impl level: ga/linux/x86_64/jdk/hotspot.json
+		Path jvmDir = imageTypeDir.resolve("hotspot");
+		assertThat(jvmDir).exists().isDirectory();
+		assertThat(imageTypeDir.resolve("hotspot.json")).exists();
+
+		// Verify vendor level: ga/linux/x86_64/jdk/hotspot/temurin.json
+		Path vendorJson = jvmDir.resolve("temurin.json");
+		assertThat(vendorJson).exists();
+		String vendorContent = Files.readString(vendorJson);
+		assertThat(vendorContent).contains("temurin-jdk-17-linux-x64.tar.gz");
+		assertThat(vendorContent).doesNotContain("windows"); // Should only contain Linux entry
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesMultipleVendors() throws Exception {
+		// Given - multiple vendors with overlapping properties
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Path microsoftDir = vendorDir.resolve("microsoft");
+		Files.createDirectories(temurinDir);
+		Files.createDirectories(microsoftDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk-17.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/temurin.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("microsoft")
+				.filename("microsoft-jdk-17.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/microsoft.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(microsoftDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify both vendors appear in the same hierarchical path
+		Path vendorPath = metadataDir.resolve("ga/linux/x86_64/jdk/hotspot");
+		Path temurinJson = vendorPath.resolve("temurin.json");
+		Path microsoftJson = vendorPath.resolve("microsoft.json");
+
+		assertThat(temurinJson).exists();
+		assertThat(microsoftJson).exists();
+
+		String temurinContent = Files.readString(temurinJson);
+		assertThat(temurinContent).contains("temurin-jdk-17.tar.gz");
+		assertThat(temurinContent).doesNotContain("microsoft");
+
+		String microsoftContent = Files.readString(microsoftJson);
+		assertThat(microsoftContent).contains("microsoft-jdk-17.tar.gz");
+		assertThat(microsoftContent).doesNotContain("temurin");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesWithDifferentReleaseTypes() throws Exception {
+		// Given - metadata with different release types
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk-17-ga.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/ga.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk-18-ea.tar.gz")
+				.releaseType("ea")
+				.version("18-ea")
+				.javaVersion("18")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/ea.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify separate release_type directories
+		Path gaDir = metadataDir.resolve("ga");
+		Path eaDir = metadataDir.resolve("ea");
+
+		assertThat(gaDir).exists().isDirectory();
+		assertThat(eaDir).exists().isDirectory();
+
+		assertThat(metadataDir.resolve("ga.json")).exists();
+		assertThat(metadataDir.resolve("ea.json")).exists();
+
+		// Verify content is separated correctly
+		String gaContent = Files.readString(metadataDir.resolve("ga.json"));
+		assertThat(gaContent).contains("temurin-jdk-17-ga.tar.gz");
+		assertThat(gaContent).doesNotContain("temurin-jdk-18-ea.tar.gz");
+
+		String eaContent = Files.readString(metadataDir.resolve("ea.json"));
+		assertThat(eaContent).contains("temurin-jdk-18-ea.tar.gz");
+		assertThat(eaContent).doesNotContain("temurin-jdk-17-ga.tar.gz");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesEmptyVendorDir() throws Exception {
+		// Given - empty vendor directory
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Files.createDirectories(vendorDir);
+
+		// When/Then - should not throw exception
+		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, false))
+				.doesNotThrowAnyException();
+
+		// all.json should not be created
+		assertThat(metadataDir.resolve("all.json")).doesNotExist();
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesNonExistentVendorDir() throws Exception {
+		// Given - non-existent metadata directory
+		Path metadataDir = tempDir.resolve("does-not-exist");
+
+		// When/Then - should not throw exception
+		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, false))
+				.doesNotThrowAnyException();
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesFiltersIncompleteMetadata() throws Exception {
+		// Given - metadata with and without checksums
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		// Complete metadata
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("complete-jdk.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/complete.tar.gz")
+				.download(download1);
+
+		// Incomplete metadata (missing checksums)
+		DownloadResult download2 = new DownloadResult(null, null, null, null, 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("incomplete-jdk.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/incomplete.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When - generate with allowIncomplete=false
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - incomplete metadata should be filtered out
+		Path allJson = metadataDir.resolve("all.json");
+		assertThat(allJson).exists();
+		String allContent = Files.readString(allJson);
+		assertThat(allContent).contains("complete-jdk.tar.gz");
+		assertThat(allContent).doesNotContain("incomplete-jdk.tar.gz");
+
+		// When - generate with allowIncomplete=true
+		MetadataUtils.generateComprehensiveIndices(metadataDir, true);
+
+		// Then - both should be included
+		allContent = Files.readString(allJson);
+		assertThat(allContent).contains("complete-jdk.tar.gz");
+		assertThat(allContent).contains("incomplete-jdk.tar.gz");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesNormalizesEmptyValues() throws Exception {
+		// Given - metadata with null/empty values
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path testDir = vendorDir.resolve("test");
+		Files.createDirectories(testDir);
+
+		DownloadResult download = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata = JdkMetadata.create()
+				.vendor(null) // null vendor
+				.filename("test-jdk.tar.gz")
+				.releaseType("") // empty release type
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl(null) // null jvm_impl
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("") // empty image type
+				.url("https://example.com/test.tar.gz")
+				.download(download);
+
+		MetadataUtils.saveMetadataFile(testDir.resolve(metadata.metadataFilename()), metadata);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify normalized directories are created
+		assertThat(metadataDir.resolve("all.json")).exists();
+		assertThat(metadataDir.resolve("unknown-release-type-")).exists().isDirectory();
+		Path unknownReleaseTypeDir = metadataDir.resolve("unknown-release-type-");
+		assertThat(unknownReleaseTypeDir.resolve("linux")).exists().isDirectory();
+		Path linuxDir = unknownReleaseTypeDir.resolve("linux");
+		Path archDir = linuxDir.resolve("x86_64");
+		assertThat(archDir).exists().isDirectory();
+		assertThat(archDir.resolve("unknown-image-type")).exists().isDirectory();
+		Path imageTypeDir = archDir.resolve("unknown-image-type");
+		assertThat(imageTypeDir.resolve("unknown-jvm-impl")).exists().isDirectory();
+		Path jvmDir = imageTypeDir.resolve("unknown-jvm-impl");
+		assertThat(jvmDir.resolve("unknown-vendor.json")).exists();
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesWithDifferentArchitectures() throws Exception {
+		// Given - metadata with different architectures
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-x64.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/x64.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-aarch64.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("aarch64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/aarch64.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify separate architecture directories
+		Path gaLinuxDir = metadataDir.resolve("ga/linux");
+		assertThat(gaLinuxDir.resolve("x86_64")).exists().isDirectory();
+		assertThat(gaLinuxDir.resolve("aarch64")).exists().isDirectory();
+
+		String x64Content = Files.readString(gaLinuxDir.resolve("x86_64/jdk/hotspot/temurin.json"));
+		assertThat(x64Content).contains("temurin-x64.tar.gz");
+		assertThat(x64Content).doesNotContain("aarch64");
+
+		String aarch64Content = Files.readString(gaLinuxDir.resolve("aarch64/jdk/hotspot/temurin.json"));
+		assertThat(aarch64Content).contains("temurin-aarch64.tar.gz");
+		assertThat(aarch64Content).doesNotContain("x86_64");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesWithDifferentImageTypes() throws Exception {
+		// Given - metadata with different image types (jdk, jre)
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jdk.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/jdk.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-jre.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jre")
+				.url("https://example.com/jre.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify separate image_type directories
+		Path gaLinuxArchDir = metadataDir.resolve("ga/linux/x86_64");
+		assertThat(gaLinuxArchDir.resolve("jdk")).exists().isDirectory();
+		assertThat(gaLinuxArchDir.resolve("jre")).exists().isDirectory();
+
+		String jdkContent = Files.readString(gaLinuxArchDir.resolve("jdk/hotspot/temurin.json"));
+		assertThat(jdkContent).contains("temurin-jdk.tar.gz");
+		assertThat(jdkContent).doesNotContain("jre");
+
+		String jreContent = Files.readString(gaLinuxArchDir.resolve("jre/hotspot/temurin.json"));
+		assertThat(jreContent).contains("temurin-jre.tar.gz");
+		assertThat(jreContent).doesNotContain("\"jdk\"");
+	}
+
+	@Test
+	void testGenerateComprehensiveIndicesWithDifferentJvmImplementations() throws Exception {
+		// Given - metadata with different JVM implementations
+		Path metadataDir = tempDir.resolve("metadata");
+		Path vendorDir = metadataDir.resolve("vendor");
+		Path temurinDir = vendorDir.resolve("temurin");
+		Files.createDirectories(temurinDir);
+
+		DownloadResult download1 = new DownloadResult("md5-1", "sha1-1", "sha256-1", "sha512-1", 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-hotspot.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("hotspot")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/hotspot.tar.gz")
+				.download(download1);
+
+		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.vendor("temurin")
+				.filename("temurin-openj9.tar.gz")
+				.releaseType("ga")
+				.version("17.0.5")
+				.javaVersion("17")
+				.jvmImpl("openj9")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.url("https://example.com/openj9.tar.gz")
+				.download(download2);
+
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFilename()), metadata1);
+		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFilename()), metadata2);
+
+		// When
+		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+
+		// Then - verify separate jvm_impl directories
+		Path gaLinuxArchImageDir = metadataDir.resolve("ga/linux/x86_64/jdk");
+		assertThat(gaLinuxArchImageDir.resolve("hotspot")).exists().isDirectory();
+		assertThat(gaLinuxArchImageDir.resolve("openj9")).exists().isDirectory();
+
+		String hotspotContent = Files.readString(gaLinuxArchImageDir.resolve("hotspot/temurin.json"));
+		assertThat(hotspotContent).contains("temurin-hotspot.tar.gz");
+		assertThat(hotspotContent).doesNotContain("openj9");
+
+		String openj9Content = Files.readString(gaLinuxArchImageDir.resolve("openj9/temurin.json"));
+		assertThat(openj9Content).contains("temurin-openj9.tar.gz");
+		assertThat(openj9Content).doesNotContain("hotspot");
 	}
 }

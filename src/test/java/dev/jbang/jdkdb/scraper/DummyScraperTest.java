@@ -11,6 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class DummyScraperTest {
@@ -22,21 +23,22 @@ class DummyScraperTest {
 	private Path checksumDir;
 	private ScraperConfig config;
 
-	private DownloadManager downloadManager;
+	private DummyDownloadManager downloadManager;
 
 	@BeforeEach
 	void setUp() {
 		metadataDir = tempDir.resolve("metadata");
 		checksumDir = tempDir.resolve("checksums");
 		downloadManager = new DummyDownloadManager();
+		Logger dl = LoggerFactory.getLogger("test");
 		config = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				LoggerFactory.getLogger("test"),
+				dl,
 				false, // fromStart
 				10, // maxFailureCount
 				0, // limitProgress (unlimited)
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 	}
 
 	@Test
@@ -57,11 +59,6 @@ class DummyScraperTest {
 
 	@Test
 	void testScraperSubmitsDownloadsToDownloadManager() {
-		// Given - create metadata without download results (no md5 set)
-		DummyDownloadManager testDownloadManager = new DummyDownloadManager();
-		ScraperConfig testConfig = new ScraperConfig(
-				metadataDir, checksumDir, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
-
 		List<JdkMetadata> metadata = new ArrayList<>();
 		for (int i = 0; i < 3; i++) {
 			JdkMetadata meta = JdkMetadata.create()
@@ -79,14 +76,14 @@ class DummyScraperTest {
 			metadata.add(meta);
 		}
 
-		DummyScraper scraper = new DummyScraper(testConfig, metadata);
+		DummyScraper scraper = new DummyScraper(config, metadata);
 
 		// When
 		scraper.call();
 
 		// Then
-		assertThat(testDownloadManager.getSubmittedCount()).isEqualTo(3);
-		assertThat(testDownloadManager.getSubmittedDownloads())
+		assertThat(downloadManager.getSubmittedCount()).isEqualTo(3);
+		assertThat(downloadManager.getSubmittedDownloads())
 				.hasSize(3)
 				.allMatch(d -> d.metadata().url() != null)
 				.allMatch(d -> d.metadata().filename() != null);
@@ -95,10 +92,6 @@ class DummyScraperTest {
 	@Test
 	void testScraperSkipsAlreadyDownloadedFiles() throws IOException {
 		// Given - create metadata WITH download results (md5 already set)
-		DummyDownloadManager testDownloadManager = new DummyDownloadManager();
-		ScraperConfig testConfig = new ScraperConfig(
-				metadataDir, checksumDir, LoggerFactory.getLogger("test"), false, 10, 0, testDownloadManager);
-
 		List<JdkMetadata> metadata = createSkippedMetadata(3); // These have download() already set
 		Files.createDirectories(metadataDir);
 		for (JdkMetadata meta : metadata) {
@@ -106,14 +99,14 @@ class DummyScraperTest {
 			Files.writeString(metadataDir.resolve(meta.metadataFilename()), "{}");
 		}
 
-		DummyScraper scraper = new DummyScraper(testConfig, metadata);
+		DummyScraper scraper = new DummyScraper(config, metadata);
 
 		// When
 		scraper.call();
 
 		// Then - should NOT submit to download manager since their metadata files already exist (simulating already
 		// processed)
-		assertThat(testDownloadManager.getSubmittedCount()).isEqualTo(0);
+		assertThat(downloadManager.getSubmittedCount()).isEqualTo(0);
 	}
 
 	@Test
@@ -164,14 +157,15 @@ class DummyScraperTest {
 	@Test
 	void testScraperWithProgressLimit() {
 		// Given
+		Logger dl = LoggerFactory.getLogger("test");
 		ScraperConfig limitedConfig = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				LoggerFactory.getLogger("test"),
+				dl,
 				false,
 				10,
 				2, // limit to 2 items
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
 		// Create a scraper that tracks progress
@@ -189,14 +183,15 @@ class DummyScraperTest {
 	@Test
 	void testScraperWithMaxFailures() {
 		// Given
+		Logger dl = LoggerFactory.getLogger("test");
 		ScraperConfig limitedConfig = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				LoggerFactory.getLogger("test"),
+				dl,
 				false,
 				2, // max 2 failures
 				0,
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(limitedConfig) {
 			@Override
@@ -228,14 +223,15 @@ class DummyScraperTest {
 		Files.createDirectories(metadataDir);
 		Files.writeString(metadataDir.resolve("existing-file.json"), "{}");
 
+		Logger dl = LoggerFactory.getLogger("test");
 		ScraperConfig configNoFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				LoggerFactory.getLogger("test"),
+				dl,
 				false, // fromStart = false
 				10,
 				0,
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(configNoFromStart);
 
@@ -252,14 +248,15 @@ class DummyScraperTest {
 		Files.createDirectories(metadataDir);
 		Files.writeString(metadataDir.resolve("existing-file.json"), "{}");
 
+		Logger dl = LoggerFactory.getLogger("test");
 		ScraperConfig configFromStart = new ScraperConfig(
 				metadataDir,
 				checksumDir,
-				LoggerFactory.getLogger("test"),
+				dl,
 				true, // fromStart = true
 				10,
 				0,
-				downloadManager);
+				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(configFromStart);
 

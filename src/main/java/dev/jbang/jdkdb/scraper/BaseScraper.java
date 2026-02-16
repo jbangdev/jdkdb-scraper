@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 
 /** Base class for all vendor scrapers */
@@ -21,7 +22,7 @@ public abstract class BaseScraper implements Scraper {
 	protected final boolean fromStart;
 	protected final int maxFailureCount;
 	protected final int limitProgress;
-	protected final DownloadManager downloadManager;
+	protected final Consumer<JdkMetadata> submitDownload;
 
 	private List<JdkMetadata> allMetadata = new ArrayList<>();
 	private int failureCount = 0;
@@ -35,7 +36,7 @@ public abstract class BaseScraper implements Scraper {
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
 		this.limitProgress = config.limitProgress();
-		this.downloadManager = config.downloadManager();
+		this.submitDownload = config.submitDownload();
 		this.httpUtils = new HttpUtils();
 	}
 
@@ -127,7 +128,7 @@ public abstract class BaseScraper implements Scraper {
 				// We save the metadata file before downloading, meaning the checksums
 				// will be missing until the download completes!
 				saveMetadataFile(metadata);
-				downloadManager.submit(metadata, this);
+				submitDownload.accept(metadata);
 				processingCount++;
 				if (limitProgress > 0 && processingCount >= limitProgress) {
 					logger.info("Reached progress limit of " + limitProgress + " items, aborting");

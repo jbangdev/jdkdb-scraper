@@ -1,6 +1,7 @@
 package dev.jbang.jdkdb.scraper;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import org.slf4j.Logger;
 
 /**
  * Interface for managing parallel downloads of JDK files. Implementations receive JdkMetadata from
@@ -11,9 +12,10 @@ public interface DownloadManager {
 	 * Submit a metadata item for download.
 	 *
 	 * @param metadata The JDK metadata containing the URL to download
-	 * @param scraper The scraper that submitted this download (for progress reporting)
+	 * @param vendor The vendor name
+	 * @param logger The logger to use for logging download progress and errors
 	 */
-	void submit(JdkMetadata metadata, BaseScraper scraper);
+	void submit(JdkMetadata metadata, String vendor, Logger logger);
 
 	/**
 	 * Start the download manager. Should be called once after construction.

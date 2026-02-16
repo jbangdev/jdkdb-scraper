@@ -1,11 +1,12 @@
 package dev.jbang.jdkdb.scraper;
 
+import dev.jbang.jdkdb.model.JdkMetadata;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 import org.slf4j.Logger;
 
 /**
- * Configuration record for scraper instances. Encapsulates the metadata directory, checksum
- * directory, logger, download manager, and whether to ignore existing metadata files.
+ * Configuration record for scraper instances.
  */
 public record ScraperConfig(
 		Path metadataDir,
@@ -14,4 +15,4 @@ public record ScraperConfig(
 		boolean fromStart,
 		int maxFailureCount,
 		int limitProgress,
-		DownloadManager downloadManager) {}
+		Consumer<JdkMetadata> submitDownload) {}

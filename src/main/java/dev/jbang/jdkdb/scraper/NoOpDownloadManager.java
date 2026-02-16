@@ -26,14 +26,16 @@ public class NoOpDownloadManager implements DownloadManager {
 	 * Submit a metadata item for download. This implementation logs and ignores the request.
 	 *
 	 * @param metadata The JDK metadata containing the URL to download
-	 * @param scraper The scraper that submitted this download
+	 * @param vendor The vendor name
+	 * @param downloadLogger The logger for progress reporting
 	 */
 	@Override
-	public void submit(JdkMetadata metadata, BaseScraper scraper) {
+	public void submit(JdkMetadata metadata, String vendor, Logger downloadLogger) {
 		if (metadata.url() != null && metadata.filename() != null) {
 			completedDownloads.incrementAndGet();
 			logger.debug("Ignoring download request for: {} (no-download option specified)", metadata.filename());
-			scraper.log("Ignoring download request for: " + metadata.filename() + " (no-download option specified)");
+			downloadLogger.debug(
+					"Ignoring download request for: {} (no-download option specified)", metadata.filename());
 		}
 	}
 

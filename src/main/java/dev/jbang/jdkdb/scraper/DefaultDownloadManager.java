@@ -86,10 +86,11 @@ public class DefaultDownloadManager implements DownloadManager {
 	 * Submit a metadata item for download.
 	 *
 	 * @param metadata The JDK metadata containing the URL to download
-	 * @param scraper The scraper that submitted this download (for progress reporting)
+	 * @param vendor The vendor of the JDK
+	 * @param downloadLogger The logger for progress reporting
 	 */
 	@Override
-	public void submit(JdkMetadata metadata, BaseScraper scraper) {
+	public void submit(JdkMetadata metadata, String vendor, Logger downloadLogger) {
 		if (shutdownRequested) {
 			throw new IllegalStateException("Cannot submit downloads after shutdown requested");
 		}
@@ -97,10 +98,9 @@ public class DefaultDownloadManager implements DownloadManager {
 			return;
 		}
 		try {
-			downloadQueue.put(new DownloadTask(metadata, scraper));
-			scraper.log("Queued download for " + metadata.filename());
-			logger.debug(
-					"Scraper {} submitted download for {}", scraper.getClass().getSimpleName(), metadata.filename());
+			downloadQueue.put(new DownloadTask(metadata, vendor, downloadLogger));
+			downloadLogger.info("Queued download for " + metadata.filename());
+			logger.debug("Submitted download for {} - {}", vendor, metadata.filename());
 			logger.info(
 					"Downloads: {} queued, {} active, {} completed, {} failed",
 					downloadQueue.size(),
@@ -189,12 +189,10 @@ public class DefaultDownloadManager implements DownloadManager {
 					if (host == null) {
 						// Invalid URL, log failure and skip
 						failedDownloads.incrementAndGet();
-						task.scraper.fail(
-								"Invalid URL for " + task.metadata.filename() + ": " + task.metadata.url(), null);
+						task.downloadLogger()
+								.error("Invalid URL for {}: {}", task.metadata.filename(), task.metadata.url());
 						logger.debug(
-								"Failed download for {} [{}] - invalid URL",
-								task.metadata.filename(),
-								task.scraper.getClass().getSimpleName());
+								"Failed download for {} [{}] - invalid URL", task.metadata.filename(), task.vendor);
 						continue;
 					}
 
@@ -216,17 +214,11 @@ public class DefaultDownloadManager implements DownloadManager {
 					try {
 						processDownload(task);
 						completedDownloads.incrementAndGet();
-						logger.debug(
-								"Succeeded download for {} [{}]",
-								task.metadata.filename(),
-								task.scraper.getClass().getSimpleName());
+						logger.debug("Succeeded download for {} [{}]", task.metadata.filename(), task.vendor);
 					} catch (Exception e) {
 						failedDownloads.incrementAndGet();
-						task.scraper.fail("Failed to download " + task.metadata.filename(), e);
-						logger.debug(
-								"Failed download for {} [{}]",
-								task.metadata.filename(),
-								task.scraper.getClass().getSimpleName());
+						task.downloadLogger().error("Failed to download {}", task.metadata.filename(), e);
+						logger.debug("Failed download for {} [{}]", task.metadata.filename(), task.vendor);
 					} finally {
 						activeDownloads.decrementAndGet();
 						// Decrement host counter
@@ -263,34 +255,38 @@ public class DefaultDownloadManager implements DownloadManager {
 		Path tempFile = Files.createTempFile("jdk-metadata-", "-" + filename);
 
 		try {
-			task.scraper.log("Downloading " + filename);
+			task.downloadLogger().info("Downloading " + filename);
 			httpUtils.downloadFile(url, tempFile);
 
 			long size = Files.size(tempFile);
 
 			// Compute hashes
-			task.scraper.log("Computing hashes for " + filename);
+			task.downloadLogger().info("Computing hashes for " + filename);
 			String md5 = HashUtils.computeHash(tempFile, "MD5");
 			String sha1 = HashUtils.computeHash(tempFile, "SHA-1");
 			String sha256 = HashUtils.computeHash(tempFile, "SHA-256");
 			String sha512 = HashUtils.computeHash(tempFile, "SHA-512");
 
 			// Save checksum files
-			saveChecksumFile(checksumDir, filename, "md5", md5);
-			saveChecksumFile(checksumDir, filename, "sha1", sha1);
-			saveChecksumFile(checksumDir, filename, "sha256", sha256);
-			saveChecksumFile(checksumDir, filename, "sha512", sha512);
+			Path vendorChecksumDir = checksumDir.resolve(task.vendor);
+			Files.createDirectories(vendorChecksumDir);
+			saveChecksumFile(vendorChecksumDir, filename, "md5", md5);
+			saveChecksumFile(vendorChecksumDir, filename, "sha1", sha1);
+			saveChecksumFile(vendorChecksumDir, filename, "sha256", sha256);
+			saveChecksumFile(vendorChecksumDir, filename, "sha512", sha512);
 
 			// Update metadata with download results
 			DownloadResult result = new DownloadResult(md5, sha1, sha256, sha512, size);
 			metadata.download(result);
 
 			// Save metadata file
-			Path metadataFile = metadataDir.resolve(metadata.metadataFilename());
+			Path vendorMetadataDir = metadataDir.resolve("vendor").resolve(task.vendor);
+			Files.createDirectories(vendorMetadataDir);
+			Path metadataFile = vendorMetadataDir.resolve(metadata.metadataFilename());
 			MetadataUtils.saveMetadataFile(metadataFile, metadata);
 
 			// Report success
-			task.scraper.log("Processed " + filename);
+			task.downloadLogger().info("Processed " + filename);
 		} finally {
 			Files.deleteIfExists(tempFile);
 		}
@@ -323,5 +319,5 @@ public class DefaultDownloadManager implements DownloadManager {
 	}
 
 	/** Internal class representing a download task */
-	private record DownloadTask(JdkMetadata metadata, BaseScraper scraper) {}
+	private record DownloadTask(JdkMetadata metadata, String vendor, Logger downloadLogger) {}
 }
