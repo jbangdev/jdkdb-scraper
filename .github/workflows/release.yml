@@ -33,6 +33,9 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build
 
+      - name: Rename JAR for release
+        run: cp build/libs/jdkdb-scraper-${{ github.event.inputs.version }}-standalone.jar build/libs/jdkdb-scraper-standalone.jar
+
       - name: Commit & Push changes
         uses: actions-js/push@master
         with:
@@ -51,7 +54,7 @@ jobs:
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: Release v${{ github.event.inputs.version }}
-          files: build/libs/jdkdb-scraper-${{ github.event.inputs.version }}-standalone.jar
+          files: build/libs/jdkdb-scraper-standalone.jar
           draft: true
           prerelease: false
           generate_release_notes: true
