@@ -86,6 +86,12 @@ public class Main implements Callable<Integer> {
 			description = "Skip downloading files and only generate metadata (for testing/dry-run)")
 	private boolean noDownload;
 
+	@Option(
+			names = {"--lexical-sort"},
+			description =
+					"Compare versions lexically in all.json for comparable output (default: numerical version order)")
+	private boolean lexicalSort;
+
 	@Override
 	public Integer call() throws Exception {
 		// Handle list command
@@ -204,7 +210,7 @@ public class Main implements Callable<Integer> {
 			System.out.println();
 			System.out.println("Generating all.json files for affected vendor directories...");
 			try {
-				generateAllJsonFiles(metadataDir, affectedVendors);
+				generateAllJsonFiles(metadataDir, affectedVendors, lexicalSort);
 				System.out.println("Successfully generated all.json files");
 			} catch (Exception e) {
 				System.err.println("Failed to generate all.json files: " + e.getMessage());
@@ -287,7 +293,8 @@ public class Main implements Callable<Integer> {
 	 * @param metadataDir The metadata directory
 	 * @param affectedVendors Set of vendor names that were affected by the scrapers that ran
 	 */
-	private void generateAllJsonFiles(Path metadataDir, Set<String> affectedVendors) throws Exception {
+	private void generateAllJsonFiles(Path metadataDir, Set<String> affectedVendors, boolean lexicalSort)
+			throws Exception {
 		Path vendorDir = metadataDir.resolve("vendor");
 		if (!Files.exists(vendorDir) || !Files.isDirectory(vendorDir)) {
 			System.out.println("No vendor directory found, skipping all.json generation");
@@ -300,7 +307,7 @@ public class Main implements Callable<Integer> {
 			if (Files.exists(vendorPath) && Files.isDirectory(vendorPath)) {
 				try {
 					System.out.println("  Generating all.json for vendor: " + vendorName);
-					MetadataUtils.generateAllJsonFromDirectory(vendorPath);
+					MetadataUtils.generateAllJsonFromDirectory(vendorPath, lexicalSort);
 				} catch (Exception e) {
 					System.err.println("    Failed for vendor " + vendorName + ": " + e.getMessage());
 				}

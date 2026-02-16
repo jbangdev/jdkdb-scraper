@@ -79,7 +79,7 @@ class MetadataUtilsTest {
 		Files.createDirectories(tempDir.resolve("metadata"));
 
 		// When
-		MetadataUtils.saveMetadata(tempDir.resolve("metadata"), List.of(metadata));
+		MetadataUtils.saveMetadata(tempDir.resolve("metadata"), List.of(metadata), false);
 
 		// Then
 		Path metadataFile = tempDir.resolve("metadata").resolve("all.json");
@@ -133,7 +133,7 @@ class MetadataUtilsTest {
 		assertThat(vendorDir.resolve("custom-metadata-filename.json")).exists();
 
 		// When - generate all.json from directory
-		MetadataUtils.generateAllJsonFromDirectory(vendorDir);
+		MetadataUtils.generateAllJsonFromDirectory(vendorDir, false);
 
 		// Then - all.json should be created
 		Path allJson = vendorDir.resolve("all.json");
@@ -172,7 +172,7 @@ class MetadataUtilsTest {
 		Files.writeString(vendorDir.resolve("all.json"), "[{\"old\": \"data\"}]");
 
 		// When - regenerate all.json
-		MetadataUtils.generateAllJsonFromDirectory(vendorDir);
+		MetadataUtils.generateAllJsonFromDirectory(vendorDir, false);
 
 		// Then - new all.json should contain current metadata, not old data
 		String allJsonContent = Files.readString(vendorDir.resolve("all.json"));
@@ -186,7 +186,7 @@ class MetadataUtilsTest {
 		Path nonExistent = tempDir.resolve("does-not-exist");
 
 		// When/Then - should not throw exception
-		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent))
+		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent, false))
 				.doesNotThrowAnyException();
 	}
 
@@ -266,7 +266,7 @@ class MetadataUtilsTest {
 		// When - save in random order
 		Path metadataDir = tempDir.resolve("metadata");
 		Files.createDirectories(metadataDir);
-		MetadataUtils.saveMetadata(metadataDir, List.of(metadata3, metadata1, metadata5, metadata4, metadata2));
+		MetadataUtils.saveMetadata(metadataDir, List.of(metadata3, metadata1, metadata5, metadata4, metadata2), false);
 
 		// Then - all.json should be sorted by version first, then filename
 		Path allJson = metadataDir.resolve("all.json");
@@ -292,5 +292,52 @@ class MetadataUtilsTest {
 
 		assertThat(result[4].version()).isEqualTo("17.0.5");
 		assertThat(result[4].filename()).isEqualTo("temurin-jdk-17.0.5");
+	}
+
+	@Test
+	void testSaveMetadataLexicalSort() throws Exception {
+		// Lexical version sort: "11.0.10" < "11.0.2" (string compare). Order still version then filename.
+		DownloadResult download = new DownloadResult(null, null, null, null, 100_000_000L);
+		JdkMetadata metadata1 = JdkMetadata.create()
+				.filename("jdk-11.0.2")
+				.vendor("test")
+				.version("11.0.2")
+				.javaVersion("11")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/jdk-11.0.2.tar.gz")
+				.download(download);
+
+		JdkMetadata metadata2 = JdkMetadata.create()
+				.filename("jdk-11.0.10")
+				.vendor("test")
+				.version("11.0.10")
+				.javaVersion("11")
+				.os("linux")
+				.arch("x86_64")
+				.fileType("tar.gz")
+				.imageType("jdk")
+				.releaseType("ga")
+				.url("https://example.com/jdk-11.0.10.tar.gz")
+				.download(download);
+
+		Path metadataDir = tempDir.resolve("metadata");
+		Files.createDirectories(metadataDir);
+		MetadataUtils.saveMetadata(metadataDir, List.of(metadata1, metadata2), true);
+
+		Path allJson = metadataDir.resolve("all.json");
+		assertThat(allJson).exists();
+
+		String content = Files.readString(allJson);
+		ObjectMapper objectMapper = new ObjectMapper();
+		JdkMetadata[] result = objectMapper.readValue(content, JdkMetadata[].class);
+
+		assertThat(result).hasSize(2);
+		// Lexical: "11.0.10" before "11.0.2"
+		assertThat(result[0].version()).isEqualTo("11.0.10");
+		assertThat(result[1].version()).isEqualTo("11.0.2");
 	}
 }

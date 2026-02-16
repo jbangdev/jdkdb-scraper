@@ -127,13 +127,17 @@ public class MetadataUtils {
 			writer.write("\n");
 		}
 	}
-	/** Save all metadata and create combined all.json file */
-	public static void saveMetadata(Path metadataDir, List<JdkMetadata> metadataList) throws IOException {
-		// Sort by version first (using VersionComparator) and filename second
-		List<JdkMetadata> sortedList = metadataList.stream()
-				.sorted(Comparator.<JdkMetadata, String>comparing(md -> md.version(), VersionComparator.INSTANCE)
-						.thenComparing(md -> md.metadataFilename()))
-				.toList();
+	/** Save all metadata and create combined all.json file.
+	 * @param lexicalSort if true, compare versions lexically (string order) for comparable all.json; if false, use numerical version order. Sort is always version then filename. */
+	public static void saveMetadata(Path metadataDir, List<JdkMetadata> metadataList, boolean lexicalSort)
+			throws IOException {
+		Comparator<JdkMetadata> versionThenFilename = lexicalSort
+				? Comparator.<JdkMetadata, String>comparing(md -> md.version())
+						.thenComparing(md -> md.metadataFilename())
+				: Comparator.<JdkMetadata, String>comparing(md -> md.version(), VersionComparator.INSTANCE)
+						.thenComparing(md -> md.metadataFilename());
+		List<JdkMetadata> sortedList =
+				metadataList.stream().sorted(versionThenFilename).toList();
 
 		// Create all.json
 		if (!sortedList.isEmpty()) {
@@ -150,8 +154,9 @@ public class MetadataUtils {
 	/**
 	 * Generate all.json file from all .json files in the vendor directory. This reads all individual
 	 * metadata files (excluding all.json itself) and creates a combined all.json file.
+	 * @param lexicalSort if true, compare versions lexically for comparable output
 	 */
-	public static void generateAllJsonFromDirectory(Path vendorDir) throws IOException {
+	public static void generateAllJsonFromDirectory(Path vendorDir, boolean lexicalSort) throws IOException {
 		if (!Files.exists(vendorDir) || !Files.isDirectory(vendorDir)) {
 			return;
 		}
@@ -176,7 +181,7 @@ public class MetadataUtils {
 
 		// Save the combined all.json
 		if (!metadataList.isEmpty()) {
-			saveMetadata(vendorDir, metadataList);
+			saveMetadata(vendorDir, metadataList, lexicalSort);
 		}
 	}
 }
