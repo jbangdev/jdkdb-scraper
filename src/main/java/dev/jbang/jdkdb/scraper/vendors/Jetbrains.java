@@ -71,6 +71,11 @@ public class Jetbrains extends GitHubReleaseScraper {
 			return null;
 		}
 
+		if (assetName.contains("_diz.")) {
+			fine("Skipping " + assetName + " (not a JDK asset)");
+			return null;
+		}
+
 		if (metadataExists(assetName)) {
 			return skipped(assetName);
 		}
