@@ -1,6 +1,7 @@
 package dev.jbang.jdkdb.scraper;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,7 @@ public class ScraperFactory {
 	private final boolean fromStart;
 	private final int maxFailureCount;
 	private final int limitProgress;
+	private final Duration skipEaDuration;
 	private final DownloadManager downloadManager;
 
 	public static ScraperFactory create(
@@ -20,8 +22,10 @@ public class ScraperFactory {
 			boolean fromStart,
 			int maxFailureCount,
 			int limitProgress,
+			Duration skipEaDuration,
 			DownloadManager downloadManager) {
-		return new ScraperFactory(metadataDir, checksumDir, fromStart, maxFailureCount, limitProgress, downloadManager);
+		return new ScraperFactory(
+				metadataDir, checksumDir, fromStart, maxFailureCount, limitProgress, skipEaDuration, downloadManager);
 	}
 
 	private ScraperFactory(
@@ -30,12 +34,14 @@ public class ScraperFactory {
 			boolean fromStart,
 			int maxFailureCount,
 			int limitProgress,
+			Duration skipEaDuration,
 			DownloadManager downloadManager) {
 		this.metadataDir = metadataDir;
 		this.checksumDir = checksumDir;
 		this.fromStart = fromStart;
 		this.maxFailureCount = maxFailureCount;
 		this.limitProgress = limitProgress;
+		this.skipEaDuration = skipEaDuration;
 		this.downloadManager = downloadManager;
 	}
 
@@ -58,6 +64,7 @@ public class ScraperFactory {
 					fromStart,
 					maxFailureCount,
 					limitProgress,
+					skipEaDuration,
 					md -> downloadManager.submit(md, vendor, dl));
 
 			Scraper scraper = discovery.create(config);
@@ -82,6 +89,7 @@ public class ScraperFactory {
 					fromStart,
 					maxFailureCount,
 					limitProgress,
+					skipEaDuration,
 					md -> downloadManager.submit(md, vendor, dl));
 			return discovery.create(config);
 		} else {

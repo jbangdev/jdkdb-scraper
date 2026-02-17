@@ -3,6 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import static org.assertj.core.api.Assertions.*;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,7 +29,8 @@ class ScraperFactoryTest {
 	@Test
 	void testCreateScraperFactory() {
 		// When
-		ScraperFactory factory = ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, downloadManager);
+		ScraperFactory factory =
+				ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, Duration.ofDays(180), downloadManager);
 
 		// Then
 		assertThat(factory).isNotNull();
@@ -49,7 +51,8 @@ class ScraperFactoryTest {
 	@Test
 	void testCreateAllScrapers() {
 		// Given
-		ScraperFactory factory = ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, downloadManager);
+		ScraperFactory factory =
+				ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, Duration.ofDays(180), downloadManager);
 
 		// When
 		List<Scraper> scrapers = factory.createAllScrapers();
@@ -64,7 +67,8 @@ class ScraperFactoryTest {
 	@Test
 	void testCreateSpecificScraper() {
 		// Given
-		ScraperFactory factory = ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, downloadManager);
+		ScraperFactory factory =
+				ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, Duration.ofDays(180), downloadManager);
 
 		// When
 		Scraper scraper = factory.createScraper("dummy");
@@ -77,7 +81,8 @@ class ScraperFactoryTest {
 	@Test
 	void testCreateScraperWithInvalidName() {
 		// Given
-		ScraperFactory factory = ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, downloadManager);
+		ScraperFactory factory =
+				ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, Duration.ofDays(180), downloadManager);
 
 		// When/Then
 		assertThatThrownBy(() -> factory.createScraper("non-existent-scraper"))
@@ -94,6 +99,7 @@ class ScraperFactoryTest {
 				true, // fromStart
 				5, // maxFailureCount
 				100, // limitProgress
+				Duration.ofDays(180),
 				downloadManager);
 
 		// When
@@ -110,7 +116,8 @@ class ScraperFactoryTest {
 	@Test
 	void testFactoryCreatesScrapersWithVendorDirectories() throws Exception {
 		// Given
-		ScraperFactory factory = ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, downloadManager);
+		ScraperFactory factory =
+				ScraperFactory.create(metadataDir, checksumDir, false, 10, 0, Duration.ofDays(180), downloadManager);
 
 		// When
 		Scraper scraper = factory.createScraper("dummy");

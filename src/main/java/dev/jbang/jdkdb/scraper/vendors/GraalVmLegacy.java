@@ -85,6 +85,11 @@ public class GraalVmLegacy extends GitHubReleaseScraper {
 			ext = regularMatcher.group(4);
 		}
 
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + tagName);
+			return null;
+		}
+
 		String metadataFilename = toMetadataFilename(release, asset);
 		if (metadataExists(metadataFilename)) {
 			return skipped(metadataFilename);

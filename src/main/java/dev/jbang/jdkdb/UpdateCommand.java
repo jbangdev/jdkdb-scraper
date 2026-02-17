@@ -85,6 +85,13 @@ public class UpdateCommand implements Callable<Integer> {
 			description = "Skip generating index files (for testing/dry-run)")
 	private boolean noIndex;
 
+	@Option(
+			names = {"--skip-ea"},
+			description =
+					"Skip early access (EA) releases older than the specified duration (e.g., '6m' for 6 months, '1y' for 1 year) (default: 6m)",
+			defaultValue = "6m")
+	private String skipEa;
+
 	@Override
 	public Integer call() throws Exception {
 		// Handle list command
@@ -95,6 +102,14 @@ public class UpdateCommand implements Callable<Integer> {
 
 		// Determine thread count
 		var threadCount = maxThreads > 0 ? maxThreads : Runtime.getRuntime().availableProcessors();
+
+		// Parse skip-ea duration
+		Duration skipEaDuration = MetadataUtils.parseDuration(skipEa);
+		if (skipEaDuration == null) {
+			System.err.println("Invalid --skip-ea duration format: '" + skipEa
+					+ "'. Expected format: [number][d|w|m|y] (e.g., '30d', '6m', '1y')");
+			return 1;
+		}
 
 		System.out.println("Java Metadata Scraper - Update");
 		System.out.println("==============================");
@@ -117,8 +132,8 @@ public class UpdateCommand implements Callable<Integer> {
 		System.out.println();
 
 		// Create scrapers
-		var fact =
-				ScraperFactory.create(metadataDir, checksumDir, fromStart, maxFailures, limitProgress, downloadManager);
+		var fact = ScraperFactory.create(
+				metadataDir, checksumDir, fromStart, maxFailures, limitProgress, skipEaDuration, downloadManager);
 		var allDiscoveries = ScraperFactory.getAvailableScraperDiscoveries();
 		if (scraperIds == null) {
 			scraperIds = new ArrayList<>(allDiscoveries.keySet());

@@ -84,6 +84,11 @@ public class Dragonwell extends GitHubReleaseScraper {
 			releaseType = "ga";
 		}
 
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + release.path("tag_name").asText());
+			return null;
+		}
+
 		// Handle alpine feature
 		List<String> features = new ArrayList<>();
 		if (assetName.contains("_alpine")) {

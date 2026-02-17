@@ -80,6 +80,11 @@ public class Kona extends GitHubReleaseScraper {
 		// Determine release type
 		String releaseType = parsed.releaseType != null && parsed.releaseType.equals("ea") ? "ea" : "ga";
 
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + release.path("tag_name").asText());
+			return null;
+		}
+
 		// Create metadata
 		return JdkMetadata.create()
 				.vendor(VENDOR)

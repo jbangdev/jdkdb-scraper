@@ -46,6 +46,11 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 		String assetName = asset.get("name").asText();
 		String downloadUrl = asset.get("browser_download_url").asText();
 
+		if (isOldRelease(release)) {
+			fine("Skipping old EA release " + assetName);
+			return null;
+		}
+
 		Matcher matcher = FILENAME_PATTERN.matcher(assetName);
 		if (!matcher.matches()) {
 			if (!assetName.endsWith(".sha256") && !assetName.startsWith("maven-resource-bundle-")) {

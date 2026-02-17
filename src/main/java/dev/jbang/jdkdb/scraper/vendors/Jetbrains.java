@@ -39,6 +39,12 @@ public class Jetbrains extends GitHubReleaseScraper {
 	@Override
 	protected void processRelease(JsonNode release) throws Exception {
 		boolean prerelease = release.get("prerelease").asBoolean();
+
+		if (prerelease && isOldRelease(release)) {
+			fine("Skipping old prerelease " + release.path("tag_name").asText());
+			return;
+		}
+
 		String releaseType = prerelease ? "ea" : "ga";
 		String body = release.get("body").asText("");
 

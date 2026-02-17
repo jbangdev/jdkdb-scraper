@@ -3,6 +3,7 @@ package dev.jbang.jdkdb.scraper;
 import static org.assertj.core.api.Assertions.*;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
@@ -219,6 +220,7 @@ class BaseScraperTest {
 				false,
 				10,
 				0,
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 		return new DummyScraper(config);
 	}

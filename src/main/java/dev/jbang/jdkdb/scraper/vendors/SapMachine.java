@@ -82,10 +82,17 @@ public class SapMachine extends GitHubReleaseScraper {
 
 		String downloadUrl = asset.get("browser_download_url").asText();
 
+		String releaseType = determineReleaseType(version);
+
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + release.get("tag_name").asText());
+			return null;
+		}
+
 		// Create metadata
 		return JdkMetadata.create()
 				.vendor(VENDOR)
-				.releaseType(determineReleaseType(version))
+				.releaseType(releaseType)
 				.version(version)
 				.javaVersion(version)
 				.jvmImpl("hotspot")

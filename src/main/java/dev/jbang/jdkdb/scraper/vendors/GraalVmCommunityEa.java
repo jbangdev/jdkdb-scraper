@@ -51,6 +51,11 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 		String tagName = release.get("tag_name").asText();
 		String assetName = asset.get("name").asText();
 
+		if (isOldRelease(release)) {
+			fine("Skipping old EA release " + tagName);
+			return null;
+		}
+
 		if (!assetName.startsWith("graalvm-community-dev-")
 				|| !(assetName.endsWith("tar.gz") || assetName.endsWith("zip"))) {
 			fine("Skipping " + assetName + " (non-GraalVM Community asset)");

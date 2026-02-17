@@ -70,7 +70,17 @@ public class GluonGraalVm extends GitHubReleaseScraper {
 			arch = "x86_64";
 		}
 
-		String releaseType = assetName.contains("-dev.") || tagName.contains("-dev-") ? "ea" : "ga";
+		String releaseType;
+		if (assetName.contains("-dev.") || tagName.contains("-dev-")) {
+			releaseType = "ea";
+		} else {
+			releaseType = "ga";
+		}
+
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + tagName);
+			return null;
+		}
 
 		String url = String.format("https://github.com/gluonhq/graal/releases/download/%s/%s", tagName, assetName);
 

@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.jbang.jdkdb.model.JdkMetadata;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -39,6 +40,14 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 		JsonNode assets = release.get("assets");
 		if (assets == null || !assets.isArray()) {
 			return;
+		}
+
+		if (skipEaDuration != null) {
+			boolean isPrerelease = release.path("prerelease").asBoolean(false);
+			if (isPrerelease && isOldRelease(release)) {
+				fine("Skipping old EA release " + release.path("tag_name").asText());
+				return;
+			}
 		}
 
 		for (JsonNode asset : assets) {
@@ -163,5 +172,23 @@ public abstract class GitHubReleaseScraper extends BaseScraper {
 				fail("Could not download list of releases for repository " + orgName + "/" + repoName, e);
 			}
 		};
+	}
+
+	protected boolean isOldRelease(JsonNode release) {
+		JsonNode dateNode = release.path("published_at");
+		if (dateNode == null || dateNode.asText().isEmpty()) {
+			dateNode = release.path("created_at");
+		}
+		String dateStr = dateNode.asText();
+		if (dateStr != null && !dateStr.isEmpty()) {
+			try {
+				Instant releaseDate = Instant.parse(dateStr);
+				Instant cutoffDate = Instant.now().minus(skipEaDuration);
+				return releaseDate.isBefore(cutoffDate);
+			} catch (Exception e) {
+				warn("Failed to parse release date: " + dateStr);
+			}
+		}
+		return false;
 	}
 }

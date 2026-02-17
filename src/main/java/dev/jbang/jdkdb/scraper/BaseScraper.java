@@ -8,6 +8,7 @@ import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -22,6 +23,7 @@ public abstract class BaseScraper implements Scraper {
 	protected final boolean fromStart;
 	protected final int maxFailureCount;
 	protected final int limitProgress;
+	protected final Duration skipEaDuration;
 	protected final Consumer<JdkMetadata> submitDownload;
 
 	private List<JdkMetadata> allMetadata = new ArrayList<>();
@@ -36,6 +38,7 @@ public abstract class BaseScraper implements Scraper {
 		this.fromStart = config.fromStart();
 		this.maxFailureCount = config.maxFailureCount();
 		this.limitProgress = config.limitProgress();
+		this.skipEaDuration = config.skipEaDuration();
 		this.submitDownload = config.submitDownload();
 		this.httpUtils = new HttpUtils();
 	}

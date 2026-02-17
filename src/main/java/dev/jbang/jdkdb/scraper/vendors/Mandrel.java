@@ -71,7 +71,12 @@ public class Mandrel extends GitHubReleaseScraper {
 		} else if (version.contains("Alpha") || version.contains("Beta")) {
 			releaseType = "ea";
 		} else {
-			releaseType = "ea";
+			releaseType = "ga";
+		}
+
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + tagName);
+			return null;
 		}
 
 		String url = String.format(

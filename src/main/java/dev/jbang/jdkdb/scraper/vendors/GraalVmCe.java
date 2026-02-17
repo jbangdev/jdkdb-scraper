@@ -75,6 +75,11 @@ public class GraalVmCe extends GitHubReleaseScraper {
 			releaseType = "ea";
 		}
 
+		if (releaseType.equals("ea") && isOldRelease(release)) {
+			fine("Skipping old EA release " + tagName);
+			return null;
+		}
+
 		String url = String.format(
 				"https://github.com/%s/%s/releases/download/%s/%s", GITHUB_ORG, GITHUB_REPO, tagName, assetName);
 

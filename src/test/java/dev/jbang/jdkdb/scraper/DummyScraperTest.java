@@ -6,6 +6,7 @@ import dev.jbang.jdkdb.model.JdkMetadata;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ class DummyScraperTest {
 				false, // fromStart
 				10, // maxFailureCount
 				0, // limitProgress (unlimited)
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 	}
 
@@ -165,6 +167,7 @@ class DummyScraperTest {
 				false,
 				10,
 				2, // limit to 2 items
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 		List<JdkMetadata> metadata = createTestMetadata(5);
 
@@ -191,6 +194,7 @@ class DummyScraperTest {
 				false,
 				2, // max 2 failures
 				0,
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(limitedConfig) {
@@ -231,6 +235,7 @@ class DummyScraperTest {
 				false, // fromStart = false
 				10,
 				0,
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(configNoFromStart);
@@ -256,6 +261,7 @@ class DummyScraperTest {
 				true, // fromStart = true
 				10,
 				0,
+				Duration.ofDays(180),
 				md -> downloadManager.submit(md, "test-vendor", dl));
 
 		DummyScraper scraper = new DummyScraper(configFromStart);
