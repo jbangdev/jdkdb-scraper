@@ -1,12 +1,14 @@
 package dev.jbang.jdkdb.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import dev.jbang.jdkdb.scraper.DownloadResult;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Represents JDK metadata for a specific release */
@@ -31,7 +33,8 @@ import java.util.Objects;
 	"sha256_file",
 	"sha512",
 	"sha512_file",
-	"size"
+	"size",
+	"release_info"
 })
 public class JdkMetadata {
 	@JsonProperty("vendor")
@@ -96,6 +99,10 @@ public class JdkMetadata {
 
 	@JsonProperty("size")
 	private long size;
+
+	@JsonProperty("release_info")
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	private Map<String, String> releaseInfo;
 
 	@JsonIgnore
 	private transient Path metadataFile;
@@ -251,6 +258,15 @@ public class JdkMetadata {
 
 	public long size() {
 		return size;
+	}
+
+	public Map<String, String> releaseInfo() {
+		return releaseInfo;
+	}
+
+	public JdkMetadata releaseInfo(Map<String, String> releaseInfo) {
+		this.releaseInfo = releaseInfo;
+		return this;
 	}
 
 	public Path metadataFile() {

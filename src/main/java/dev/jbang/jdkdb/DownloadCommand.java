@@ -7,8 +7,9 @@ import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -92,74 +93,55 @@ public class DownloadCommand implements Callable<Integer> {
 		}
 		System.out.println();
 
-		// Create vendor-specific download manager
+		// Create download manager
 		var threadCount = maxThreads > 0 ? maxThreads : Runtime.getRuntime().availableProcessors();
 		DownloadManager downloadManager = statsOnly
 				? new NoOpDownloadManager()
 				: new DefaultDownloadManager(threadCount, metadataDir, checksumDir);
 		downloadManager.start();
 
-		int totalFiles = 0;
-		int filesWithMissingChecksums = 0;
-		int filesProcessed = 0;
-		List<String> processedVendors = new ArrayList<>();
+		List<JdkMetadata> metadataList = MetadataUtils.collectAllMetadata(vendorDir, 2, false, true);
 
-		// Scan each vendor directory
-		for (String vendorName : vendorsToProcess) {
-			Path vendorPath = vendorDir.resolve(vendorName);
-			if (!Files.exists(vendorPath) || !Files.isDirectory(vendorPath)) {
-				System.err.println("Warning: Vendor directory not found: " + vendorName);
-				continue;
+		// Sort list first by missing checksums
+		metadataList.sort((m1, m2) -> {
+			boolean m1MissingChecksums = MetadataUtils.hasMissingChecksums(m1);
+			boolean m2MissingChecksums = MetadataUtils.hasMissingChecksums(m2);
+			if (m1MissingChecksums && !m2MissingChecksums) {
+				return -1; // m1 comes before m2
+			} else if (!m1MissingChecksums && m2MissingChecksums) {
+				return 1; // m2 comes before m1
+			} else {
+				return 0; // Both are equal in terms of missing data
 			}
+		});
 
-			System.out.println("Scanning vendor: " + vendorName);
-
-			int vendorMissing = 0;
-
-			try (Stream<Path> files = Files.list(vendorPath)) {
-				List<Path> metadataFiles = files.filter(Files::isRegularFile)
-						.filter(p -> p.getFileName().toString().endsWith(".json"))
-						.filter(p -> !p.getFileName().toString().equals("all.json"))
-						.toList();
-
-				totalFiles += metadataFiles.size();
-
-				for (Path metadataFile : metadataFiles) {
-					try {
-						JdkMetadata metadata = MetadataUtils.readMetadataFile(metadataFile);
-
-						// The metadataFilename is already set to just the filename by readMetadataFile
-						// which is what we want since we're using vendor-specific dirs
-
-						// Check if any checksums are missing
-						if (hasMissingChecksums(metadata)) {
-							Logger dl = LoggerFactory.getLogger("vendors." + vendorName);
-							downloadManager.submit(metadata, vendorName, dl);
-							filesWithMissingChecksums++;
-							vendorMissing++;
-							if (limitProgress > 0 && vendorMissing >= limitProgress) {
-								dl.info("Reached progress limit of " + limitProgress + " items for vendor " + vendorName
-										+ ", skipping remaining files for this vendor");
-								System.out.println("Reached progress limit of " + limitProgress + " items for vendor "
-										+ vendorName + ", skipping remaining files for this vendor");
-								break;
-							}
-						} else {
-							filesProcessed++;
-						}
-					} catch (Exception e) {
-						System.err.println("  Failed to read metadata file: " + metadataFile.getFileName() + " - "
-								+ e.getMessage());
-					}
+		Map<String, Integer> vendorMissingCounts = new HashMap<>();
+		for (JdkMetadata metadata : metadataList) {
+			try {
+				String vendorName = metadata.vendor();
+				if (!vendorsToProcess.contains(vendorName)) {
+					continue; // Skip vendors not in the specified list
 				}
-
-				if (!metadataFiles.isEmpty()) {
-					processedVendors.add(vendorName);
+				Logger dl = LoggerFactory.getLogger("vendors." + vendorName);
+				downloadManager.submit(metadata, vendorName, dl);
+				vendorMissingCounts.put(vendorName, vendorMissingCounts.getOrDefault(vendorName, 0) + 1);
+				int vendorMissing = vendorMissingCounts.get(vendorName);
+				if (limitProgress > 0 && vendorMissing >= limitProgress) {
+					dl.info("Reached progress limit of " + limitProgress + " items for vendor " + vendorName
+							+ ", skipping remaining files for this vendor");
+					System.out.println("Reached progress limit of " + limitProgress + " items for vendor " + vendorName
+							+ ", skipping remaining files for this vendor");
+					break;
 				}
+			} catch (Exception e) {
+				System.err.println("  Failed to read metadata file: "
+						+ Path.of(metadata.filename()).getFileName() + " - " + e.getMessage());
 			}
 		}
+
 		downloadManager.shutdown();
 
+		int filesWithMissingData = metadataList.size();
 		int totalCompleted = 0;
 		int totalFailed = 0;
 
@@ -176,33 +158,12 @@ public class DownloadCommand implements Callable<Integer> {
 
 		System.out.println("Summary");
 		System.out.println("=======");
-		System.out.println("Total metadata files scanned: " + totalFiles);
-		System.out.println("Files already complete: " + filesProcessed);
-		System.out.println("Files with missing checksums: " + filesWithMissingChecksums);
-		if (filesWithMissingChecksums > 0) {
+		System.out.println("Files with missing checksums: " + filesWithMissingData);
+		if (filesWithMissingData > 0) {
 			System.out.println("Total downloads completed: " + totalCompleted);
 			System.out.println("Total downloads failed: " + totalFailed);
 		}
 
 		return totalFailed > 0 ? 1 : 0;
-	}
-
-	/**
-	 * Check if metadata has missing checksums.
-	 *
-	 * @param metadata The metadata to check
-	 * @return true if any of the checksums (md5, sha1, sha256, sha512) are missing
-	 */
-	private boolean hasMissingChecksums(JdkMetadata metadata) {
-		// Only check files that have a URL (otherwise we can't download them)
-		if (metadata.url() == null || metadata.filename() == null) {
-			return false;
-		}
-
-		// Check if any of the primary checksums are missing
-		return metadata.md5() == null
-				|| metadata.sha1() == null
-				|| metadata.sha256() == null
-				|| metadata.sha512() == null;
 	}
 }

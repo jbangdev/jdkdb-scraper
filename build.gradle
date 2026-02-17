@@ -23,6 +23,9 @@ dependencies {
 	// Command Line Parsing
 	implementation "info.picocli:picocli:4.7.5"
 
+	// Archive handling (for extracting release files from JDK archives)
+	implementation "org.apache.commons:commons-compress:1.27.1"
+
 	// Testing
 	testImplementation "org.junit.jupiter:junit-jupiter:5.10.1"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"

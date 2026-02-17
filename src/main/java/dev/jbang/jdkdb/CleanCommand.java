@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.stream.Stream;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -90,23 +89,14 @@ public class CleanCommand implements Callable<Integer> {
 		final List<Path> filesToDelete = new ArrayList<>();
 		final Instant finalPruneThreshold = pruneThreshold;
 
-		try (Stream<Path> vendorPaths = Files.list(vendorDir)) {
-			List<Path> vendors = vendorPaths.filter(Files::isDirectory).sorted().toList();
-
-			for (Path vendorPath : vendors) {
-				String vendorName = vendorPath.getFileName().toString();
-				System.out.println("Processing vendor: " + vendorName);
-
-				List<JdkMetadata> metadataList = MetadataUtils.collectAllMetadata(vendorPath, 1, true);
-				for (JdkMetadata metadata : metadataList) {
-					try {
-						processMetadataFile(metadata.metadataFile(), stats, filesToDelete, finalPruneThreshold);
-					} catch (IOException e) {
-						System.err.println(
-								"  Failed to process " + metadata.metadataFile().getFileName() + ": " + e.getMessage());
-						stats.errors++;
-					}
-				}
+		List<JdkMetadata> metadataList = MetadataUtils.collectAllMetadata(vendorDir, 2, true, true);
+		for (JdkMetadata metadata : metadataList) {
+			try {
+				processMetadataFile(metadata, stats, filesToDelete, finalPruneThreshold);
+			} catch (IOException e) {
+				System.err.println(
+						"  Failed to process " + metadata.metadataFile().getFileName() + ": " + e.getMessage());
+				stats.errors++;
 			}
 		}
 
@@ -159,10 +149,11 @@ public class CleanCommand implements Callable<Integer> {
 	}
 
 	private void processMetadataFile(
-			Path metadataFile, CleanStats stats, List<Path> filesToDelete, Instant pruneThreshold) throws IOException {
+			JdkMetadata metadata, CleanStats stats, List<Path> filesToDelete, Instant pruneThreshold)
+			throws IOException {
 		stats.totalFiles++;
 
-		JdkMetadata metadata = MetadataUtils.readMetadataFile(metadataFile);
+		Path metadataFile = metadata.metadataFile();
 
 		boolean shouldDelete = false;
 		String reason = null;
