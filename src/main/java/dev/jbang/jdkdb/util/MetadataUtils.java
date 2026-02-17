@@ -149,6 +149,11 @@ public class MetadataUtils {
 
 		List<JdkMetadata> sortedList = metadataList.stream().sorted(comparator).toList();
 
+		// Clear release_info from all metadata entries before writing lists!
+		for (JdkMetadata md : sortedList) {
+			md.releaseInfo(null);
+		}
+
 		// Create all.json
 		if (!sortedList.isEmpty()) {
 			try (var writer = Files.newBufferedWriter(metadataFile)) {
@@ -170,7 +175,7 @@ public class MetadataUtils {
 			return;
 		}
 
-		List<JdkMetadata> allMetadata = collectAllMetadata(vendorDir, allowIncomplete);
+		List<JdkMetadata> allMetadata = collectAllMetadata(vendorDir, 1, true, allowIncomplete);
 		if (allMetadata.isEmpty()) {
 			System.out.println("No metadata found to generate indices for: " + vendorDir);
 			return;
@@ -195,7 +200,7 @@ public class MetadataUtils {
 			return;
 		}
 
-		List<JdkMetadata> allMetadata = collectAllMetadata(vendorDir, allowIncomplete);
+		List<JdkMetadata> allMetadata = collectAllMetadata(vendorDir, 2, true, allowIncomplete);
 		if (allMetadata.isEmpty()) {
 			System.out.println("No metadata found to generate comprehensive indices.");
 			return;
@@ -358,21 +363,12 @@ public class MetadataUtils {
 	 * Collect all metadata from the given directory and subdirectories, excluding all.json.
 	 *
 	 * @param dir The directory to search for metadata files
-	 * @param allowIncomplete If true, include metadata entries that are missing checksum values
-	 */
-	private static List<JdkMetadata> collectAllMetadata(Path dir, boolean allowIncomplete) throws IOException {
-		return collectAllMetadata(dir, 2, allowIncomplete);
-	}
-
-	/**
-	 * Collect all metadata from the given directory and subdirectories, excluding all.json.
-	 *
-	 * @param dir The directory to search for metadata files
 	 * @param maxDepth The maximum depth to search for metadata files
-	 * @param allowIncomplete If true, include metadata entries that are missing checksum values
+	 * @param includeComplete If true, include metadata entries that have checksum values and release info
+	 * @param includeIncomplete If true, include metadata entries that are missing checksum values or release info
 	 */
-	public static List<JdkMetadata> collectAllMetadata(Path dir, int maxDepth, boolean allowIncomplete)
-			throws IOException {
+	public static List<JdkMetadata> collectAllMetadata(
+			Path dir, int maxDepth, boolean includeComplete, boolean includeIncomplete) throws IOException {
 		List<JdkMetadata> allMetadata = new ArrayList<>();
 
 		try (Stream<Path> paths = Files.walk(dir, maxDepth)) {
@@ -382,15 +378,11 @@ public class MetadataUtils {
 					.forEach(metadataFile -> {
 						try {
 							JdkMetadata metadata = readMetadataFile(metadataFile);
-							if (!allowIncomplete
-									&& (metadata.md5() == null
-											|| metadata.sha1() == null
-											|| metadata.sha256() == null
-											|| metadata.sha512() == null)) {
-								// Skip incomplete metadata
-								return;
+							boolean isIncomplete = MetadataUtils.hasMissingChecksums(metadata)
+									|| MetadataUtils.hasMissingReleaseInfo(metadata);
+							if ((includeComplete && !isIncomplete) || (includeIncomplete && isIncomplete)) {
+								allMetadata.add(metadata);
 							}
-							allMetadata.add(metadata);
 						} catch (IOException e) {
 							System.err.println(
 									"Failed to read metadata file: " + metadataFile + " - " + e.getMessage());
@@ -433,5 +425,40 @@ public class MetadataUtils {
 			case "y" -> Duration.ofDays(amount * 365); // Approximate year as 365 days
 			default -> null;
 		};
+	}
+
+	/**
+	 * Check if metadata has missing checksums.
+	 *
+	 * @param metadata The metadata to check
+	 * @return true if any of the checksums (md5, sha1, sha256, sha512) are missing
+	 */
+	public static boolean hasMissingChecksums(JdkMetadata metadata) {
+		// Only check files that have a URL (otherwise we can't download them)
+		if (metadata.url() == null || metadata.filename() == null) {
+			return false;
+		}
+
+		// Check if any of the primary checksums are missing
+		return metadata.md5() == null
+				|| metadata.sha1() == null
+				|| metadata.sha256() == null
+				|| metadata.sha512() == null;
+	}
+
+	/**
+	 * Check if metadata has missing checksums.
+	 *
+	 * @param metadata The metadata to check
+	 * @return true if the release info is missing
+	 */
+	public static boolean hasMissingReleaseInfo(JdkMetadata metadata) {
+		// Only check files that have a URL (otherwise we can't download them)
+		if (metadata.url() == null || metadata.filename() == null) {
+			return false;
+		}
+
+		// Check if any of the primary release info fields is missing
+		return metadata.releaseInfo() == null;
 	}
 }

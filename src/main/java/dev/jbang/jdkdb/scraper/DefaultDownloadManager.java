@@ -4,13 +4,19 @@ import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.util.HashUtils;
 import dev.jbang.jdkdb.util.HttpUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
-import java.io.IOException;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -279,6 +285,24 @@ public class DefaultDownloadManager implements DownloadManager {
 			DownloadResult result = new DownloadResult(md5, sha1, sha256, sha512, size);
 			metadata.download(result);
 
+			// Extract and parse release info from archive
+			try {
+				task.downloadLogger().info("Extracting release info from " + filename);
+				Map<String, String> releaseInfo = extractReleaseInfo(tempFile, filename);
+				if (releaseInfo != null && !releaseInfo.isEmpty()) {
+					metadata.releaseInfo(releaseInfo);
+					task.downloadLogger()
+							.debug("Extracted release info with " + releaseInfo.size() + " properties from "
+									+ filename);
+				} else {
+					metadata.releaseInfo(Collections.emptyMap());
+					task.downloadLogger().debug("No release info found in " + filename);
+				}
+			} catch (Exception e) {
+				// Don't fail the download if release extraction fails
+				task.downloadLogger().warn("Failed to extract release info from " + filename, e);
+			}
+
 			// Save metadata file
 			Path vendorMetadataDir = metadataDir.resolve("vendor").resolve(task.vendor);
 			Files.createDirectories(vendorMetadataDir);
@@ -324,6 +348,159 @@ public class DefaultDownloadManager implements DownloadManager {
 			logger.warn("Invalid URL: {}", urlString);
 			return null;
 		}
+	}
+
+	/**
+	 * Extract release info from a JDK archive. The release file should be in the root of the
+	 * archive or inside the only folder in the root.
+	 *
+	 * @param archiveFile The archive file (zip, tar.gz, etc.)
+	 * @param filename The filename to determine archive type
+	 * @return Map of release properties, or null if not found or parsing failed
+	 */
+	private Map<String, String> extractReleaseInfo(Path archiveFile, String filename) throws IOException {
+		String lowerFilename = filename.toLowerCase();
+
+		if (lowerFilename.endsWith(".zip")) {
+			return extractReleaseFromZip(archiveFile);
+		} else if (lowerFilename.endsWith(".tar.gz") || lowerFilename.endsWith(".tgz")) {
+			return extractReleaseFromTarGz(archiveFile);
+		}
+
+		// Unsupported archive format
+		return null;
+	}
+
+	/**
+	 * Extract release file from ZIP archive.
+	 *
+	 * @param zipFile The ZIP file
+	 * @return Map of release properties or null if not found
+	 */
+	private Map<String, String> extractReleaseFromZip(Path zipFile) throws IOException {
+		try (ZipFile zip = new ZipFile(zipFile.toFile())) {
+			// First, try to find "release" in the root
+			ZipEntry releaseEntry = zip.getEntry("release");
+			if (releaseEntry != null && !releaseEntry.isDirectory()) {
+				return parseReleaseProperties(zip.getInputStream(releaseEntry));
+			}
+
+			// If not found in root, find the root directory and look for "release" inside it
+			String rootDir = findSingleRootDirectory(zip);
+			if (rootDir != null) {
+				releaseEntry = zip.getEntry(rootDir + "release");
+				if (releaseEntry != null && !releaseEntry.isDirectory()) {
+					return parseReleaseProperties(zip.getInputStream(releaseEntry));
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Extract release file from TAR.GZ archive.
+	 *
+	 * @param tarGzFile The TAR.GZ file
+	 * @return Map of release properties or null if not found
+	 */
+	private Map<String, String> extractReleaseFromTarGz(Path tarGzFile) throws IOException {
+		String rootDir = null;
+
+		// First pass: find root directory and look for release in root
+		try (InputStream fis = Files.newInputStream(tarGzFile);
+				GZIPInputStream gzis = new GZIPInputStream(fis);
+				TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
+
+			TarArchiveEntry entry;
+
+			while ((entry = tis.getNextEntry()) != null) {
+				String name = entry.getName();
+				if (name.equals("release") && !entry.isDirectory()) {
+					// Found release in root
+					return parseReleaseProperties(tis);
+				}
+
+				// Track root directory (first directory entry)
+				if (rootDir == null && entry.isDirectory() && name.indexOf('/') == name.length() - 1) {
+					rootDir = name;
+				}
+			}
+		}
+
+		// Second pass: look for release in root directory
+		if (rootDir != null) {
+			try (InputStream fis = Files.newInputStream(tarGzFile);
+					GZIPInputStream gzis = new GZIPInputStream(fis);
+					TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
+
+				TarArchiveEntry entry;
+				String releaseInRoot = rootDir + "release";
+				while ((entry = tis.getNextEntry()) != null) {
+					if (entry.getName().equals(releaseInRoot) && !entry.isDirectory()) {
+						return parseReleaseProperties(tis);
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Find the single root directory in a ZIP archive.
+	 *
+	 * @param zip The ZIP file
+	 * @return The root directory name with trailing slash, or null if not found or multiple roots
+	 */
+	private String findSingleRootDirectory(ZipFile zip) {
+		String rootDir = null;
+		var entries = zip.entries();
+
+		while (entries.hasMoreElements()) {
+			ZipEntry entry = entries.nextElement();
+			String name = entry.getName();
+
+			// Skip if this is root level file
+			if (!name.contains("/")) {
+				continue;
+			}
+
+			// Extract root directory name
+			String currentRoot = name.substring(0, name.indexOf('/') + 1);
+
+			if (rootDir == null) {
+				rootDir = currentRoot;
+			} else if (!rootDir.equals(currentRoot)) {
+				// Multiple root directories found
+				return null;
+			}
+		}
+
+		return rootDir;
+	}
+
+	/**
+	 * Parse release properties from an input stream.
+	 *
+	 * @param inputStream The input stream containing the release file content
+	 * @return Map of release properties
+	 */
+	private Map<String, String> parseReleaseProperties(InputStream inputStream) throws IOException {
+		Properties props = new Properties();
+		props.load(inputStream);
+
+		// Convert Properties to Map<String, String>
+		Map<String, String> result = new HashMap<>();
+		for (String key : props.stringPropertyNames()) {
+			String value = props.getProperty(key);
+			// Remove surrounding quotes if present
+			if (value != null && value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+				value = value.substring(1, value.length() - 1);
+			}
+			result.put(key, value);
+		}
+
+		return result;
 	}
 
 	/** Internal class representing a download task */

@@ -8,6 +8,7 @@ import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DownloadResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -315,6 +316,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/temurin-17.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -330,6 +332,7 @@ class MetadataUtilsTest {
 				.fileType("zip")
 				.imageType("jdk")
 				.url("https://example.com/temurin-17.zip")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -406,6 +409,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/temurin.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -421,6 +425,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/microsoft.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -467,6 +472,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/ga.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -482,6 +488,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/ea.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -557,6 +564,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/complete.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		// Incomplete metadata (missing checksums)
@@ -573,6 +581,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/incomplete.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -618,6 +627,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("") // empty image type
 				.url("https://example.com/test.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download);
 
 		MetadataUtils.saveMetadataFile(testDir.resolve(metadata.metadataFile()), metadata);
@@ -661,6 +671,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/x64.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -676,6 +687,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/aarch64.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -719,6 +731,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/jdk.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -734,6 +747,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jre")
 				.url("https://example.com/jre.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
@@ -777,6 +791,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/hotspot.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download1);
 
 		DownloadResult download2 = new DownloadResult("md5-2", "sha1-2", "sha256-2", "sha512-2", 100_000_001L);
@@ -792,6 +807,7 @@ class MetadataUtilsTest {
 				.fileType("tar.gz")
 				.imageType("jdk")
 				.url("https://example.com/openj9.tar.gz")
+				.releaseInfo(Collections.emptyMap())
 				.download(download2);
 
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata1.metadataFile()), metadata1);
