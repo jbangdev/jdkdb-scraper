@@ -7,8 +7,6 @@ import java.util.*;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import org.apache.commons.compress.archivers.cpio.CpioArchiveEntry;
-import org.apache.commons.compress.archivers.cpio.CpioArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.slf4j.Logger;
@@ -17,9 +15,6 @@ import org.slf4j.LoggerFactory;
 /** Utilities for extracting release information from JDK archive files. */
 public class ArchiveUtils {
 	private static final Logger logger = LoggerFactory.getLogger(ArchiveUtils.class);
-
-	// Cache for xar command availability (null = not checked, true = available, false = not available)
-	private static volatile Boolean xarAvailable = null;
 
 	private ArchiveUtils() {
 		// Utility class
@@ -41,11 +36,11 @@ public class ArchiveUtils {
 		} else if (lowerFilename.endsWith(".tar.gz") || lowerFilename.endsWith(".tgz")) {
 			return extractReleaseFromTarGz(archiveFile);
 		} else if (lowerFilename.endsWith(".pkg")) {
-			// Try to extract using xar command if available
-			if (isXarAvailable()) {
+			// PKG extraction only supported on macOS using pkgutil
+			if (isMacOS()) {
 				return extractReleaseFromPkg(archiveFile);
 			} else {
-				logger.debug("PKG file format not supported - xar command not found: {}", filename);
+				logger.debug("PKG file format only supported on macOS - skipping: {}", filename);
 				return null;
 			}
 		}
@@ -113,38 +108,17 @@ public class ArchiveUtils {
 	}
 
 	/**
-	 * Check if the xar command is available on the system.
-	 * Result is cached after first check.
+	 * Check if we are running on macOS.
 	 *
-	 * @return true if xar command is available, false otherwise
+	 * @return true if running on macOS, false otherwise
 	 */
-	private static boolean isXarAvailable() {
-		if (xarAvailable != null) {
-			return xarAvailable;
-		}
-
-		try {
-			Process process = new ProcessBuilder("xar", "--version")
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE)
-					.start();
-			int exitCode = process.waitFor();
-			xarAvailable = (exitCode == 0);
-			if (xarAvailable) {
-				logger.info("xar command found - PKG file extraction enabled");
-			} else {
-				logger.debug("xar command not available - PKG file extraction disabled");
-			}
-		} catch (Exception e) {
-			logger.debug("xar command not available - PKG file extraction disabled");
-			xarAvailable = false;
-		}
-
-		return xarAvailable;
+	public static boolean isMacOS() {
+		String osName = System.getProperty("os.name", "").toLowerCase();
+		return osName.contains("mac") || osName.contains("darwin");
 	}
 
 	/**
-	 * Extract release file from PKG archive using xar command.
+	 * Extract release file from PKG archive using pkgutil command (macOS only).
 	 * PKG files contain CPIO archives (Payload files) that need to be extracted.
 	 *
 	 * @param pkgFile The PKG file
@@ -156,36 +130,33 @@ public class ArchiveUtils {
 			// Create temporary directory for extraction
 			tempDir = Files.createTempDirectory("jdk-pkg-extract-");
 
-			// Step 1: Extract PKG contents using xar (gets metadata + Payload files)
+			// Step 1: Extract PKG contents using pkgutil (gets full package structure)
 			Process process = new ProcessBuilder(
-							"xar", "-xf", pkgFile.toAbsolutePath().toString())
-					.directory(tempDir.toFile())
+							"pkgutil",
+							"--expand-full",
+							pkgFile.toAbsolutePath().toString(),
+							tempDir.toAbsolutePath().toString())
 					.redirectOutput(ProcessBuilder.Redirect.PIPE)
 					.redirectError(ProcessBuilder.Redirect.PIPE)
 					.start();
 
 			int exitCode = process.waitFor();
 			if (exitCode != 0) {
-				logger.debug("xar extraction failed with exit code: {}", exitCode);
+				logger.debug("pkgutil extraction failed with exit code: {}", exitCode);
 				return null;
 			}
 
-			// Step 2: Find and extract Payload files (CPIO archives)
-			List<Path> payloadFiles = findPayloadFiles(tempDir);
-			if (payloadFiles.isEmpty()) {
-				logger.debug("No Payload files found in PKG archive");
+			// Step 2: Search for release file in the expanded directory
+			Path releaseFile = findReleaseFile(tempDir);
+			if (releaseFile == null) {
+				logger.debug("No release file found in PKG archive");
 				return null;
 			}
 
-			// Step 3: Extract each Payload file and search for release file
-			for (Path payloadFile : payloadFiles) {
-				Map<String, String> releaseInfo = extractReleaseFromPayload(payloadFile, tempDir);
-				if (releaseInfo != null) {
-					return releaseInfo;
-				}
+			// Step 3: Parse the release file
+			try (InputStream is = Files.newInputStream(releaseFile)) {
+				return parseReleaseProperties(is);
 			}
-
-			return null;
 		} catch (Exception e) {
 			logger.debug("Failed to extract release from PKG file", e);
 			return null;
@@ -202,58 +173,20 @@ public class ArchiveUtils {
 	}
 
 	/**
-	 * Find Payload files (CPIO archives) in extracted PKG contents.
+	 * Find the release file in an extracted directory.
 	 *
 	 * @param dir The directory to search
-	 * @return List of Payload file paths
+	 * @return Path to the release file, or null if not found
 	 */
-	private static List<Path> findPayloadFiles(Path dir) throws IOException {
-		List<Path> payloads = new ArrayList<>();
+	private static Path findReleaseFile(Path dir) throws IOException {
 		try (var stream = Files.walk(dir)) {
-			stream.filter(Files::isRegularFile)
+			return stream.filter(Files::isRegularFile)
 					.filter(p -> {
-						String name = p.getFileName().toString().toLowerCase();
-						// Common Payload file names in PKG archives
-						return name.equals("payload") || name.endsWith(".cpio") || name.endsWith(".cpio.gz");
+						String name = p.getFileName().toString();
+						return name.equals("release");
 					})
-					.forEach(payloads::add);
-		}
-		return payloads;
-	}
-
-	/**
-	 * Extract release file from a Payload (CPIO archive).
-	 *
-	 * @param payloadFile The CPIO archive file (may be gzipped)
-	 * @param baseDir Base directory for extraction
-	 * @return Map of release properties or null if not found
-	 */
-	private static Map<String, String> extractReleaseFromPayload(Path payloadFile, Path baseDir) {
-		try {
-			// Check if the payload is gzipped
-			boolean isGzipped =
-					payloadFile.getFileName().toString().toLowerCase().endsWith(".gz");
-
-			try (InputStream fis = Files.newInputStream(payloadFile);
-					InputStream decompressed = isGzipped ? new GZIPInputStream(fis) : fis;
-					CpioArchiveInputStream cpioStream = new CpioArchiveInputStream(decompressed)) {
-
-				CpioArchiveEntry entry;
-				while ((entry = cpioStream.getNextEntry()) != null) {
-					String name = entry.getName();
-
-					// Check if this is a "release" file (not a directory)
-					if (!entry.isDirectory() && (name.equals("release") || name.endsWith("/release"))) {
-						// Found the release file - parse it directly from stream
-						return parseReleaseProperties(cpioStream);
-					}
-				}
-			}
-
-			return null;
-		} catch (Exception e) {
-			logger.debug("Failed to extract from Payload file: {}", payloadFile, e);
-			return null;
+					.findFirst()
+					.orElse(null);
 		}
 	}
 
