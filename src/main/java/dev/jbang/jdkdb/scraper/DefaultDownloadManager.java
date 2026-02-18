@@ -1,6 +1,7 @@
 package dev.jbang.jdkdb.scraper;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
+import dev.jbang.jdkdb.util.ArchiveUtils;
 import dev.jbang.jdkdb.util.HashUtils;
 import dev.jbang.jdkdb.util.HttpUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
@@ -12,11 +13,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -288,7 +284,7 @@ public class DefaultDownloadManager implements DownloadManager {
 			// Extract and parse release info from archive
 			try {
 				task.downloadLogger().info("Extracting release info from " + filename);
-				Map<String, String> releaseInfo = extractReleaseInfo(tempFile, filename);
+				Map<String, String> releaseInfo = ArchiveUtils.extractReleaseInfo(tempFile, filename);
 				if (releaseInfo != null && !releaseInfo.isEmpty()) {
 					metadata.releaseInfo(releaseInfo);
 					task.downloadLogger()
@@ -348,114 +344,6 @@ public class DefaultDownloadManager implements DownloadManager {
 			logger.warn("Invalid URL: {}", urlString);
 			return null;
 		}
-	}
-
-	/**
-	 * Extract release info from a JDK archive. The release file should be in the root of the
-	 * archive or inside the only folder in the root.
-	 *
-	 * @param archiveFile The archive file (zip, tar.gz, etc.)
-	 * @param filename The filename to determine archive type
-	 * @return Map of release properties, or null if not found or parsing failed
-	 */
-	private Map<String, String> extractReleaseInfo(Path archiveFile, String filename) throws IOException {
-		String lowerFilename = filename.toLowerCase();
-
-		if (lowerFilename.endsWith(".zip")) {
-			return extractReleaseFromZip(archiveFile);
-		} else if (lowerFilename.endsWith(".tar.gz") || lowerFilename.endsWith(".tgz")) {
-			return extractReleaseFromTarGz(archiveFile);
-		} else if (lowerFilename.endsWith(".pkg")) {
-			// PKG files are XAR archives with nested CPIO archives - complex structure
-			// Not yet supported, would require additional dependencies and complex extraction
-			logger.debug("PKG file format not yet supported for release info extraction: {}", filename);
-			return null;
-		}
-
-		// Unsupported archive format
-		return null;
-	}
-
-	/**
-	 * Extract release file from ZIP archive.
-	 *
-	 * @param zipFile The ZIP file
-	 * @return Map of release properties or null if not found
-	 */
-	private Map<String, String> extractReleaseFromZip(Path zipFile) throws IOException {
-		try (ZipFile zip = new ZipFile(zipFile.toFile())) {
-			// Search for any file named "release" in the archive
-			// This handles various layouts including macOS packages with nested structures
-			var entries = zip.entries();
-			while (entries.hasMoreElements()) {
-				ZipEntry entry = entries.nextElement();
-				String name = entry.getName();
-
-				// Check if this is a "release" file (not a directory)
-				if (!entry.isDirectory() && name.endsWith("/release")) {
-					// Prefer files in standard locations (shorter paths first)
-					// This naturally prioritizes root or shallow release files
-					return parseReleaseProperties(zip.getInputStream(entry));
-				} else if (!entry.isDirectory() && name.equals("release")) {
-					// Found release in root
-					return parseReleaseProperties(zip.getInputStream(entry));
-				}
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Extract release file from TAR.GZ archive.
-	 *
-	 * @param tarGzFile The TAR.GZ file
-	 * @return Map of release properties or null if not found
-	 */
-	private Map<String, String> extractReleaseFromTarGz(Path tarGzFile) throws IOException {
-		// Search for any file named "release" in the archive
-		// This handles various layouts including macOS packages with nested structures
-		try (InputStream fis = Files.newInputStream(tarGzFile);
-				GZIPInputStream gzis = new GZIPInputStream(fis);
-				TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
-
-			TarArchiveEntry entry;
-
-			while ((entry = tis.getNextEntry()) != null) {
-				String name = entry.getName();
-
-				// Check if this is a "release" file (not a directory)
-				if (!entry.isDirectory() && (name.equals("release") || name.endsWith("/release"))) {
-					// Found a release file - extract it
-					return parseReleaseProperties(tis);
-				}
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Parse release properties from an input stream.
-	 *
-	 * @param inputStream The input stream containing the release file content
-	 * @return Map of release properties
-	 */
-	private Map<String, String> parseReleaseProperties(InputStream inputStream) throws IOException {
-		Properties props = new Properties();
-		props.load(inputStream);
-
-		// Convert Properties to Map<String, String>
-		Map<String, String> result = new HashMap<>();
-		for (String key : props.stringPropertyNames()) {
-			String value = props.getProperty(key);
-			// Remove surrounding quotes if present
-			if (value != null && value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-				value = value.substring(1, value.length() - 1);
-			}
-			result.put(key, value);
-		}
-
-		return result;
 	}
 
 	/** Internal class representing a download task */
