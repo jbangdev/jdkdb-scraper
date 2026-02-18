@@ -21,6 +21,13 @@ import picocli.CommandLine.Option;
 		mixinStandardHelpOptions = true)
 public class CleanCommand implements Callable<Integer> {
 
+	/** Enum for incomplete metadata types */
+	public enum IncompleteType {
+		checksums,
+		release_info,
+		all
+	}
+
 	@Option(
 			names = {"-m", "--metadata-dir"},
 			description = "Directory containing metadata files (default: docs/metadata)",
@@ -29,8 +36,14 @@ public class CleanCommand implements Callable<Integer> {
 
 	@Option(
 			names = {"--remove-incomplete"},
-			description = "Remove metadata files that are missing checksums")
-	private boolean removeIncomplete;
+			description =
+					"Remove metadata files with incomplete data. Options: checksums (missing checksums), release-info (missing release info), all (either missing checksums or release info) (default: all)")
+	private IncompleteType removeIncomplete;
+
+	@Option(
+			names = {"--remove-invalid"},
+			description = "Remove metadata files that fail validation (MetadataUtils.isValidMetadata)")
+	private boolean removeInvalid;
 
 	@Option(
 			names = {"--prune-ea"},
@@ -50,16 +63,20 @@ public class CleanCommand implements Callable<Integer> {
 		System.out.println("Metadata directory: " + metadataDir.toAbsolutePath());
 
 		// Apply default values if no options specified
-		if (!removeIncomplete && pruneEa == null && !dryRun) {
-			System.out.println("No options specified, using defaults: --remove-incomplete --prune-ea=6m --dry-run");
+		if (removeIncomplete == null && !removeInvalid && pruneEa == null && !dryRun) {
+			System.out.println("No options specified, using defaults: --remove-incomplete=all --prune-ea=6m --dry-run");
 			System.out.println();
-			removeIncomplete = true;
+			removeIncomplete = IncompleteType.all;
 			pruneEa = "6m";
 			dryRun = true;
 		}
 
 		System.out.println("Configuration:");
-		System.out.println("  Remove incomplete: " + removeIncomplete);
+		System.out.println("  Remove incomplete: "
+				+ (removeIncomplete != null
+						? removeIncomplete.toString().toLowerCase().replace("_", "-")
+						: "disabled"));
+		System.out.println("  Remove invalid: " + removeInvalid);
 		System.out.println("  Prune EA: " + (pruneEa != null ? pruneEa : "disabled"));
 		System.out.println("  Dry run: " + dryRun);
 		System.out.println();
@@ -106,6 +123,7 @@ public class CleanCommand implements Callable<Integer> {
 		System.out.println("========");
 		System.out.println("Total files scanned: " + stats.totalFiles);
 		System.out.println("Incomplete files: " + stats.incompleteFiles);
+		System.out.println("Invalid files: " + stats.invalidFiles);
 		System.out.println("Old EA releases: " + stats.oldEaReleases);
 		System.out.println("Errors: " + stats.errors);
 		System.out.println();
@@ -158,15 +176,42 @@ public class CleanCommand implements Callable<Integer> {
 		boolean shouldDelete = false;
 		String reason = null;
 
+		// Check for invalid metadata
+		if (removeInvalid && !shouldDelete) {
+			if (!MetadataUtils.isValidMetadata(metadata)) {
+				stats.invalidFiles++;
+				shouldDelete = true;
+				reason = "invalid (failed validation)";
+			}
+		}
+
 		// Check for incomplete metadata
-		if (removeIncomplete
-				&& (metadata.md5() == null
-						|| metadata.sha1() == null
-						|| metadata.sha256() == null
-						|| metadata.sha512() == null)) {
-			stats.incompleteFiles++;
-			shouldDelete = true;
-			reason = "incomplete (missing checksums)";
+		if (removeIncomplete != null && !shouldDelete) {
+			boolean missingChecksums = metadata.md5() == null
+					|| metadata.sha1() == null
+					|| metadata.sha256() == null
+					|| metadata.sha512() == null;
+			boolean missingReleaseInfo = metadata.releaseInfo() == null;
+
+			boolean isIncomplete =
+					switch (removeIncomplete) {
+						case checksums -> missingChecksums;
+						case release_info -> missingReleaseInfo;
+						case all -> missingChecksums || missingReleaseInfo;
+					};
+
+			if (isIncomplete) {
+				stats.incompleteFiles++;
+				shouldDelete = true;
+				if (removeIncomplete == IncompleteType.checksums || (missingChecksums && !missingReleaseInfo)) {
+					reason = "incomplete (missing checksums)";
+				} else if (removeIncomplete == IncompleteType.release_info
+						|| (missingReleaseInfo && !missingChecksums)) {
+					reason = "incomplete (missing release info)";
+				} else {
+					reason = "incomplete (missing checksums and release info)";
+				}
+			}
 		}
 
 		// Check for old EA releases
@@ -189,6 +234,7 @@ public class CleanCommand implements Callable<Integer> {
 	private static class CleanStats {
 		int totalFiles = 0;
 		int incompleteFiles = 0;
+		int invalidFiles = 0;
 		int oldEaReleases = 0;
 		int errors = 0;
 	}
