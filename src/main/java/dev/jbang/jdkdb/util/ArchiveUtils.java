@@ -1,6 +1,7 @@
 package dev.jbang.jdkdb.util;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -126,30 +127,36 @@ public class ArchiveUtils {
 	 */
 	private static Map<String, String> extractReleaseFromPkg(Path pkgFile) {
 		Path tempDir = null;
+		Path expandDir = null;
 		try {
-			// Create temporary directory for extraction
+			// pkgutil --expand-full requires the destination to NOT exist (it creates it).
+			// Use a parent temp dir and a child path that does not exist yet.
 			tempDir = Files.createTempDirectory("jdk-pkg-extract-");
+			expandDir = tempDir.resolve("pkg-expanded");
 
 			// Step 1: Extract PKG contents using pkgutil (gets full package structure)
 			Process process = new ProcessBuilder(
 							"pkgutil",
 							"--expand-full",
 							pkgFile.toAbsolutePath().toString(),
-							tempDir.toAbsolutePath().toString())
+							expandDir.toAbsolutePath().toString())
 					.redirectOutput(ProcessBuilder.Redirect.PIPE)
 					.redirectError(ProcessBuilder.Redirect.PIPE)
 					.start();
 
 			int exitCode = process.waitFor();
 			if (exitCode != 0) {
-				logger.debug("pkgutil extraction failed with exit code: {}", exitCode);
+				String err = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+				String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+				logger.warn("pkgutil extraction failed with exit code: {} stderr: {} stdout: {}", exitCode, err, out);
 				return null;
 			}
 
 			// Step 2: Search for release file in the expanded directory
-			Path releaseFile = findReleaseFile(tempDir);
+			Path releaseFile = findReleaseFile(expandDir);
 			if (releaseFile == null) {
-				logger.debug("No release file found in PKG archive");
+				String topLevel = listTopLevel(expandDir);
+				logger.warn("No release file found in PKG archive. Expanded top-level: {}", topLevel);
 				return null;
 			}
 
@@ -169,6 +176,19 @@ public class ArchiveUtils {
 					logger.debug("Failed to delete temporary directory: {}", tempDir, e);
 				}
 			}
+		}
+	}
+
+	/**
+	 * List top-level paths under dir for diagnostic messages.
+	 */
+	private static String listTopLevel(Path dir) {
+		try {
+			String[] names =
+					Files.list(dir).map(p -> p.getFileName().toString()).toArray(String[]::new);
+			return String.join(", ", names);
+		} catch (IOException e) {
+			return "(failed to list: " + e.getMessage() + ")";
 		}
 	}
 
