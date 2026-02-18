@@ -181,6 +181,16 @@ public class MetadataUtils {
 		if (metadata.url() == null || metadata.filename() == null) {
 			return false;
 		}
+		if (metadata.version() == null
+				|| metadata.version().trim().isEmpty()
+				|| !metadata.version().matches("^\\d.*")) {
+			return false;
+		}
+		if (metadata.javaVersion() == null
+				|| metadata.javaVersion().trim().isEmpty()
+				|| !metadata.javaVersion().matches("^\\d.*")) {
+			return false;
+		}
 		if (!isValidEnumOrUnknown(Os.class, metadata.os())
 				|| !isValidEnum(ImageTypes.class, metadata.imageType())
 				|| !isValidEnum(JvmImpl.class, metadata.jvmImpl())
@@ -311,10 +321,23 @@ public class MetadataUtils {
 						java.util.LinkedHashMap::new,
 						java.util.stream.Collectors.toList()));
 
+		// We add a special "ga-ea" release type that combines GA and EA releases
+		byReleaseType.put(
+				"ga-ea",
+				Stream.concat(
+								byReleaseType.getOrDefault("ga", List.of()).stream(),
+								byReleaseType.getOrDefault("ea", List.of()).stream())
+						.sorted(Comparator.<JdkMetadata, String>comparing(
+										md -> md.version(), VersionComparator.INSTANCE)
+								.thenComparing(
+										md -> md.metadataFile().getFileName().toString()))
+						.toList());
+
 		for (var releaseEntry : byReleaseType.entrySet()) {
 			String releaseType = releaseEntry.getKey();
 
-			if (!isValidEnum(ReleaseTypes.class, releaseType)) {
+			// We allow the valid names "ga" and "ea" but also the "ga-ea" combined type
+			if (!isValidEnum(ReleaseTypes.class, releaseType) && !releaseType.equals("ga-ea")) {
 				System.out.println("WARN: Skipping invalid release type: " + releaseType);
 				continue;
 			}

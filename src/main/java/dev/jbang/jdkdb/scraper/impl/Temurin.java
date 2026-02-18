@@ -19,7 +19,7 @@ public class Temurin extends GitHubReleaseScraper {
 	private static final Pattern FILENAME_PATTERN = Pattern.compile(
 			"^OpenJDK([0-9]+U?)?-(jdk|jre+)_([^_]+)_(aix|alpine-linux|linux|mac|solaris|windows)_hotspot_(.+)\\.(tar\\.gz|zip|pkg|msi)$");
 	private static final Pattern GA_VERSION_PATTERN = Pattern.compile("^jdk-?(.+)");
-	private static final Pattern REPO_VERSION_PATTERN = Pattern.compile("temurin\\d+-binaries");
+	private static final Pattern REPO_VERSION_PATTERN = Pattern.compile("temurin(\\d+)-binaries");
 
 	public Temurin(ScraperConfig config) {
 		super(config);
@@ -45,7 +45,7 @@ public class Temurin extends GitHubReleaseScraper {
 					+ " (repository URL does not match expected pattern)");
 			return;
 		}
-		String javaMajorVersion = repoVersionMatcher.group(0);
+		String javaMajorVersion = repoVersionMatcher.group(1);
 
 		// Extract versions from tagname/url
 		String tagName = release.get("tag_name").asText();

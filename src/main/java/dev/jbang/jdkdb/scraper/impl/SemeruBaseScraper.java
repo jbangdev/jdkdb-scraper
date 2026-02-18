@@ -16,7 +16,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			"^ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
 	protected static final Pattern tarPattern = Pattern.compile(
 			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+\\.(tar\\.gz|zip|msi|pkg)$");
-	protected static final Pattern versionPattern = Pattern.compile("jdk(.*)[_-]openj9-(.*)");
+	protected static final Pattern versionPattern = Pattern.compile("jdk-?(.*)[_-]openj9-(.*)");
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);

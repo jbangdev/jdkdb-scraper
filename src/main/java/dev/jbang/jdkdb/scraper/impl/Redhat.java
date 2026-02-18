@@ -37,14 +37,16 @@ public class Redhat extends AdoptiumMarketplaceScraper {
 
 	@Override
 	protected String extractJavaVersion(JsonNode asset) {
-		return asset.path("openjdk_version_data").path("openjdk_version").asText();
+		String javaVersion =
+				asset.path("openjdk_version_data").path("openjdk_version").asText();
+		return javaVersion.replaceFirst("^jdk-?", "");
 	}
 
 	@Override
 	protected String extractVersion(JsonNode asset) {
 		String releaseName = asset.path("release_name").asText();
-		// Version is release_name with first 4 characters removed (e.g., "jdk-11.0.10" -> "11.0.10")
-		return releaseName.length() > 4 ? releaseName.substring(4) : releaseName;
+		// Version is release_name with first 3-4 characters removed (e.g., "jdk-11.0.10" -> "11.0.10")
+		return releaseName.replaceFirst("^jdk-?", "");
 	}
 
 	@Override
