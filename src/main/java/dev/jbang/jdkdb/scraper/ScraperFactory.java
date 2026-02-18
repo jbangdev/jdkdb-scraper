@@ -54,9 +54,7 @@ public class ScraperFactory {
 
 		for (Scraper.Discovery discovery : loader) {
 			String vendor = discovery.vendor();
-			String name = discovery.name();
-
-			Logger dl = LoggerFactory.getLogger("vendors." + name);
+			Logger dl = LoggerFactory.getLogger("vendors." + vendor);
 			ScraperConfig config = new ScraperConfig(
 					metadataVendorDir.resolve(vendor),
 					checksumDir.resolve(vendor),
@@ -81,7 +79,7 @@ public class ScraperFactory {
 		Scraper.Discovery discovery = allDiscoveries.get(scraperName);
 		if (discovery != null) {
 			String vendor = discovery.vendor();
-			Logger dl = LoggerFactory.getLogger("vendors." + scraperName);
+			Logger dl = LoggerFactory.getLogger("vendors." + vendor);
 			ScraperConfig config = new ScraperConfig(
 					metadataDir.resolve("vendor").resolve(vendor),
 					checksumDir.resolve(vendor),
