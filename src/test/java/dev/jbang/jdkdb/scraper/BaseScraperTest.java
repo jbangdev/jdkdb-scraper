@@ -147,7 +147,7 @@ class BaseScraperTest {
 		assertThat(scraper.normalizeArch("s390")).isEqualTo("s390x");
 		assertThat(scraper.normalizeArch("sparcv9")).isEqualTo("sparcv9");
 		assertThat(scraper.normalizeArch("riscv64")).isEqualTo("riscv64");
-		assertThat(scraper.normalizeArch("unknownarch")).isEqualTo("unknown-arch-unknownarch");
+		assertThat(scraper.normalizeArch("unknownarch")).isEqualTo("unknown-architecture-unknownarch");
 		assertThat(scraper.normalizeArch(null)).isEqualTo("unknown");
 	}
 

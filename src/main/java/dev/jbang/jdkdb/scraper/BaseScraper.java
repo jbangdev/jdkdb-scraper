@@ -165,6 +165,10 @@ public abstract class BaseScraper implements Scraper {
 
 	/** Save individual metadata to file */
 	protected void saveMetadataFile(JdkMetadata metadata) throws IOException {
+		if (!MetadataUtils.isValidMetadata(metadata)) {
+			throw new IllegalStateException("Metadata is missing required fields or has invalid values for "
+					+ metadata.vendor() + " - " + metadata.filename());
+		}
 		Path metadataFile = metadataDir.resolve(metadata.metadataFile());
 		MetadataUtils.saveMetadataFile(metadataFile, metadata);
 	}
@@ -180,14 +184,16 @@ public abstract class BaseScraper implements Scraper {
 	protected String normalizeOs(String os) {
 		if (os == null) return "unknown";
 		var lower = os.toLowerCase();
-
 		return switch (lower) {
 			case String s when s.matches("linux|alpine-linux") -> "linux";
 			case String s when s.matches("mac|macos|macosx|osx|darwin") -> "macosx";
 			case String s when s.matches("win|windows") -> "windows";
 			case "solaris" -> "solaris";
 			case "aix" -> "aix";
-			default -> "unknown-os-" + os;
+			default -> {
+				logger.warn("Unknown OS: " + os);
+				yield "unknown-os-" + os;
+			}
 		};
 	}
 
@@ -195,24 +201,27 @@ public abstract class BaseScraper implements Scraper {
 	protected String normalizeArch(String arch) {
 		if (arch == null) return "unknown";
 		var lower = arch.toLowerCase();
-
 		return switch (lower) {
 			case String s when s.matches("amd64|x64|x86_64|x86-64") -> "x86_64";
 			case String s when s.matches("x32|x86|x86_32|x86-32|i386|i586|i686") -> "i686";
 			case String s when s.matches("aarch64|arm64|m\\d") -> "aarch64";
 			case String s when s.matches("arm|arm32|armv7|aarch32sf|armel") -> "arm32";
-			case String s when s.matches("arm32-vfp-hflt|aarch32hf") -> "arm32-vfp-hflt";
+			case String s when s.matches("arm32-vfp-hflt|armhf|aarch32hf") -> "arm32-vfp-hflt";
 			case "ppc" -> "ppc32";
 			case "ppc64" -> "ppc64";
 			case String s when s.matches("ppc64le|ppc64el") -> "ppc64le";
 			case String s when s.matches("s390x|s390") -> "s390x";
-			case "sparcv9" -> "sparcv9";
+			case String s when s.matches("sparc|sparcv9") -> "sparcv9";
 			case "riscv64" -> "riscv64";
 			case "mips" -> "mips";
 			case String s when s.matches("mipsel|mipsle") -> "mipsel";
 			case "mips64" -> "mips64";
 			case String s when s.matches("mips64el|mips64le") -> "mips64el";
-			default -> "unknown-arch-" + arch;
+			case String s when s.matches("loong64|loongarch64") -> "loong64";
+			default -> {
+				logger.warn("Unknown architecture: " + arch);
+				yield "unknown-architecture-" + arch;
+			}
 		};
 	}
 
@@ -220,7 +229,6 @@ public abstract class BaseScraper implements Scraper {
 	protected String normalizeReleaseType(String releaseType) {
 		if (releaseType == null) return "ga";
 		var lower = releaseType.toLowerCase();
-
 		return (lower.contains("ea") || lower.contains("early")) ? "ea" : "ga";
 	}
 }

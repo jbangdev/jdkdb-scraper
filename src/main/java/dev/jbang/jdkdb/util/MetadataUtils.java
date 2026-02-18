@@ -15,11 +15,55 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class MetadataUtils {
+	public enum ReleaseTypes {
+		ga,
+		ea
+	}
+
+	public enum ImageTypes {
+		jdk,
+		jre
+	}
+
+	public enum JvmImpl {
+		hotspot,
+		openj9,
+		graalvm
+	}
+
+	public enum Os {
+		aix,
+		linux,
+		macosx,
+		solaris,
+		windows
+	}
+
+	public enum Arch {
+		x86_64,
+		i686,
+		aarch64,
+		arm32,
+		arm32_vfp_hflt,
+		ppc32,
+		ppc64,
+		ppc64le,
+		s390x,
+		sparcv9,
+		riscv64,
+		mips,
+		mipsel,
+		mips64,
+		mips64el,
+		loong64
+	}
+
 	private static ObjectMapper readMapper = new ObjectMapper();
 
 	private static ObjectMapper writeOneMapper =
@@ -122,6 +166,45 @@ public class MetadataUtils {
 		JdkMetadata md = readMapper.readValue(metadataFile.toFile(), JdkMetadata.class);
 		md.metadataFile(metadataFile);
 		return md;
+	}
+
+	/**
+	 * Validate metadata fields and return true if valid, false if invalid.
+	 * This checks that required fields are present and that enum values
+	 * are valid (or properly marked as unknown).
+	 */
+	public static boolean isValidMetadata(JdkMetadata metadata) {
+		if (metadata.url() == null || metadata.filename() == null) {
+			return false;
+		}
+		if (!isValidEnumOrUnknown(Os.class, metadata.os())
+				|| !isValidEnum(ImageTypes.class, metadata.imageType())
+				|| !isValidEnum(JvmImpl.class, metadata.jvmImpl())
+				|| !isValidEnum(ReleaseTypes.class, metadata.releaseType())) {
+			return false;
+		}
+		if (!isValidEnumOrUnknown(Arch.class, metadata.arch().replace("-", "_"))) {
+			return false;
+		}
+		return true;
+	}
+
+	private static <T extends Enum<T>> boolean isValidEnum(Class<T> enumClass, String value) {
+		return findEnum(enumClass, value).isPresent();
+	}
+
+	private static <T extends Enum<T>> boolean isValidEnumOrUnknown(Class<T> enumClass, String value) {
+		if (value == null || value.trim().isEmpty()) {
+			return false;
+		}
+		// We will allow "unknown" values, but only if they are properly defined
+		// (meaning they will be of the form "unknown-[os|architecture]-<value>")
+		// We will NOT allow "unknown" and "unknown-[os|architecture]-" without
+		// the value, as that would mean something was not properly normalized
+		// and probably the scraper needs to be updated/fixed
+		return (value.startsWith("unknown-") && !value.endsWith("-"))
+				|| (value.startsWith("unknown_") && !value.endsWith("_"))
+				|| findEnum(enumClass, value).isPresent();
 	}
 
 	/** Save individual metadata to file */
@@ -460,5 +543,13 @@ public class MetadataUtils {
 
 		// Check if any of the primary release info fields is missing
 		return metadata.releaseInfo() == null;
+	}
+
+	public static <T extends Enum<T>> Optional<T> findEnum(Class<T> enumClass, String value) {
+		try {
+			return Optional.of(Enum.valueOf(enumClass, value));
+		} catch (IllegalArgumentException | NullPointerException e) {
+			return Optional.empty();
+		}
 	}
 }
