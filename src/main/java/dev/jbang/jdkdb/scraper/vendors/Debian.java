@@ -26,8 +26,8 @@ public class Debian extends BaseScraper {
 
 	// Pattern to match Debian package filenames
 	// Example: openjdk-17-jdk_17.0.8+7-1~deb12u1_amd64.deb
-	private static final Pattern DEB_PKG_PATTERN =
-			Pattern.compile("^openjdk-(?:[0-9]{1,2})-(jre|jdk)(?:-(headless|zero))?_([^_~-]+)([^_]*)_(.*)\\.deb$");
+	private static final Pattern DEB_PKG_PATTERN = Pattern.compile(
+			"^openjdk-(?:[0-9]{1,2})(?:-jvmci)?-(jre|jdk)(?:-(dcevm|headless|zero))?_([^_~-]+)([^_]*)_(.*)\\.deb$");
 
 	// LTS versions to scrape
 	private static final String[] LTS_VERSIONS = {"8", "11", "11-jre-dcevm", "17", "21", "25", "26"};
@@ -117,6 +117,9 @@ public class Debian extends BaseScraper {
 		// Add package feature if present
 		if (pkgfeat != null) {
 			features.add(pkgfeat);
+		}
+		if (filename.contains("jvmci")) {
+			features.add("jvmci");
 		}
 		// Add specific features based on architecture
 		if (architecture.equals("armel")) {
