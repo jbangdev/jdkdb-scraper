@@ -569,10 +569,17 @@ public class MetadataUtils {
 
 			List<JdkMetadata> vendorMetadata = vendorEntry.getValue();
 
-			// Save vendor-level JSON
+			// Save vendor.json
 			Path vendorJsonFile = baseDir.resolve(vendor + ".json");
 			logger.info("Generating {} ({} entries)", metadataDir.relativize(vendorJsonFile), vendorMetadata.size());
 			saveMetadata(vendorJsonFile, vendorMetadata);
+			fileCount++;
+
+			// Save vendor-latest.json
+			Path vendorLatestJsonFile = baseDir.resolve(vendor + "-latest.json");
+			logger.info(
+					"Generating {} ({} entries)", metadataDir.relativize(vendorLatestJsonFile), vendorMetadata.size());
+			saveMetadata(vendorLatestJsonFile, filterLatestVersions(vendorMetadata));
 			fileCount++;
 		}
 
