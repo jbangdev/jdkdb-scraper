@@ -68,7 +68,7 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 		String os = matcher.group(2);
 		String arch = matcher.group(3);
 		String features = matcher.group(4) != null ? matcher.group(4) : "";
-		String extension = assetName.endsWith(".zip") ? "zip" : "tar.gz";
+		String ext = assetName.endsWith(".zip") ? "zip" : "tar.gz";
 
 		// Create metadata
 		return JdkMetadata.create()
@@ -79,7 +79,7 @@ public class OracleGraalVmEa extends GitHubReleaseScraper {
 				.jvmImpl("graalvm")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(extension)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.features(features.isEmpty() ? null : List.of(features))
 				.url(downloadUrl)

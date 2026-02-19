@@ -155,7 +155,7 @@ public class LibericaNative extends BaseScraper {
 				.jvmImpl("graalvm")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.features(features)
 				.url(downloadUrl)

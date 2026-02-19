@@ -98,7 +98,7 @@ public class SapMachine extends GitHubReleaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.features(features.isEmpty() ? null : List.of(features.split(",")))
 				.url(downloadUrl)

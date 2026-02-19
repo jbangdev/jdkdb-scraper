@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +68,22 @@ public class MetadataUtils {
 		mips64el,
 		loong64
 	}
+
+	public enum FileType {
+		apk,
+		deb,
+		dmg,
+		exe,
+		msi,
+		pkg,
+		rpm,
+		tar_gz,
+		tar_xz,
+		zip
+	}
+
+	public static final EnumSet<FileType> UNPACKABLE_FILE_TYPES =
+			EnumSet.of(FileType.pkg, FileType.tar_gz, FileType.tar_xz, FileType.zip);
 
 	private static ObjectMapper readMapper = new ObjectMapper();
 
@@ -198,6 +215,9 @@ public class MetadataUtils {
 			return false;
 		}
 		if (!isValidEnumOrUnknown(Arch.class, metadata.arch().replace("-", "_"))) {
+			return false;
+		}
+		if (!isValidEnumOrUnknown(FileType.class, metadata.fileType().replace(".", "_"))) {
 			return false;
 		}
 		return true;
@@ -603,6 +623,19 @@ public class MetadataUtils {
 	public static boolean hasMissingReleaseInfo(JdkMetadata metadata) {
 		// Only check files that have a URL (otherwise we can't download them)
 		if (metadata.url() == null || metadata.filename() == null) {
+			return false;
+		}
+
+		if (!isValidEnum(FileType.class, metadata.fileType())) {
+			// For unknown file types we can't reliably determine if the release
+			// info is missing or not, so we will not consider it incomplete
+			return false;
+		}
+
+		FileType fileType = FileType.valueOf(metadata.fileType());
+		if (!UNPACKABLE_FILE_TYPES.contains(fileType)) {
+			// For non-unpackable file types we can't extract release info,
+			// so we will not consider it incomplete
 			return false;
 		}
 

@@ -120,7 +120,7 @@ public class OracleGraalVm extends BaseScraper {
 		String version = matcher.group(1);
 		String os = matcher.group(2);
 		String arch = matcher.group(3);
-		String extension = matcher.group(4);
+		String ext = matcher.group(4);
 
 		// Create metadata
 		return JdkMetadata.create()
@@ -131,7 +131,7 @@ public class OracleGraalVm extends BaseScraper {
 				.jvmImpl("graalvm")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(extension)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.url(downloadUrl)
 				.filename(filename);

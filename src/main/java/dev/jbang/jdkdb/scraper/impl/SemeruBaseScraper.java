@@ -64,7 +64,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		String imageType;
 		String arch;
 		String os;
-		String extension;
+		String ext;
 
 		String filename = asset.get("name").asText();
 		if (filename == null) {
@@ -82,7 +82,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			imageType = rpmMatcher.group(1);
 			arch = rpmMatcher.group(3);
 			os = "linux";
-			extension = "rpm";
+			ext = "rpm";
 		} else {
 			Matcher tarMatcher = tarPattern.matcher(filename);
 			if (!tarMatcher.matches()) {
@@ -101,7 +101,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 			imageType = tarMatcher.group(1);
 			arch = tarMatcher.group(2);
 			os = tarMatcher.group(3);
-			extension = tarMatcher.group(4);
+			ext = tarMatcher.group(4);
 		}
 
 		String assetName = asset.get("name").asText();
@@ -136,7 +136,7 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 				.jvmImpl("openj9")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(extension)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.features(features)
 				.url(url)

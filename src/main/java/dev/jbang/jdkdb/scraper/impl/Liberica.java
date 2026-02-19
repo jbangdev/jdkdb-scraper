@@ -159,7 +159,7 @@ public class Liberica extends BaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.features(features)
 				.url(downloadUrl)

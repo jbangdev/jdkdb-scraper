@@ -70,7 +70,7 @@ public class Zulu extends BaseScraper {
 		String javaVersion = matcher.group(4);
 		String os = matcher.group(5);
 		String archStr = matcher.group(6);
-		String archive = matcher.group(7);
+		String ext = matcher.group(7);
 
 		String url = INDEX_URL + filename;
 
@@ -101,7 +101,7 @@ public class Zulu extends BaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(archive)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.features(features)
 				.url(url)

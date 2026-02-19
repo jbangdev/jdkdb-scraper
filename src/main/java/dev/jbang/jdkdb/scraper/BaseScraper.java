@@ -232,4 +232,25 @@ public abstract class BaseScraper implements Scraper {
 		var lower = releaseType.toLowerCase();
 		return (lower.contains("ea") || lower.contains("early")) ? "ea" : "ga";
 	}
+
+	protected String normalizeFileType(String fileType) {
+		if (fileType == null) return "unknown";
+		var lower = fileType.toLowerCase();
+		return switch (lower) {
+			case "apk" -> "apk";
+			case "deb" -> "deb";
+			case "dmg" -> "dmg";
+			case "exe" -> "exe";
+			case "msi" -> "msi";
+			case "pkg" -> "pkg";
+			case "rpm" -> "rpm";
+			case String s when s.matches("tar\\.gz|tgz") -> "tar.gz";
+			case String s when s.matches("tar\\.xz|txz") -> "tar.xz";
+			case "zip" -> "zip";
+			default -> {
+				logger.warn("Unknown file type: " + fileType);
+				yield "unknown-filetype-" + fileType;
+			}
+		};
+	}
 }

@@ -97,7 +97,7 @@ public class ZuluPrime extends BaseScraper {
 				.jvmImpl(jvmImpl)
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.features(features)
 				.url(url)

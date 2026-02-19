@@ -137,7 +137,7 @@ public abstract class JavaNetBaseScraper extends BaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.features(features)
 				.url(url)

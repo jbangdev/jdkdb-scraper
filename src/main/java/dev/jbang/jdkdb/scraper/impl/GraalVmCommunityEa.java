@@ -89,7 +89,7 @@ public class GraalVmCommunityEa extends GitHubReleaseScraper {
 				.jvmImpl("graalvm")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.url(url)
 				.filename(assetName);

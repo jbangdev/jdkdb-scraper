@@ -72,7 +72,7 @@ public abstract class TravaBaseScraper extends GitHubReleaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.url(url)
 				.filename(metadataFilename);

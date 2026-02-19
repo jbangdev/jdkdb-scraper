@@ -94,7 +94,7 @@ public class Kona extends GitHubReleaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(parsed.os))
 				.arch(normalizeArch(parsed.arch))
-				.fileType(parsed.ext)
+				.fileType(normalizeFileType(parsed.ext))
 				.imageType(parsed.imageType)
 				.features(features)
 				.url(downloadUrl)

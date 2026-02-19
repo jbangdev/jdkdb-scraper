@@ -66,7 +66,7 @@ public class Microsoft extends BaseScraper {
 		var version = matcher.group(1);
 		var os = matcher.group(2);
 		var arch = matcher.group(3);
-		var extension = matcher.group(4);
+		var ext = matcher.group(4);
 
 		var url = "https://aka.ms/download-jdk/" + filename;
 
@@ -82,7 +82,7 @@ public class Microsoft extends BaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(extension)
+				.fileType(normalizeFileType(ext))
 				.imageType("jdk")
 				.url(url)
 				.filename(filename);

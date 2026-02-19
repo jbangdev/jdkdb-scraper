@@ -102,11 +102,11 @@ public class Ibm extends BaseScraper {
 			return skipped(ibmFile);
 		}
 
-		String fileType;
+		String ext;
 		if (ibmFile.endsWith(".tgz")) {
-			fileType = "tar.gz";
+			ext = "tar.gz";
 		} else {
-			fileType = "rpm";
+			ext = "rpm";
 		}
 
 		String imageType = ibmFile.contains("sdk") ? "jdk" : "jre";
@@ -121,7 +121,7 @@ public class Ibm extends BaseScraper {
 				.jvmImpl("openj9")
 				.os("linux")
 				.arch(normalizeArch(architecture))
-				.fileType(fileType)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.url(url)
 				.filename(ibmFile);

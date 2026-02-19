@@ -140,7 +140,7 @@ public class OpenLogic extends BaseScraper {
 				.jvmImpl("hotspot")
 				.os(normalizeOs(os))
 				.arch(normalizeArch(arch))
-				.fileType(ext)
+				.fileType(normalizeFileType(ext))
 				.imageType(imageType)
 				.url(url)
 				.filename(filename);
