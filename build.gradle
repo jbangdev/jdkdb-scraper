@@ -33,12 +33,27 @@ dependencies {
 }
 
 application {
-	mainClass = 'dev.jbang.jdkdb.Main'
+	mainClass = 'dev.jbang.jdkdb.MainCommand'
 }
 
 java {
 	sourceCompatibility = JavaVersion.toVersion('21')
 	targetCompatibility = JavaVersion.toVersion('21')
+}
+
+tasks.register('generateVersionProperties') {
+	def outputDir = file("$buildDir/generated-resources")
+	outputs.dir outputDir
+	doLast {
+		def versionFile = file("$outputDir/version.properties")
+		versionFile.parentFile.mkdirs()
+		versionFile.text = "version=${project.version}\n"
+	}
+}
+
+processResources {
+	dependsOn generateVersionProperties
+	from("$buildDir/generated-resources")
 }
 
 test {

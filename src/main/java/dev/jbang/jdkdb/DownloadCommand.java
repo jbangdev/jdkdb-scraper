@@ -5,6 +5,7 @@ import dev.jbang.jdkdb.scraper.DefaultDownloadManager;
 import dev.jbang.jdkdb.scraper.DownloadManager;
 import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
 import dev.jbang.jdkdb.util.ArchiveUtils;
+import dev.jbang.jdkdb.util.GitHubUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,6 +66,8 @@ public class DownloadCommand implements Callable<Integer> {
 
 	@Override
 	public Integer call() throws Exception {
+		GitHubUtils.setupGitHubToken();
+
 		logger.info("Java Metadata Scraper - Download");
 		logger.info("=================================");
 		logger.info("Metadata directory: {}", metadataDir.toAbsolutePath());

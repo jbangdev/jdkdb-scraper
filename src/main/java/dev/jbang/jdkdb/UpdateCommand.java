@@ -6,6 +6,7 @@ import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
 import dev.jbang.jdkdb.scraper.ScraperResult;
+import dev.jbang.jdkdb.util.GitHubUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -114,6 +115,8 @@ public class UpdateCommand implements Callable<Integer> {
 					skipEa);
 			return 1;
 		}
+
+		GitHubUtils.setupGitHubToken();
 
 		logger.info("Java Metadata Scraper - Update");
 		logger.info("==============================");
