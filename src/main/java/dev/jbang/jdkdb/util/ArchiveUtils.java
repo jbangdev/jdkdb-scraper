@@ -37,6 +37,8 @@ public class ArchiveUtils {
 			return extractReleaseFromTarGz(archiveFile);
 		} else if (lowerFilename.endsWith(".tar.xz") || lowerFilename.endsWith(".txz")) {
 			return extractReleaseFromTarGz(archiveFile);
+		} else if (lowerFilename.endsWith(".apk")) {
+			return extractReleaseFromTarGz(archiveFile);
 		} else if (lowerFilename.endsWith(".pkg")) {
 			// PKG extraction only supported on macOS using pkgutil
 			if (isMacOS()) {
