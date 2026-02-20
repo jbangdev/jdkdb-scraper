@@ -13,9 +13,13 @@ import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utility class for HTTP operations */
 public class HttpUtils {
+
+	private static final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
 
 	/** Functional interface for operations that can throw IOException and InterruptedException */
 	@FunctionalInterface
@@ -121,6 +125,12 @@ public class HttpUtils {
 				if (attempt < DEFAULT_MAX_RETRIES - 1) {
 					// Exponential backoff: 2s, 4s, 8s, ...
 					long backoffMillis = INITIAL_BACKOFF.toMillis() * (1L << attempt);
+					logger.warn(
+							"HTTP operation failed (attempt {}/{}): {} - retrying after {}ms",
+							attempt + 1,
+							DEFAULT_MAX_RETRIES,
+							e.getMessage(),
+							backoffMillis);
 					Thread.sleep(backoffMillis);
 				}
 			}
