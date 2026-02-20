@@ -9,6 +9,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,17 +31,18 @@ public class ArchiveUtils {
 	 */
 	public static Map<String, String> extractReleaseInfo(Path archiveFile, String filename) throws IOException {
 		String lowerFilename = filename.toLowerCase();
-
 		if (lowerFilename.endsWith(".zip")) {
 			return extractReleaseFromZip(archiveFile);
 		} else if (lowerFilename.endsWith(".tar.gz") || lowerFilename.endsWith(".tgz")) {
+			return extractReleaseFromTarGz(archiveFile);
+		} else if (lowerFilename.endsWith(".tar.xz") || lowerFilename.endsWith(".txz")) {
 			return extractReleaseFromTarGz(archiveFile);
 		} else if (lowerFilename.endsWith(".pkg")) {
 			// PKG extraction only supported on macOS using pkgutil
 			if (isMacOS()) {
 				return extractReleaseFromPkg(archiveFile);
 			} else {
-				logger.debug("PKG file format only supported on macOS - skipping: {}", filename);
+				logger.warn("PKG file format only supported on macOS - skipping: {}", filename);
 				return null;
 			}
 		} else if (lowerFilename.endsWith(".rpm")) {
@@ -52,6 +54,7 @@ public class ArchiveUtils {
 		}
 
 		// Unsupported archive format
+		logger.info("Unsupported archive format for file: {}", filename);
 		return null;
 	}
 
@@ -85,17 +88,19 @@ public class ArchiveUtils {
 	}
 
 	/**
-	 * Extract release file from TAR.GZ archive.
+	 * Extract release file from TAR.GZ or TAR.XZ archive.
 	 *
-	 * @param tarGzFile The TAR.GZ file
+	 * @param tarFile The TAR.GZ or TAR.XZ file
 	 * @return Map of release properties or null if not found
 	 */
-	private static Map<String, String> extractReleaseFromTarGz(Path tarGzFile) throws IOException {
+	private static Map<String, String> extractReleaseFromTarGz(Path tarFile) throws IOException {
 		// Search for any file named "release" in the archive
 		// This handles various layouts including macOS packages with nested structures
-		try (InputStream fis = Files.newInputStream(tarGzFile);
-				GZIPInputStream gzis = new GZIPInputStream(fis);
-				TarArchiveInputStream tis = new TarArchiveInputStream(gzis)) {
+		boolean isXz = tarFile.toString().toLowerCase().endsWith(".tar.xz")
+				|| tarFile.toString().toLowerCase().endsWith(".txz");
+		try (InputStream fis = Files.newInputStream(tarFile);
+				InputStream compressedStream = isXz ? new XZCompressorInputStream(fis) : new GZIPInputStream(fis);
+				TarArchiveInputStream tis = new TarArchiveInputStream(compressedStream)) {
 
 			TarArchiveEntry entry;
 			while ((entry = tis.getNextEntry()) != null) {
