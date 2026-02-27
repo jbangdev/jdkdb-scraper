@@ -214,8 +214,16 @@ public class DownloadCommand implements Callable<Integer> {
 
 		logger.info("Summary");
 		logger.info("=======");
-		logger.info("Files with missing checksums: {}", filesWithMissingData);
+		logger.info("Files with missing data: {}", filesWithMissingData);
 		if (filesWithMissingData > 0) {
+			int filesWithMissingChecksums = (int) metadataList.stream()
+					.filter(MetadataUtils::hasMissingChecksums)
+					.count();
+			int filesWithMissingReleaseInfo = (int) metadataList.stream()
+					.filter(m -> MetadataUtils.hasMissingReleaseInfo(m))
+					.count();
+			logger.info("Files with missing checksums: {}", filesWithMissingChecksums);
+			logger.info("Files with missing release info: {}", filesWithMissingReleaseInfo);
 			logger.info("Total downloads completed: {}", totalCompleted);
 			logger.info("Total downloads failed: {}", totalFailed);
 		}
