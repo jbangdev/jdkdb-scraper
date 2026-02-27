@@ -78,20 +78,20 @@ public class DownloadCommand implements Callable<Integer> {
 			description =
 					"Include only these file types (e.g., tar_gz,zip). If specified, only these types will be downloaded.",
 			split = ",")
-	private List<MetadataUtils.FileType> includeFileTypes;
+	private List<JdkMetadata.FileType> includeFileTypes;
 
 	@Option(
 			names = {"--exclude"},
 			description = "Exclude these file types (e.g., msi,exe). These types will not be downloaded.",
 			split = ",")
-	private List<MetadataUtils.FileType> excludeFileTypes;
+	private List<JdkMetadata.FileType> excludeFileTypes;
 
 	@Override
 	public Integer call() throws Exception {
 		GitHubUtils.setupGitHubToken();
 
 		// Process file type filter
-		Set<MetadataUtils.FileType> fileTypeFilter = processFileTypeFilter(includeFileTypes, excludeFileTypes);
+		Set<JdkMetadata.FileType> fileTypeFilter = processFileTypeFilter(includeFileTypes, excludeFileTypes);
 
 		logger.info("Java Metadata Scraper - Download");
 		logger.info("=================================");
@@ -138,15 +138,15 @@ public class DownloadCommand implements Callable<Integer> {
 				// the release info, since we won't be able to extract it on non-macOS
 				// platforms anyway!
 				.filter(m -> !"macosx".equals(m.os())
-						|| !"pkg".equals(m.fileType())
+						|| !MetadataUtils.MACOS_FILE_TYPES.contains(m.fileTypeEnum())
 						|| MetadataUtils.hasMissingChecksums(m)
 						|| !MetadataUtils.hasMissingReleaseInfo(m)
 						|| ArchiveUtils.isMacOS())
-				// The same goes for Windows MSI files - but in this case we always
+				// The same goes for Windows EXE files - but in this case we always
 				// ignore missing release info since we can't extract it from them
 				// on any platform!
 				.filter(m -> !"windows".equals(m.os())
-						|| !"msi".equals(m.fileType())
+						|| !"exe".equals(m.fileType())
 						|| MetadataUtils.hasMissingChecksums(m)
 						|| !MetadataUtils.hasMissingReleaseInfo(m))
 				.sorted((m1, m2) -> {
@@ -222,6 +222,9 @@ public class DownloadCommand implements Callable<Integer> {
 			int filesWithMissingReleaseInfo = (int) metadataList.stream()
 					.filter(m -> MetadataUtils.hasMissingReleaseInfo(m))
 					.count();
+			var x = metadataList.stream()
+					.filter(m -> MetadataUtils.hasMissingReleaseInfo(m))
+					.toList();
 			logger.info("Files with missing checksums: {}", filesWithMissingChecksums);
 			logger.info("Files with missing release info: {}", filesWithMissingReleaseInfo);
 			logger.info("Total downloads completed: {}", totalCompleted);
@@ -238,20 +241,20 @@ public class DownloadCommand implements Callable<Integer> {
 	 * @param excludeFileTypes List of file types to exclude (null or empty means exclude none)
 	 * @return A set of file types to accept, or null if no filtering should be applied
 	 */
-	private Set<MetadataUtils.FileType> processFileTypeFilter(
-			List<MetadataUtils.FileType> includeFileTypes, List<MetadataUtils.FileType> excludeFileTypes) {
+	private Set<JdkMetadata.FileType> processFileTypeFilter(
+			List<JdkMetadata.FileType> includeFileTypes, List<JdkMetadata.FileType> excludeFileTypes) {
 		if ((includeFileTypes == null || includeFileTypes.isEmpty())
 				&& (excludeFileTypes == null || excludeFileTypes.isEmpty())) {
 			return null; // No filtering
 		}
 
-		Set<MetadataUtils.FileType> result;
+		Set<JdkMetadata.FileType> result;
 		if (includeFileTypes != null && !includeFileTypes.isEmpty()) {
 			// Start with only the included types
 			result = EnumSet.copyOf(includeFileTypes);
 		} else {
 			// Start with all types
-			result = EnumSet.allOf(MetadataUtils.FileType.class);
+			result = EnumSet.allOf(JdkMetadata.FileType.class);
 		}
 
 		// Remove excluded types

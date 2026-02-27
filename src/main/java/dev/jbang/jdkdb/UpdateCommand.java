@@ -1,5 +1,6 @@
 package dev.jbang.jdkdb;
 
+import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.DefaultDownloadManager;
 import dev.jbang.jdkdb.scraper.DownloadManager;
 import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
@@ -109,13 +110,13 @@ public class UpdateCommand implements Callable<Integer> {
 			description =
 					"Include only these file types (e.g., tar_gz,zip). If specified, only these types will be downloaded.",
 			split = ",")
-	private List<MetadataUtils.FileType> includeFileTypes;
+	private List<JdkMetadata.FileType> includeFileTypes;
 
 	@Option(
 			names = {"--exclude"},
 			description = "Exclude these file types (e.g., msi,exe). These types will not be downloaded.",
 			split = ",")
-	private List<MetadataUtils.FileType> excludeFileTypes;
+	private List<JdkMetadata.FileType> excludeFileTypes;
 
 	@Override
 	public Integer call() throws Exception {
@@ -138,7 +139,7 @@ public class UpdateCommand implements Callable<Integer> {
 		}
 
 		// Process file type filter
-		Set<MetadataUtils.FileType> fileTypeFilter = processFileTypeFilter(includeFileTypes, excludeFileTypes);
+		Set<JdkMetadata.FileType> fileTypeFilter = processFileTypeFilter(includeFileTypes, excludeFileTypes);
 
 		GitHubUtils.setupGitHubToken();
 
@@ -417,20 +418,20 @@ public class UpdateCommand implements Callable<Integer> {
 	 * @param excludeFileTypes List of file types to exclude (null or empty means exclude none)
 	 * @return A set of file types to accept, or null if no filtering should be applied
 	 */
-	private Set<MetadataUtils.FileType> processFileTypeFilter(
-			List<MetadataUtils.FileType> includeFileTypes, List<MetadataUtils.FileType> excludeFileTypes) {
+	private Set<JdkMetadata.FileType> processFileTypeFilter(
+			List<JdkMetadata.FileType> includeFileTypes, List<JdkMetadata.FileType> excludeFileTypes) {
 		if ((includeFileTypes == null || includeFileTypes.isEmpty())
 				&& (excludeFileTypes == null || excludeFileTypes.isEmpty())) {
 			return null; // No filtering
 		}
 
-		Set<MetadataUtils.FileType> result;
+		Set<JdkMetadata.FileType> result;
 		if (includeFileTypes != null && !includeFileTypes.isEmpty()) {
 			// Start with only the included types
 			result = EnumSet.copyOf(includeFileTypes);
 		} else {
 			// Start with all types
-			result = EnumSet.allOf(MetadataUtils.FileType.class);
+			result = EnumSet.allOf(JdkMetadata.FileType.class);
 		}
 
 		// Remove excluded types

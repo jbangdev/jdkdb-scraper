@@ -1,7 +1,6 @@
 package dev.jbang.jdkdb.scraper;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.util.MetadataUtils;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
@@ -13,7 +12,7 @@ import org.slf4j.LoggerFactory;
  */
 public class NoOpDownloadManager implements DownloadManager {
 	private final AtomicInteger completedDownloads = new AtomicInteger(0);
-	private final Set<MetadataUtils.FileType> fileTypeFilter;
+	private final Set<JdkMetadata.FileType> fileTypeFilter;
 
 	private static final Logger logger = LoggerFactory.getLogger(NoOpDownloadManager.class);
 
@@ -29,7 +28,7 @@ public class NoOpDownloadManager implements DownloadManager {
 	 *
 	 * @param fileTypeFilter Set of file types to accept (null to accept all)
 	 */
-	public NoOpDownloadManager(Set<MetadataUtils.FileType> fileTypeFilter) {
+	public NoOpDownloadManager(Set<JdkMetadata.FileType> fileTypeFilter) {
 		this.fileTypeFilter = fileTypeFilter;
 	}
 
@@ -53,16 +52,13 @@ public class NoOpDownloadManager implements DownloadManager {
 		if (metadata.url() != null && metadata.filename() != null) {
 			// Check file type filter
 			if (fileTypeFilter != null && metadata.fileType() != null) {
-				// Convert file_type string to enum (with underscores instead of periods)
-				String fileTypeStr = metadata.fileType().replace(".", "_");
 				try {
-					MetadataUtils.FileType fileType = MetadataUtils.FileType.valueOf(fileTypeStr);
-					if (!fileTypeFilter.contains(fileType)) {
+					if (!fileTypeFilter.contains(metadata.fileTypeEnum())) {
 						logger.debug(
 								"Ignoring download submission for {} [{}] - file type {} not in filter",
 								metadata.filename(),
 								vendor,
-								fileType);
+								metadata.fileType());
 						return;
 					}
 				} catch (IllegalArgumentException e) {
@@ -70,7 +66,7 @@ public class NoOpDownloadManager implements DownloadManager {
 							"Ignoring download submission for {} [{}] - unknown file type: {}",
 							metadata.filename(),
 							vendor,
-							fileTypeStr);
+							metadata.fileType());
 					return;
 				}
 			}

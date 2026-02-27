@@ -30,64 +30,18 @@ import org.slf4j.LoggerFactory;
 public class MetadataUtils {
 	private static final Logger logger = LoggerFactory.getLogger(MetadataUtils.class);
 
-	public enum ReleaseTypes {
-		ga,
-		ea
-	}
+	public static final EnumSet<JdkMetadata.FileType> UNPACKABLE_FILE_TYPES = EnumSet.of(
+			JdkMetadata.FileType.apk,
+			JdkMetadata.FileType.deb,
+			JdkMetadata.FileType.msi,
+			JdkMetadata.FileType.pkg,
+			JdkMetadata.FileType.rpm,
+			JdkMetadata.FileType.tar_gz,
+			JdkMetadata.FileType.tar_xz,
+			JdkMetadata.FileType.zip);
 
-	public enum ImageTypes {
-		jdk,
-		jre
-	}
-
-	public enum JvmImpl {
-		hotspot,
-		openj9,
-		graalvm
-	}
-
-	public enum Os {
-		aix,
-		linux,
-		macosx,
-		solaris,
-		windows
-	}
-
-	public enum Arch {
-		x86_64,
-		i686,
-		aarch64,
-		arm32,
-		arm32_vfp_hflt,
-		ppc32,
-		ppc64,
-		ppc64le,
-		s390x,
-		sparcv9,
-		riscv64,
-		mips,
-		mipsel,
-		mips64,
-		mips64el,
-		loong64
-	}
-
-	public enum FileType {
-		apk,
-		deb,
-		dmg,
-		exe,
-		msi,
-		pkg,
-		rpm,
-		tar_gz,
-		tar_xz,
-		zip
-	}
-
-	public static final EnumSet<FileType> UNPACKABLE_FILE_TYPES =
-			EnumSet.of(FileType.pkg, FileType.tar_gz, FileType.tar_xz, FileType.zip);
+	public static final EnumSet<JdkMetadata.FileType> MACOS_FILE_TYPES =
+			EnumSet.of(JdkMetadata.FileType.pkg, JdkMetadata.FileType.dmg);
 
 	private static ObjectMapper readMapper = new ObjectMapper();
 
@@ -212,16 +166,17 @@ public class MetadataUtils {
 				|| !metadata.javaVersion().matches("^\\d.*")) {
 			return false;
 		}
-		if (!isValidEnumOrUnknown(Os.class, metadata.os())
-				|| !isValidEnum(ImageTypes.class, metadata.imageType())
-				|| !isValidEnum(JvmImpl.class, metadata.jvmImpl())
-				|| !isValidEnum(ReleaseTypes.class, metadata.releaseType())) {
+		if (!isValidEnumOrUnknown(JdkMetadata.Os.class, metadata.os())
+				|| !isValidEnum(JdkMetadata.ImageType.class, metadata.imageType())
+				|| !isValidEnum(JdkMetadata.JvmImpl.class, metadata.jvmImpl())
+				|| !isValidEnum(JdkMetadata.ReleaseType.class, metadata.releaseType())) {
 			return false;
 		}
-		if (!isValidEnumOrUnknown(Arch.class, metadata.arch().replace("-", "_"))) {
+		if (!isValidEnumOrUnknown(JdkMetadata.Arch.class, metadata.arch().replace("-", "_"))) {
 			return false;
 		}
-		if (!isValidEnumOrUnknown(FileType.class, metadata.fileType().replace(".", "_"))) {
+		if (!isValidEnumOrUnknown(
+				JdkMetadata.FileType.class, metadata.fileType().replace(".", "_"))) {
 			return false;
 		}
 		return true;
@@ -371,7 +326,7 @@ public class MetadataUtils {
 			String releaseType = releaseEntry.getKey();
 
 			// We allow the valid names "ga" and "ea" but also the "all" combined type
-			if (!isValidEnum(ReleaseTypes.class, releaseType) && !releaseType.equals("all")) {
+			if (!isValidEnum(JdkMetadata.ReleaseType.class, releaseType) && !releaseType.equals("all")) {
 				logger.warn("Skipping invalid release type: {}", releaseType);
 				continue;
 			}
@@ -409,7 +364,7 @@ public class MetadataUtils {
 		for (var osEntry : byOs.entrySet()) {
 			String os = osEntry.getKey();
 
-			if (!isValidEnumOrUnknown(Os.class, os)) {
+			if (!isValidEnumOrUnknown(JdkMetadata.Os.class, os)) {
 				logger.warn("Skipping invalid OS: {}", os);
 				continue;
 			}
@@ -444,7 +399,7 @@ public class MetadataUtils {
 		for (var archEntry : byArch.entrySet()) {
 			String arch = archEntry.getKey();
 
-			if (!isValidEnumOrUnknown(Arch.class, arch.replace("-", "_"))) {
+			if (!isValidEnumOrUnknown(JdkMetadata.Arch.class, arch.replace("-", "_"))) {
 				logger.warn("Skipping invalid architecture: {}", arch);
 				continue;
 			}
@@ -483,7 +438,7 @@ public class MetadataUtils {
 			String imageType = imageEntry.getKey();
 
 			// We allow the valid names "jdk" and "jre" but also the "all" combined type
-			if (!isValidEnum(ImageTypes.class, imageType) && !imageType.equals("all")) {
+			if (!isValidEnum(JdkMetadata.ImageType.class, imageType) && !imageType.equals("all")) {
 				logger.warn("Skipping invalid image type: {}", imageType);
 				continue;
 			}
@@ -518,7 +473,7 @@ public class MetadataUtils {
 		for (var jvmEntry : byJvmImpl.entrySet()) {
 			String jvmImpl = jvmEntry.getKey();
 
-			if (!isValidEnum(JvmImpl.class, jvmImpl)) {
+			if (!isValidEnum(JdkMetadata.JvmImpl.class, jvmImpl)) {
 				logger.warn("Skipping invalid JVM implementation: {}", jvmImpl);
 				continue;
 			}
@@ -758,14 +713,13 @@ public class MetadataUtils {
 			return false;
 		}
 
-		if (!isValidEnum(FileType.class, metadata.fileType())) {
+		if (!isValidEnum(JdkMetadata.FileType.class, metadata.fileType())) {
 			// For unknown file types we can't reliably determine if the release
 			// info is missing or not, so we will not consider it incomplete
 			return false;
 		}
 
-		FileType fileType = FileType.valueOf(metadata.fileType());
-		if (!UNPACKABLE_FILE_TYPES.contains(fileType)) {
+		if (!UNPACKABLE_FILE_TYPES.contains(metadata.fileTypeEnum())) {
 			// For non-unpackable file types we can't extract release info,
 			// so we will not consider it incomplete
 			return false;

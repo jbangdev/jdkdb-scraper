@@ -34,7 +34,7 @@ public class DefaultDownloadManager implements DownloadManager {
 	private final int maxDownloadsPerHost;
 	private final int limitTotal;
 	private final ConcurrentHashMap<String, AtomicInteger> activeDownloadsPerHost;
-	private final Set<MetadataUtils.FileType> fileTypeFilter;
+	private final Set<JdkMetadata.FileType> fileTypeFilter;
 
 	private static final Logger logger = LoggerFactory.getLogger(DefaultDownloadManager.class);
 	private static final int DEFAULT_MAX_DOWNLOADS_PER_HOST = 3;
@@ -92,7 +92,7 @@ public class DefaultDownloadManager implements DownloadManager {
 			Path checksumDir,
 			int maxDownloadsPerHost,
 			int limitTotal,
-			Set<MetadataUtils.FileType> fileTypeFilter) {
+			Set<JdkMetadata.FileType> fileTypeFilter) {
 		this.downloadQueue = new LinkedBlockingQueue<>();
 		this.executorService = Executors.newFixedThreadPool(threadCount);
 		this.httpUtils = new HttpUtils();
@@ -141,16 +141,13 @@ public class DefaultDownloadManager implements DownloadManager {
 		}
 		// Check file type filter
 		if (fileTypeFilter != null && metadata.fileType() != null) {
-			// Convert file_type string to enum (with underscores instead of periods)
-			String fileTypeStr = metadata.fileType().replace(".", "_");
 			try {
-				MetadataUtils.FileType fileType = MetadataUtils.FileType.valueOf(fileTypeStr);
-				if (!fileTypeFilter.contains(fileType)) {
+				if (!fileTypeFilter.contains(metadata.fileTypeEnum())) {
 					logger.debug(
 							"Ignoring download submission for {} [{}] - file type {} not in filter",
 							metadata.filename(),
 							vendor,
-							fileType);
+							metadata.fileType());
 					return;
 				}
 			} catch (IllegalArgumentException e) {
@@ -158,7 +155,7 @@ public class DefaultDownloadManager implements DownloadManager {
 						"Ignoring download submission for {} [{}] - unknown file type: {}",
 						metadata.filename(),
 						vendor,
-						fileTypeStr);
+						metadata.fileType());
 				return;
 			}
 		}

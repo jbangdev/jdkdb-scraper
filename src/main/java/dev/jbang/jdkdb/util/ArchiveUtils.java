@@ -1,5 +1,6 @@
 package dev.jbang.jdkdb.util;
 
+import dev.jbang.jdkdb.model.JdkMetadata;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,34 +31,38 @@ public class ArchiveUtils {
 	 * @return Map of release properties, or null if not found or parsing failed
 	 */
 	public static Map<String, String> extractReleaseInfo(Path archiveFile, String filename) throws IOException {
-		String lowerFilename = filename.toLowerCase();
-		if (lowerFilename.endsWith(".zip")) {
-			return extractReleaseFromZip(archiveFile);
-		} else if (lowerFilename.endsWith(".tar.gz") || lowerFilename.endsWith(".tgz")) {
-			return extractReleaseFromTarGz(archiveFile);
-		} else if (lowerFilename.endsWith(".tar.xz") || lowerFilename.endsWith(".txz")) {
-			return extractReleaseFromTarGz(archiveFile);
-		} else if (lowerFilename.endsWith(".apk")) {
-			return extractReleaseFromTarGz(archiveFile);
-		} else if (lowerFilename.endsWith(".pkg")) {
-			// PKG extraction only supported on macOS using pkgutil
-			if (isMacOS()) {
-				return extractReleaseFromPkg(archiveFile);
-			} else {
-				logger.warn("PKG file format only supported on macOS - skipping: {}", filename);
-				return null;
-			}
-		} else if (lowerFilename.endsWith(".rpm")) {
-			return extractReleaseFromRpm(archiveFile);
-		} else if (lowerFilename.endsWith(".deb")) {
-			return extractReleaseFromDeb(archiveFile);
-		} else if (lowerFilename.endsWith(".msi")) {
-			return extractReleaseFromMsi(archiveFile);
+		JdkMetadata.FileType type = getFileType(filename);
+		if (type == null) {
+			logger.info("Unsupported archive format for file: {}", filename);
+			return null;
 		}
-
-		// Unsupported archive format
-		logger.info("Unsupported archive format for file: {}", filename);
-		return null;
+		// We put this here specifically so we don't forget to update this
+		// constant when we add new extraction methods!
+		if (!MetadataUtils.UNPACKABLE_FILE_TYPES.contains(type)) {
+			logger.info("File type not supported for release extraction: {}", type);
+			return null;
+		}
+		return switch (type) {
+			case apk -> extractReleaseFromTarGz(archiveFile);
+			case deb -> extractReleaseFromDeb(archiveFile);
+			case msi -> extractReleaseFromMsi(archiveFile);
+			case pkg -> {
+				// PKG extraction only supported on macOS using pkgutil
+				if (isMacOS()) {
+					yield extractReleaseFromPkg(archiveFile);
+				} else {
+					logger.warn("PKG file format only supported on macOS - skipping: {}", filename);
+					yield null;
+				}
+			}
+			case rpm -> extractReleaseFromRpm(archiveFile);
+			case tar_gz, tar_xz -> extractReleaseFromTarGz(archiveFile);
+			case zip -> extractReleaseFromZip(archiveFile);
+			default -> {
+				logger.info("Unsupported archive format for file: {}", filename);
+				yield null;
+			}
+		};
 	}
 
 	/**
@@ -423,5 +428,26 @@ public class ArchiveUtils {
 		}
 
 		return result;
+	}
+
+	public static JdkMetadata.FileType getFileType(String fileName) {
+		if (fileName == null) return null;
+		var lower = fileName.toLowerCase();
+		return switch (lower) {
+			case String s when s.endsWith(".apk") -> JdkMetadata.FileType.apk;
+			case String s when s.endsWith(".deb") -> JdkMetadata.FileType.deb;
+			case String s when s.endsWith(".dmg") -> JdkMetadata.FileType.dmg;
+			case String s when s.endsWith(".exe") -> JdkMetadata.FileType.exe;
+			case String s when s.endsWith(".msi") -> JdkMetadata.FileType.msi;
+			case String s when s.endsWith(".pkg") -> JdkMetadata.FileType.pkg;
+			case String s when s.endsWith(".rpm") -> JdkMetadata.FileType.rpm;
+			case String s when s.matches("(\\.tar\\.gz|\\.tgz)$") -> JdkMetadata.FileType.tar_gz;
+			case String s when s.matches("(\\.tar\\.xz|\\.txz)$") -> JdkMetadata.FileType.tar_xz;
+			case String s when s.endsWith(".zip") -> JdkMetadata.FileType.zip;
+			default -> {
+				logger.warn("Unknown file type: " + fileName);
+				yield null;
+			}
+		};
 	}
 }

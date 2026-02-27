@@ -37,6 +37,62 @@ import java.util.Objects;
 	"release_info"
 })
 public class JdkMetadata {
+	public enum ReleaseType {
+		ga,
+		ea
+	}
+
+	public enum ImageType {
+		jdk,
+		jre
+	}
+
+	public enum JvmImpl {
+		hotspot,
+		openj9,
+		graalvm
+	}
+
+	public enum Os {
+		aix,
+		linux,
+		macosx,
+		solaris,
+		windows
+	}
+
+	public enum Arch {
+		x86_64,
+		i686,
+		aarch64,
+		arm32,
+		arm32_vfp_hflt,
+		ppc32,
+		ppc64,
+		ppc64le,
+		s390x,
+		sparcv9,
+		riscv64,
+		mips,
+		mipsel,
+		mips64,
+		mips64el,
+		loong64
+	}
+
+	public enum FileType {
+		apk,
+		deb,
+		dmg,
+		exe,
+		msi,
+		pkg,
+		rpm,
+		tar_gz,
+		tar_xz,
+		zip
+	}
+
 	@JsonProperty("vendor")
 	private String vendor;
 
@@ -138,6 +194,10 @@ public class JdkMetadata {
 		return releaseType;
 	}
 
+	public ReleaseType releaseTypeEnum() {
+		return ReleaseType.valueOf(releaseType);
+	}
+
 	public JdkMetadata releaseType(String releaseType) {
 		this.releaseType = releaseType;
 		return this;
@@ -165,6 +225,10 @@ public class JdkMetadata {
 		return jvmImpl;
 	}
 
+	public JdkMetadata.JvmImpl jvmImplEnum() {
+		return JdkMetadata.JvmImpl.valueOf(jvmImpl);
+	}
+
 	public JdkMetadata jvmImpl(String jvmImpl) {
 		this.jvmImpl = jvmImpl;
 		return this;
@@ -172,6 +236,10 @@ public class JdkMetadata {
 
 	public String os() {
 		return os;
+	}
+
+	public JdkMetadata.Os osEnum() {
+		return JdkMetadata.Os.valueOf(os);
 	}
 
 	public JdkMetadata os(String os) {
@@ -183,6 +251,10 @@ public class JdkMetadata {
 		return architecture;
 	}
 
+	public JdkMetadata.Arch archEnum() {
+		return JdkMetadata.Arch.valueOf(architecture.replace("-", "_"));
+	}
+
 	public JdkMetadata arch(String architecture) {
 		this.architecture = architecture;
 		return this;
@@ -192,6 +264,10 @@ public class JdkMetadata {
 		return fileType;
 	}
 
+	public JdkMetadata.FileType fileTypeEnum() {
+		return JdkMetadata.FileType.valueOf(fileType.replace(".", "_"));
+	}
+
 	public JdkMetadata fileType(String fileType) {
 		this.fileType = fileType;
 		return this;
@@ -199,6 +275,10 @@ public class JdkMetadata {
 
 	public String imageType() {
 		return imageType;
+	}
+
+	public JdkMetadata.ImageType imageTypeEnum() {
+		return JdkMetadata.ImageType.valueOf(imageType);
 	}
 
 	public JdkMetadata imageType(String imageType) {
