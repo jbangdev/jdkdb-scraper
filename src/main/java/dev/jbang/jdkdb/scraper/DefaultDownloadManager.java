@@ -6,8 +6,8 @@ import dev.jbang.jdkdb.util.HashUtils;
 import dev.jbang.jdkdb.util.HttpUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.*;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -419,9 +419,9 @@ public class DefaultDownloadManager implements DownloadManager {
 			return null;
 		}
 		try {
-			URL url = new URL(urlString);
-			return url.getHost();
-		} catch (MalformedURLException e) {
+			URI uri = new URI(urlString);
+			return uri.getHost();
+		} catch (URISyntaxException e) {
 			logger.warn("Invalid URL: {}", urlString);
 			return null;
 		}
