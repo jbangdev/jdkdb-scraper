@@ -44,6 +44,12 @@ jbang scraper@jbangdev/jdkdb-scraper update --from-start
 # Update: Limit progress for testing
 jbang scraper@jbangdev/jdkdb-scraper update --limit-progress 5
 
+# Update: Only download specific file types
+jbang scraper@jbangdev/jdkdb-scraper update --include tar_gz,zip
+
+# Update: Exclude specific file types
+jbang scraper@jbangdev/jdkdb-scraper update --exclude msi,exe
+
 # Index: Generate all.json files for all vendors
 jbang scraper@jbangdev/jdkdb-scraper index
 
@@ -55,6 +61,15 @@ jbang scraper@jbangdev/jdkdb-scraper download
 
 # Download: Process specific vendors
 jbang scraper@jbangdev/jdkdb-scraper download --vendors microsoft
+
+# Download: Randomize download order
+jbang scraper@jbangdev/jdkdb-scraper download --randomize
+
+# Download: Only download specific file types
+jbang scraper@jbangdev/jdkdb-scraper download --include tar_gz,zip
+
+# Download: Exclude specific file types
+jbang scraper@jbangdev/jdkdb-scraper download --exclude msi,exe
 
 # Download: Show statistics only (dry-run)
 jbang scraper@jbangdev/jdkdb-scraper download --stats-only
@@ -133,7 +148,10 @@ clean     Clean up metadata by removing incomplete files and pruning old EA
 ```bash
 Usage: jdkdb-scraper update [-hlV] [--from-start] [--no-download] [--no-index]
 							[-c=<checksumDir>]
+							[--exclude=<excludeFileTypes>[,<excludeFileTypes>...]]...
+							[--include=<includeFileTypes>[,<includeFileTypes>...]]...
 							[--limit-progress=<limitProgress>]
+							[--limit-total=<limitTotal>]
 							[-m=<metadataDir>] [--max-failures=<maxFailures>]
 							[--skip-ea=<skipEa>] [-t=<maxThreads>]
 							[-s=<scraperIds>[,<scraperIds>...]]...
@@ -143,13 +161,22 @@ Scrape JDK metadata from various vendors and update metadata files
 Options:
 -c, --checksum-dir=<checksumDir>
 					Directory to store checksum files (default: docs/checksums)
+	--exclude=<excludeFileTypes>[,<excludeFileTypes>...]
+					Exclude these file types (e.g., msi,exe). These types will
+					not be downloaded.
 	--from-start   Ignore existing metadata files and scrape all items from
 					the start
 -h, --help         Show this help message and exit.
+	--include=<includeFileTypes>[,<includeFileTypes>...]
+					Include only these file types (e.g., tar_gz,zip). If
+					specified, only these types will be downloaded.
 -l, --list         List all available scraper IDs and exit
 	--limit-progress=<limitProgress>
 					Maximum number of metadata items to process per scraper
 					before aborting (default: unlimited)
+	--limit-total=<limitTotal>
+					Maximum total number of downloads to accept before
+					stopping (default: unlimited)
 -m, --metadata-dir=<metadataDir>
 					Directory to store metadata files (default: docs/metadata)
 	--max-failures=<maxFailures>
@@ -198,8 +225,12 @@ Options:
 ### Download Command
 
 ```bash
-Usage: jdkdb-scraper download [-hV] [--stats-only] [-c=<checksumDir>]
+Usage: jdkdb-scraper download [-hV] [--randomize] [--stats-only]
+							[-c=<checksumDir>]
+							[--exclude=<excludeFileTypes>[,<excludeFileTypes>...]]...
+							[--include=<includeFileTypes>[,<includeFileTypes>...]]...
 							[--limit-progress=<limitProgress>]
+							[--limit-total=<limitTotal>]
 							[-m=<metadataDir>] [-t=<maxThreads>]
 							[-v=<vendorNames>[,<vendorNames>...]]...
 
@@ -209,13 +240,24 @@ values
 Options:
 -c, --checksum-dir=<checksumDir>
 					Directory to store checksum files (default: docs/checksums)
+	--exclude=<excludeFileTypes>[,<excludeFileTypes>...]
+					Exclude these file types (e.g., msi,exe). These types will
+					not be downloaded.
 -h, --help         Show this help message and exit.
+	--include=<includeFileTypes>[,<includeFileTypes>...]
+					Include only these file types (e.g., tar_gz,zip). If
+					specified, only these types will be downloaded.
 	--limit-progress=<limitProgress>
 					Maximum number of metadata items to process per scraper
 					before aborting (default: unlimited)
+	--limit-total=<limitTotal>
+					Maximum total number of downloads to accept before
+					stopping (default: unlimited)
 -m, --metadata-dir=<metadataDir>
 					Directory containing metadata files (default:
 					docs/metadata)
+	--randomize    Randomize the order of downloads instead of processing
+					files in order
 	--stats-only   Skip downloading files and only show statistics (for
 					testing/dry-run)
 -t, --threads=<maxThreads>

@@ -10,12 +10,15 @@ import dev.jbang.jdkdb.util.GitHubUtils;
 import dev.jbang.jdkdb.util.MetadataUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +88,11 @@ public class DownloadCommand implements Callable<Integer> {
 			description = "Exclude these file types (e.g., msi,exe). These types will not be downloaded.",
 			split = ",")
 	private List<JdkMetadata.FileType> excludeFileTypes;
+
+	@Option(
+			names = {"--randomize"},
+			description = "Randomize the order of downloads instead of processing files in order")
+	private boolean randomize;
 
 	@Override
 	public Integer call() throws Exception {
@@ -160,7 +168,13 @@ public class DownloadCommand implements Callable<Integer> {
 						return 0; // Both are equal in terms of missing data
 					}
 				})
-				.toList();
+				.collect(Collectors.toCollection(ArrayList::new));
+
+		// Randomize the order if requested
+		if (randomize) {
+			Collections.shuffle(metadataList);
+			logger.info("Randomized download order");
+		}
 
 		Map<String, Integer> vendorMissingCounts = new HashMap<>();
 		for (JdkMetadata metadata : metadataList) {
