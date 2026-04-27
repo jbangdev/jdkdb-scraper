@@ -125,7 +125,7 @@ public class HttpUtils {
 				if (attempt < DEFAULT_MAX_RETRIES - 1) {
 					// Exponential backoff: 2s, 4s, 8s, ...
 					long backoffMillis = INITIAL_BACKOFF.toMillis() * (1L << attempt);
-					logger.warn(
+					logger.debug(
 							"HTTP operation failed (attempt {}/{}): {} - retrying after {}ms",
 							attempt + 1,
 							DEFAULT_MAX_RETRIES,
