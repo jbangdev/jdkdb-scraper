@@ -811,4 +811,17 @@ public class MetadataUtils {
 		}
 		return vendors;
 	}
+
+	public static boolean isValidReleaseInfo(Map<String, String> releaseInfo) {
+		if (releaseInfo == null) {
+			// Missing release info is invalid
+			return false;
+		}
+		if (releaseInfo == null || releaseInfo.isEmpty()) {
+			// Empty release info is okay
+			return true;
+		}
+		// We will consider release info valid if it contains at least a version
+		return releaseInfo.containsKey("JAVA_VERSION");
+	}
 }

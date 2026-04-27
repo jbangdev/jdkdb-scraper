@@ -433,6 +433,10 @@ public class JdkMetadata {
 			logger.warn("Invalid 'file_type': {}", getFileType());
 			return false;
 		}
+		if (getReleaseInfo() != null && !MetadataUtils.isValidReleaseInfo(getReleaseInfo())) {
+			logger.warn("Invalid 'release_info': {}", getReleaseInfo());
+			return false;
+		}
 		return true;
 	}
 
