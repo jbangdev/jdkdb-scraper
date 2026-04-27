@@ -27,6 +27,7 @@ public class ArchiveUtilsTest {
 		var releaseInfo =
 				ArchiveUtils.extractReleaseInfo(pkgFile, pkgFile.getFileName().toString());
 		assertThat(releaseInfo).isNotNull();
+		assertThat(MetadataUtils.isValidReleaseInfo(releaseInfo)).isTrue();
 	}
 
 	@Test
@@ -39,5 +40,18 @@ public class ArchiveUtilsTest {
 		var releaseInfo = ArchiveUtils.extractReleaseInfo(
 				tarGzFile, tarGzFile.getFileName().toString());
 		assertThat(releaseInfo).isNotNull();
+		assertThat(MetadataUtils.isValidReleaseInfo(releaseInfo)).isTrue();
+	}
+
+	@Test
+	// @Disabled("Large file download and extraction - only run manually when needed")
+	public void testMacOsZip() throws IOException, InterruptedException {
+		Path zipFile = tempDir.resolve("test-macosx.zip");
+		HttpUtils httpUtils = new HttpUtils();
+		httpUtils.downloadFile("https://static.azul.com/zulu/bin/zulu21.28.85-ca-fx-jre21.0.0-macosx_x64.zip", zipFile);
+		var releaseInfo =
+				ArchiveUtils.extractReleaseInfo(zipFile, zipFile.getFileName().toString());
+		assertThat(releaseInfo).isNotNull();
+		assertThat(MetadataUtils.isValidReleaseInfo(releaseInfo)).isTrue();
 	}
 }

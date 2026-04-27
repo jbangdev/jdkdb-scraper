@@ -2,14 +2,15 @@ package dev.jbang.jdkdb.util;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,26 +73,50 @@ public class ArchiveUtils {
 	 * @return Map of release properties or null if not found
 	 */
 	private static Map<String, String> extractReleaseFromZip(Path zipFile) throws IOException {
-		try (ZipFile zip = new ZipFile(zipFile.toFile())) {
+		try (ZipFile zip = ZipFile.builder().setPath(zipFile).get()) {
 			// Search for any file named "release" in the archive
 			// This handles various layouts including macOS packages with nested structures
-			var entries = zip.entries();
+			var entries = zip.getEntries();
 			while (entries.hasMoreElements()) {
-				ZipEntry entry = entries.nextElement();
+				ZipArchiveEntry entry = entries.nextElement();
 				String name = entry.getName();
 
 				// Check if this is a "release" file (not a directory)
-				if (!entry.isDirectory() && name.endsWith("/release")) {
-					// Prefer files in standard locations (shorter paths first)
-					// This naturally prioritizes root or shallow release files
-					return parseReleaseProperties(zip.getInputStream(entry));
-				} else if (!entry.isDirectory() && name.equals("release")) {
-					// Found release in root
-					return parseReleaseProperties(zip.getInputStream(entry));
+				if (!entry.isDirectory() && (name.equals("release") || name.endsWith("/release"))) {
+					ZipArchiveEntry resolved = resolveZipEntry(zip, entry);
+					if (resolved != null) {
+						return parseReleaseProperties(zip.getInputStream(resolved));
+					}
 				}
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Resolves a ZIP entry, following symbolic links up to 10 levels deep.
+	 *
+	 * @param zip The ZIP file
+	 * @param entry The entry to resolve
+	 * @return The resolved (non-symlink) entry, or null if the link is dangling
+	 */
+	private static ZipArchiveEntry resolveZipEntry(ZipFile zip, ZipArchiveEntry entry) throws IOException {
+		for (int depth = 0; depth < 10 && entry.isUnixSymlink(); depth++) {
+			String target;
+			try (InputStream is = zip.getInputStream(entry)) {
+				target = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
+			}
+			String parent = entry.getName().contains("/")
+					? entry.getName().substring(0, entry.getName().lastIndexOf('/') + 1)
+					: "";
+			String resolvedPath =
+					Path.of(parent + target).normalize().toString().replace('\\', '/');
+			entry = zip.getEntry(resolvedPath);
+			if (entry == null) {
+				return null;
+			}
+		}
+		return entry.isUnixSymlink() ? null : entry;
 	}
 
 	/**
