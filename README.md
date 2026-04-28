@@ -1,6 +1,8 @@
 # jdkdb-scraper - JDK Metadata DB Scraper
 
-A Java-based application for scraping JDK metadata from various distros. This project replaces the original bash scripts with a robust, parallel Java implementation.
+A Java-based application for scraping JDK metadata from various distros.
+
+This application is used daily to update the contents of the [jdkdb-data](https://github.com/jbangdev/jdkdb-data) repository which is then used to generate indices in the [jdkdb-index](https://github.com/jbangdev/jdkdb-index) repository that finally powers the [OpenAPI](https://jbangdev.github.io/jdkdb-index/) page.
 
 This project is based on [Joschi's Java Metadata project](https://github.com/joschi/java-metadata) and incorporates ideas from the [Foojay's Disco API project](https://github.com/foojayio/discoapi).
 
@@ -8,11 +10,7 @@ This project is based on [Joschi's Java Metadata project](https://github.com/jos
 
 - **Parallel Execution**: Run multiple distro scrapers concurrently for improved performance
 - **Selective Scraping**: Run all scrapers or select specific distros
-- **Central Reporting**: Thread-safe progress reporting with real-time status updates
 - **Extensible Architecture**: Easy to add new distro scrapers
-- **Generic Base Classes**: Reduces code duplication for similar distros (e.g., Semeru versions, Trava versions)
-- **Comprehensive Logging**: SLF4J/Logback integration with both console and file output
-- **Multi-command CLI**: Separate commands for updating metadata, generating indexes, downloading checksums, and cleaning up old releases
 - **Archive Extraction**: Automatically extracts release information from JDK archives
 
 ## Running using JBang
@@ -20,9 +18,6 @@ This project is based on [Joschi's Java Metadata project](https://github.com/jos
 Running the released version of the scraper application can simply be done with [JBang](jbang.dev):
 
 ```bash
-# Show available commands
-jbang scraper@jbangdev/jdkdb-scraper --help
-
 # Update: Run all scrapers
 jbang scraper@jbangdev/jdkdb-scraper update
 
@@ -32,56 +27,17 @@ jbang scraper@jbangdev/jdkdb-scraper update --list
 # Update: Run specific scrapers
 jbang scraper@jbangdev/jdkdb-scraper update --scrapers microsoft,semeru,temurin
 
-# Update: Specify custom directories and control parallelism
-jbang scraper@jbangdev/jdkdb-scraper update \
---metadata-dir /path/to/metadata \
---checksum-dir /path/to/checksums \
---threads 4
-
-# Update: Scrape from start (ignore existing metadata)
-jbang scraper@jbangdev/jdkdb-scraper update --from-start
-
-# Update: Limit progress for testing
-jbang scraper@jbangdev/jdkdb-scraper update --limit-progress 5
-
-# Update: Only download specific file types
-jbang scraper@jbangdev/jdkdb-scraper update --include tar_gz,zip
-
-# Update: Exclude specific file types
-jbang scraper@jbangdev/jdkdb-scraper update --exclude msi,exe
-
 # Index: Generate all.json files for all distros
 jbang scraper@jbangdev/jdkdb-scraper index
 
-# Index: Regenerate all.json for specific distros
-jbang scraper@jbangdev/jdkdb-scraper index --distros temurin,zulu
-
 # Download: Download and compute missing checksums for all distros
 jbang scraper@jbangdev/jdkdb-scraper download
-
-# Download: Process specific distros
-jbang scraper@jbangdev/jdkdb-scraper download --distros microsoft
-
-# Download: Randomize download order
-jbang scraper@jbangdev/jdkdb-scraper download --randomize
-
-# Download: Only download specific file types
-jbang scraper@jbangdev/jdkdb-scraper download --include tar_gz,zip
-
-# Download: Exclude specific file types
-jbang scraper@jbangdev/jdkdb-scraper download --exclude msi,exe
-
-# Download: Show statistics only (dry-run)
-jbang scraper@jbangdev/jdkdb-scraper download --stats-only
 
 # Clean: Remove incomplete metadata files and prune old EA releases (dry-run)
 jbang scraper@jbangdev/jdkdb-scraper clean --dry-run
 
 # Clean: Actually remove incomplete files and prune EA releases older than 6 months
 jbang scraper@jbangdev/jdkdb-scraper clean --remove-incomplete=all --prune-ea=6m
-
-# Clean: Remove orphaned checksum files
-jbang scraper@jbangdev/jdkdb-scraper clean --prune-checksums
 ```
 
 ## Usage
@@ -147,7 +103,7 @@ clean     Clean up metadata by removing incomplete files and pruning old EA
 
 ```bash
 Usage: jdkdb-scraper update [-hlV] [--from-start] [--no-download] [--no-index]
-							[-c=<checksumDir>]
+							[-c=<checksumDir>] [-x=<indexDir>]
 							[--exclude=<excludeFileTypes>[,<excludeFileTypes>...]]...
 							[--include=<includeFileTypes>[,<includeFileTypes>...]]...
 							[--limit-progress=<limitProgress>]
@@ -196,13 +152,16 @@ Options:
 					Maximum number of parallel scraper threads (default:
 					number of processors)
 -V, --version      Print version information and exit.
+-x, --index-dir=<indexDir>
+					Directory to write generated index files to (default:
+					db/metadata)
 ```
 
 ### Index Command
 
 ```bash
 Usage: jdkdb-scraper index [-hV] [--allow-incomplete] [-m=<metadataDir>]
-						[-v=<distroNames>[,<distroNames>...]]...
+						[-x=<indexDir>] [-v=<distroNames>[,<distroNames>...]]...
 
 Generate all.json files for distro directories by aggregating individual
 metadata files
@@ -220,6 +179,9 @@ Options:
 					all.json for (if not specified, all distros are
 					processed)
 -V, --version      Print version information and exit.
+-x, --index-dir=<indexDir>
+					Directory to write generated index files to (default:
+					db/metadata)
 ```
 
 ### Download Command
@@ -474,118 +436,9 @@ public class NewDistro extends BaseScraper {
 }
 ```
 
-## Project Structure
-
-```bash
-src/
-├── main/
-│   ├── java/
-│   │   └── dev/jbang/jdkdb/
-│   │       ├── Main.java                          # CLI application entry point
-│   │       ├── UpdateCommand.java                 # Update command (scrape metadata)
-│   │       ├── IndexCommand.java                  # Index command (generate all.json)
-│   │       ├── DownloadCommand.java               # Download command (compute checksums)
-│   │       ├── CleanCommand.java                  # Clean command (cleanup metadata)
-│   │       ├── model/
-│   │       │   └── JdkMetadata.java              # Data model for JDK metadata
-│   │       ├── reporting/
-│   │       │   ├── ProgressEvent.java            # Progress event types
-│   │       │   ├── ProgressReporter.java         # Central reporting thread
-│   │       │   └── ProgressReporterLogger.java   # Logger adapter for scrapers
-│   │       ├── scraper/
-│   │       │   ├── Scraper.java                  # Scraper interface with Discovery SPI
-│   │       │   ├── ScraperConfig.java            # Configuration record
-│   │       │   ├── ScraperResult.java            # Result wrapper
-│   │       │   ├── BaseScraper.java              # Base class for all scrapers
-│   │       │   ├── GitHubReleaseScraper.java     # Base for GitHub-based scrapers
-│   │       │   ├── AdoptiumMarketplaceScraper.java # Base for Adoptium Marketplace
-│   │       │   ├── JavaNetBaseScraper.java       # Base for java.net archives
-│   │       │   ├── ScraperFactory.java           # Factory using ServiceLoader
-│   │       │   ├── DownloadManager.java          # Interface for downloading JDKs
-│   │       │   ├── DefaultDownloadManager.java   # Default implementation
-│   │       │   ├── NoOpDownloadManager.java      # No-op for testing
-│   │       │   ├── DownloadResult.java           # Download result wrapper
-│   │       │   ├── PaginatedIterator.java        # GitHub pagination helper
-│   │       │   ├── InterruptedProgressException.java # Exception types
-│   │       │   ├── TooManyFailuresException.java
-│   │       │   └── impl/                         # Distro scraper implementations
-│   │       │       ├── Temurin.java
-│   │       │       ├── Zulu.java
-│   │       │       ├── ZuluPrime.java
-│   │       │       ├── Liberica.java
-│   │       │       ├── LibericaNative.java
-│   │       │       ├── Microsoft.java
-│   │       │       ├── Corretto.java
-│   │       │       ├── SapMachine.java
-│   │       │       ├── Semeru.java
-│   │       │       ├── SemeruBaseScraper.java
-│   │       │       ├── SemeruCertified.java
-│   │       │       ├── Oracle.java
-│   │       │       ├── OracleGraalVm.java
-│   │       │       ├── OracleGraalVmEa.java
-│   │       │       ├── Mandrel.java
-│   │       │       ├── Dragonwell.java
-│   │       │       ├── Kona.java
-│   │       │       ├── Bisheng.java
-│   │       │       ├── Redhat.java
-│   │       │       ├── AdoptOpenJdk.java
-│   │       │       ├── Ibm.java
-│   │       │       ├── JavaSeReference.java
-│   │       │       ├── Jetbrains.java
-│   │       │       ├── GraalVmLegacy.java
-│   │       │       ├── GraalVmCe.java
-│   │       │       ├── GraalVmCommunity.java
-│   │       │       ├── GraalVmCommunityEa.java
-│   │       │       ├── GluonGraalVm.java
-│   │       │       ├── OpenLogic.java
-│   │       │       ├── OpenJdk.java
-│   │       │       ├── OpenJdkLeyden.java
-│   │       │       ├── OpenJdkLoom.java
-│   │       │       ├── OpenJdkValhalla.java
-│   │       │       ├── Debian.java
-│   │       │       ├── TravaBaseScraper.java
-│   │       │       ├── TravaJdk8.java
-│   │       │       └── TravaJdk11.java
-│   │       └── util/
-│   │           ├── ArchiveUtils.java             # Archive extraction utilities
-│   │           ├── FileUtils.java                # File operations
-│   │           ├── HashUtils.java                # Hash computation
-│   │           ├── HtmlUtils.java                # HTML parsing utilities
-│   │           ├── HttpUtils.java                # HTTP operations
-│   │           ├── MetadataUtils.java            # Metadata validation/utilities
-│   │           ├── DistroLoggerDiscriminator.java # Logging configuration
-│   │           └── VersionComparator.java        # Version comparison
-│   └── resources/
-│       ├── logback.xml                           # Logging configuration
-│       └── META-INF/
-│           └── services/
-│               └── dev.jbang.jdkdb.scraper.Scraper$Discovery
-└── test/
-	└── java/
-		└── dev/jbang/jdkdb/
-			├── scraper/
-			│   ├── BaseScraperTest.java
-			│   ├── DummyScraperTest.java
-			│   ├── ScraperFactoryTest.java
-			│   └── ScraperResultTest.java
-			└── util/
-				├── ArchiveUtilsTest.java
-				└── MetadataUtilsTest.java
-```
-
-## Dependencies
-
-- **Jackson**: JSON processing (2.16.1)
-- **Java HttpClient** (`java.net.http`): HTTP operations (built-in)
-- **SLF4J/Logback**: Logging (SLF4J 2.0.7, Logback 1.4.14)
-- **Picocli**: Command-line interface (4.7.5)
-- **Apache Commons Compress**: Archive handling (1.27.1)
-- **JUnit 5**: Testing (5.10.1)
-- **AssertJ**: Fluent assertions for testing (3.27.6)
-
 ## Output
 
-The scrapers generate structured output in the `metadata/` directory:
+The scrapers and indexer generate structured output in the `metadata/` directory:
 
 ### Metadata Files (`db/metadata`)
 
@@ -623,4 +476,4 @@ The logging configuration can be customized in `src/main/resources/logback.xml`.
 
 ## License
 
-Same as the original project (see LICENSE file)
+See [LICENSE](./LICENSE) file
