@@ -217,30 +217,32 @@ public class MetadataUtils {
 	}
 
 	/**
-	 * Generate all.json file from all .json files in the distro directory. This reads all individual
-	 * metadata files (excluding all.json itself) and creates a combined all.json file.
+	 * Generate all.json file from all .json files in the source distro directory. Reads individual
+	 * metadata files from {@code sourceDistroDir} and writes all.json/latest.json to {@code outputDistroDir}.
 	 */
-	public static void generateAllJsonFromDirectory(Path distroDir, boolean allowIncomplete) throws IOException {
-		// Collect all metadata
-		if (!Files.exists(distroDir) || !Files.isDirectory(distroDir)) {
-			logger.info("No metadata found to generate indices for: {}", distroDir);
+	public static void generateAllJsonFromDirectory(Path sourceDistroDir, Path outputDistroDir, boolean allowIncomplete)
+			throws IOException {
+		if (!Files.exists(sourceDistroDir) || !Files.isDirectory(sourceDistroDir)) {
+			logger.info("No metadata found to generate indices for: {}", sourceDistroDir);
 			return;
 		}
 
-		List<JdkMetadata> allMetadata = collectAllMetadata(distroDir, 1, true, allowIncomplete);
+		List<JdkMetadata> allMetadata = collectAllMetadata(sourceDistroDir, 1, true, allowIncomplete);
 		if (allMetadata.isEmpty()) {
-			logger.info("No metadata found to generate indices for: {}", distroDir);
+			logger.info("No metadata found to generate indices for: {}", sourceDistroDir);
 			return;
 		}
+
+		Files.createDirectories(outputDistroDir);
 
 		// Save the combined all.json
-		logger.info("Generating {}/all.json ({} entries)", distroDir.getFileName(), allMetadata.size());
-		saveMetadata(distroDir.resolve("all.json"), allMetadata);
+		logger.info("Generating {}/all.json ({} entries)", outputDistroDir.getFileName(), allMetadata.size());
+		saveMetadata(outputDistroDir.resolve("all.json"), allMetadata);
 
 		// Save the combined latest.json
 		List<JdkMetadata> filteredList = filterLatestVersions(allMetadata);
-		logger.info("Generating {}/latest.json ({} entries)", distroDir.getFileName(), filteredList.size());
-		saveMetadata(distroDir.resolve("latest.json"), filteredList);
+		logger.info("Generating {}/latest.json ({} entries)", outputDistroDir.getFileName(), filteredList.size());
+		saveMetadata(outputDistroDir.resolve("latest.json"), filteredList);
 	}
 
 	/**
@@ -249,42 +251,43 @@ public class MetadataUtils {
 	 *
 	 * @return The number of index files created
 	 */
-	public static int generateComprehensiveIndices(Path metadataDir, boolean allowIncomplete) throws IOException {
+	public static int generateComprehensiveIndices(Path metadataDir, Path indexDir, boolean allowIncomplete)
+			throws IOException {
 		logger.info("Generating comprehensive indices...");
 
-		// Collect all metadata
-		Path distroDir = metadataDir;
-		if (!Files.exists(distroDir) || !Files.isDirectory(distroDir)) {
+		if (!Files.exists(metadataDir) || !Files.isDirectory(metadataDir)) {
 			logger.info("No metadata found to generate comprehensive indices.");
 			return 0;
 		}
 
-		List<JdkMetadata> allMetadata = collectAllMetadata(distroDir, 2, true, allowIncomplete);
+		List<JdkMetadata> allMetadata = collectAllMetadata(metadataDir, 2, true, allowIncomplete);
 		if (allMetadata.isEmpty()) {
 			logger.info("No metadata found to generate comprehensive indices.");
 			return 0;
 		}
+
+		Files.createDirectories(indexDir);
 
 		int fileCount = 0;
 
 		// Generate metadata/all.json
 		// (no longer needed as it is being generated in generateReleaseTypeIndices)
 		// logger.info("Generating metadata/all.json ({} entries)", allMetadata.size());
-		// saveMetadata(metadataDir.resolve("all.json"), allMetadata);
+		// saveMetadata(indexDir.resolve("all.json"), allMetadata);
 
-		// Generate metadata/latest.json
-		logger.debug("Generating metadata/latest.json");
+		// Generate latest.json
+		logger.debug("Generating latest.json");
 		List<JdkMetadata> filteredList = filterLatestVersions(allMetadata);
-		saveMetadata(metadataDir.resolve("latest.json"), filteredList);
+		saveMetadata(indexDir.resolve("latest.json"), filteredList);
 		fileCount++;
 
-		fileCount += generateReleaseTypeIndices(metadataDir, metadataDir, allMetadata);
+		fileCount += generateReleaseTypeIndices(indexDir, indexDir, allMetadata);
 
 		logger.debug("Comprehensive indices generated successfully.");
 		return fileCount;
 	}
 
-	private static int generateReleaseTypeIndices(Path metadataDir, Path baseDir, List<JdkMetadata> metadata)
+	private static int generateReleaseTypeIndices(Path indexDir, Path baseDir, List<JdkMetadata> metadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -320,14 +323,13 @@ public class MetadataUtils {
 			saveMetadata(baseDir.resolve(releaseType + ".json"), releaseMetadata);
 			fileCount++;
 
-			fileCount += generateOsIndices(metadataDir, releaseDir, releaseMetadata);
+			fileCount += generateOsIndices(indexDir, releaseDir, releaseMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateOsIndices(Path metadataDir, Path baseDir, List<JdkMetadata> metadata)
-			throws IOException {
+	private static int generateOsIndices(Path indexDir, Path baseDir, List<JdkMetadata> metadata) throws IOException {
 		int fileCount = 0;
 
 		// Group by OS
@@ -351,17 +353,17 @@ public class MetadataUtils {
 
 			// Save OS-level JSON
 			Path osJsonFile = baseDir.resolve(os + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(osJsonFile), osMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(osJsonFile), osMetadata.size());
 			saveMetadata(osJsonFile, osMetadata);
 			fileCount++;
 
-			fileCount += generateArchitectureIndices(metadataDir, osDir, osMetadata);
+			fileCount += generateArchitectureIndices(indexDir, osDir, osMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateArchitectureIndices(Path metadataDir, Path baseDir, List<JdkMetadata> osMetadata)
+	private static int generateArchitectureIndices(Path indexDir, Path baseDir, List<JdkMetadata> osMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -386,17 +388,17 @@ public class MetadataUtils {
 
 			// Save architecture-level JSON
 			Path archJsonFile = baseDir.resolve(arch + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(archJsonFile), archMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(archJsonFile), archMetadata.size());
 			saveMetadata(archJsonFile, archMetadata);
 			fileCount++;
 
-			fileCount += generateImageTypeIndices(metadataDir, archDir, archMetadata);
+			fileCount += generateImageTypeIndices(indexDir, archDir, archMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateImageTypeIndices(Path metadataDir, Path baseDir, List<JdkMetadata> archMetadata)
+	private static int generateImageTypeIndices(Path indexDir, Path baseDir, List<JdkMetadata> archMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -426,17 +428,17 @@ public class MetadataUtils {
 
 			// Save image_type-level JSON
 			Path imageJsonFile = baseDir.resolve(imageType + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(imageJsonFile), imageMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(imageJsonFile), imageMetadata.size());
 			saveMetadata(imageJsonFile, imageMetadata);
 			fileCount++;
 
-			fileCount += generateJvmImplIndices(metadataDir, imageDir, imageMetadata);
+			fileCount += generateJvmImplIndices(indexDir, imageDir, imageMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateJvmImplIndices(Path metadataDir, Path baseDir, List<JdkMetadata> imageMetadata)
+	private static int generateJvmImplIndices(Path indexDir, Path baseDir, List<JdkMetadata> imageMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -461,17 +463,17 @@ public class MetadataUtils {
 
 			// Save jvm_impl-level JSON
 			Path jvmJsonFile = baseDir.resolve(jvmImpl + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(jvmJsonFile), jvmMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(jvmJsonFile), jvmMetadata.size());
 			saveMetadata(jvmJsonFile, jvmMetadata);
 			fileCount++;
 
-			fileCount += generateDistroIndices(metadataDir, jvmDir, jvmMetadata);
+			fileCount += generateDistroIndices(indexDir, jvmDir, jvmMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateDistroIndices(Path metadataDir, Path baseDir, List<JdkMetadata> jvmMetadata)
+	private static int generateDistroIndices(Path indexDir, Path baseDir, List<JdkMetadata> jvmMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -506,17 +508,17 @@ public class MetadataUtils {
 
 			// Save distro-level JSON
 			Path distroJsonFile = baseDir.resolve(distro + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(distroJsonFile), distroMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(distroJsonFile), distroMetadata.size());
 			saveMetadata(distroJsonFile, distroMetadata);
 			fileCount++;
 
-			fileCount += generateMajorVersionIndices(metadataDir, distroDir, distroMetadata);
+			fileCount += generateMajorVersionIndices(indexDir, distroDir, distroMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateMajorVersionIndices(Path metadataDir, Path baseDir, List<JdkMetadata> distroMetadata)
+	private static int generateMajorVersionIndices(Path indexDir, Path baseDir, List<JdkMetadata> distroMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -541,17 +543,17 @@ public class MetadataUtils {
 
 			// Save major version-level JSON
 			Path versionJsonFile = baseDir.resolve(majorVersion + ".json");
-			logger.debug("Generating {} ({} entries)", metadataDir.relativize(versionJsonFile), versionMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(versionJsonFile), versionMetadata.size());
 			saveMetadata(versionJsonFile, versionMetadata);
 			fileCount++;
 
-			fileCount += generateFileTypeIndices(metadataDir, versionDir, versionMetadata);
+			fileCount += generateFileTypeIndices(indexDir, versionDir, versionMetadata);
 		}
 
 		return fileCount;
 	}
 
-	private static int generateFileTypeIndices(Path metadataDir, Path baseDir, List<JdkMetadata> versionMetadata)
+	private static int generateFileTypeIndices(Path indexDir, Path baseDir, List<JdkMetadata> versionMetadata)
 			throws IOException {
 		int fileCount = 0;
 
@@ -574,8 +576,7 @@ public class MetadataUtils {
 
 			// Save file type-level JSON (leaf level - no directories created)
 			Path fileTypeJsonFile = baseDir.resolve(fileType + ".json");
-			logger.debug(
-					"Generating {} ({} entries)", metadataDir.relativize(fileTypeJsonFile), fileTypeMetadata.size());
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(fileTypeJsonFile), fileTypeMetadata.size());
 			saveMetadata(fileTypeJsonFile, fileTypeMetadata);
 			fileCount++;
 
@@ -584,7 +585,7 @@ public class MetadataUtils {
 			Path latestFileTypeJsonFile = baseDir.resolve(fileType + "-latest.json");
 			logger.debug(
 					"Generating {} ({} entries)",
-					metadataDir.relativize(latestFileTypeJsonFile),
+					indexDir.relativize(latestFileTypeJsonFile),
 					latestFileTypeMetadata.size());
 			saveMetadata(latestFileTypeJsonFile, latestFileTypeMetadata);
 			fileCount++;

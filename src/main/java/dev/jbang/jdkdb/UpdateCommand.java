@@ -42,6 +42,12 @@ public class UpdateCommand implements Callable<Integer> {
 	private Path metadataDir;
 
 	@Option(
+			names = {"-x", "--index-dir"},
+			description = "Directory to write generated index files to (default: db/metadata)",
+			defaultValue = "db/metadata")
+	private Path indexDir;
+
+	@Option(
 			names = {"-c", "--checksum-dir"},
 			description = "Directory to store checksum files (default: db/checksums)",
 			defaultValue = "db/checksums")
@@ -147,6 +153,7 @@ public class UpdateCommand implements Callable<Integer> {
 		logger.info("==============================");
 		logger.info("Metadata directory: {}", metadataDir.toAbsolutePath());
 		logger.info("Checksum directory: {}", checksumDir.toAbsolutePath());
+		logger.info("Index directory: {}", indexDir.toAbsolutePath());
 		logger.info("Max parallel threads: {}", threadCount);
 		logger.info("");
 
@@ -253,7 +260,7 @@ public class UpdateCommand implements Callable<Integer> {
 				logger.info("");
 				logger.info("Generating all.json files for affected distro directories...");
 				try {
-					IndexCommand.generateIndices(metadataDir, new ArrayList<>(affectedDistros), noDownload);
+					IndexCommand.generateIndices(metadataDir, indexDir, new ArrayList<>(affectedDistros), noDownload);
 					logger.info("Successfully generated all.json files");
 				} catch (Exception e) {
 					logger.error("Failed to generate all.json files: {}", e.getMessage(), e);

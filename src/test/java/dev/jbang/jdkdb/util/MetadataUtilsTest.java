@@ -132,7 +132,7 @@ class MetadataUtilsTest {
 		assertThat(distroDir.resolve("custom-metadata-filename.json")).exists();
 
 		// When - generate all.json from directory
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, true);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, true);
 
 		// Then - all.json should be created
 		Path allJson = distroDir.resolve("all.json");
@@ -171,7 +171,7 @@ class MetadataUtilsTest {
 		Files.writeString(distroDir.resolve("all.json"), "[{\"old\": \"data\"}]");
 
 		// When - regenerate all.json
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, true);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, true);
 
 		// Then - new all.json should contain current metadata, not old data
 		String allJsonContent = Files.readString(distroDir.resolve("all.json"));
@@ -185,7 +185,7 @@ class MetadataUtilsTest {
 		Path nonExistent = tempDir.resolve("does-not-exist");
 
 		// When/Then - should not throw exception
-		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent, true))
+		assertThatCode(() -> MetadataUtils.generateAllJsonFromDirectory(nonExistent, nonExistent, true))
 				.doesNotThrowAnyException();
 	}
 
@@ -336,7 +336,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify metadata/all.json exists
 		Path allJson = metadataDir.resolve("all.json");
@@ -429,7 +429,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(microsoftDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify both distros appear in the same hierarchical path
 		Path distroPath = metadataDir.resolve("ga/linux/x86_64/jdk/hotspot");
@@ -492,7 +492,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify separate release_type directories
 		Path gaDir = metadataDir.resolve("ga");
@@ -522,7 +522,7 @@ class MetadataUtilsTest {
 		Files.createDirectories(distroDir);
 
 		// When/Then - should not throw exception
-		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, false))
+		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false))
 				.doesNotThrowAnyException();
 
 		// all.json should not be created
@@ -535,7 +535,7 @@ class MetadataUtilsTest {
 		Path metadataDir = tempDir.resolve("does-not-exist");
 
 		// When/Then - should not throw exception
-		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, false))
+		assertThatCode(() -> MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false))
 				.doesNotThrowAnyException();
 	}
 
@@ -585,7 +585,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When - generate with allowIncomplete=false
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - incomplete metadata should be filtered out
 		Path allJson = metadataDir.resolve("all.json");
@@ -595,7 +595,7 @@ class MetadataUtilsTest {
 		assertThat(allContent).doesNotContain("incomplete-jdk.tar.gz");
 
 		// When - generate with allowIncomplete=true
-		MetadataUtils.generateComprehensiveIndices(metadataDir, true);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, true);
 
 		// Then - both should be included
 		allContent = Files.readString(allJson);
@@ -630,7 +630,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(testDir.resolve(metadata.metadataFile()), metadata);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify normalized directories are created
 		assertThat(metadataDir.resolve("all.json")).exists();
@@ -688,7 +688,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify separate architecture directories
 		Path gaLinuxDir = metadataDir.resolve("ga/linux");
@@ -748,7 +748,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify separate image_type directories
 		Path gaLinuxArchDir = metadataDir.resolve("ga/linux/x86_64");
@@ -808,7 +808,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(temurinDir.resolve(metadata2.metadataFile()), metadata2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify separate jvm_impl directories
 		Path gaLinuxArchImageDir = metadataDir.resolve("ga/linux/x86_64/jdk");
@@ -950,7 +950,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(distroDir.resolve(metadata17_windows.metadataFile()), metadata17_windows);
 
 		// When
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, false);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
 
 		// Then - verify all.json exists with all entries
 		Path allJson = distroDir.resolve("all.json");
@@ -1030,7 +1030,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(distroDir.resolve(metadata17_2.metadataFile()), metadata17_2);
 
 		// When
-		MetadataUtils.generateComprehensiveIndices(metadataDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, metadataDir, false);
 
 		// Then - verify latest.json exists
 		Path latestJson = metadataDir.resolve("latest.json");
@@ -1109,7 +1109,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(distroDir.resolve(metadata18_ea.metadataFile()), metadata18_ea);
 
 		// When
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, false);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
 
 		// Then - verify latest.json prefers GA over EA
 		Path latestJson = distroDir.resolve("latest.json");
@@ -1193,7 +1193,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(distroDir.resolve(metadata17_deb.metadataFile()), metadata17_deb);
 
 		// When
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, false);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
 
 		// Then - verify latest.json contains all file types
 		Path latestJson = distroDir.resolve("latest.json");
@@ -1303,7 +1303,7 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataFile(distroDir.resolve(metadata17_10_deb.metadataFile()), metadata17_10_deb);
 
 		// When
-		MetadataUtils.generateAllJsonFromDirectory(distroDir, false);
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
 
 		// Then - verify latest.json contains only file types from the winning version
 		Path latestJson = distroDir.resolve("latest.json");

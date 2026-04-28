@@ -26,6 +26,12 @@ public class IndexCommand implements Callable<Integer> {
 	private Path metadataDir;
 
 	@Option(
+			names = {"-x", "--index-dir"},
+			description = "Directory to write generated index files to (default: db/metadata)",
+			defaultValue = "db/metadata")
+	private Path indexDir;
+
+	@Option(
 			names = {"-v", "--distros"},
 			description =
 					"Comma-separated list of distro names to regenerate all.json for (if not specified, all distros are processed)",
@@ -42,6 +48,7 @@ public class IndexCommand implements Callable<Integer> {
 		logger.info("Java Metadata Scraper - Index");
 		logger.info("=============================");
 		logger.info("Metadata directory: {}", metadataDir.toAbsolutePath());
+		logger.info("Index directory: {}", indexDir.toAbsolutePath());
 		logger.info("");
 
 		Path distroDir = metadataDir;
@@ -68,12 +75,13 @@ public class IndexCommand implements Callable<Integer> {
 		}
 		logger.info("");
 
-		int result = generateIndices(metadataDir, distrosToProcess, allowIncomplete);
+		int result = generateIndices(metadataDir, indexDir, distrosToProcess, allowIncomplete);
 
 		return result;
 	}
 
-	public static Integer generateIndices(Path metadataDir, List<String> distrosToProcess, boolean allowIncomplete) {
+	public static Integer generateIndices(
+			Path metadataDir, Path indexDir, List<String> distrosToProcess, boolean allowIncomplete) {
 		int successful = 0;
 		int failed = 0;
 		int indexFilesCreated = 0;
@@ -93,7 +101,7 @@ public class IndexCommand implements Callable<Integer> {
 			}
 
 			try {
-				MetadataUtils.generateAllJsonFromDirectory(distroPath, allowIncomplete);
+				MetadataUtils.generateAllJsonFromDirectory(distroPath, indexDir.resolve(distroName), allowIncomplete);
 				successful++;
 			} catch (Exception e) {
 				logger.error("Failed for distro {}: {}", distroName, e.getMessage(), e);
@@ -102,7 +110,7 @@ public class IndexCommand implements Callable<Integer> {
 		}
 
 		try {
-			indexFilesCreated = MetadataUtils.generateComprehensiveIndices(metadataDir, allowIncomplete);
+			indexFilesCreated = MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, allowIncomplete);
 		} catch (Exception e) {
 			logger.error("Failed to generate comprehensive indices: {}", e.getMessage(), e);
 			failed++;
