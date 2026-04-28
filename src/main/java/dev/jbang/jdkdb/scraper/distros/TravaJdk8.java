@@ -72,7 +72,7 @@ public class TravaJdk8 extends TravaBaseScraper {
 
 		@Override
 		public String vendor() {
-			return "community";
+			return VENDOR;
 		}
 
 		@Override

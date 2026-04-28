@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 /** Abstract base class for Trava OpenJDK releases with DCEVM */
 public abstract class TravaBaseScraper extends GitHubReleaseScraper {
-	private static final String VENDOR = "trava";
+	protected static final String VENDOR = "trava";
 	protected static final String DISTRO = "trava";
 	private static final String GITHUB_ORG = "TravaOpenJDK";
 

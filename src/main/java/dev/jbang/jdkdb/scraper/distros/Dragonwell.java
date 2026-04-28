@@ -26,7 +26,7 @@ public class Dragonwell extends GitHubReleaseScraper {
 	private static final Pattern ALIBABA_PATTERN = Pattern.compile(
 			"^Alibaba_Dragonwell_([0-9.+]{1,}[^_]*)(?:_alpine)?[_-](?:(GA|Experimental|GA_Experimental|FP1)_)?(Linux|linux|Windows|windows)_(aarch64|x64|riscv64)\\.(tar\\.gz|zip)$");
 	private static final Pattern OPENJDK_PATTERN = Pattern.compile(
-			"^OpenJDK(?:[0-9.+]{1,})_(x64|aarch64|riscv64)_(linux|windows)_dragonwell_dragonwell-([0-9.]+)(?:_jdk)?[-_]([0-9._]+)-?(ga|.*?)\\.(tar\\.gz|zip)$");
+			"^OpenJDK(?:[0-9.+]{1,}U-jdk)_(x64|aarch64|riscv64)_(linux|windows)_dragonwell_dragonwell-([0-9.]+)_(?:jdk-)?([0-9._]+)(?:-ga|_0)?\\.(tar\\.gz|zip)$");
 	private static final Pattern FALLBACK_PATTERN = Pattern.compile(
 			"^Alibaba_Dragonwell_([0-9.+]{1,}[^_]*)(?:_alpine)?_(aarch64|x64|x86|riscv64)_(Linux|linux|alpine-linux|Windows|windows)\\.(tar\\.gz|zip)$");
 
@@ -172,8 +172,7 @@ public class Dragonwell extends GitHubReleaseScraper {
 			result.os = matcher.group(2);
 			result.version = matcher.group(3);
 			result.javaVersion = matcher.group(4);
-			result.releaseType = matcher.group(5);
-			result.ext = matcher.group(6);
+			result.ext = matcher.group(5);
 			return result;
 		}
 

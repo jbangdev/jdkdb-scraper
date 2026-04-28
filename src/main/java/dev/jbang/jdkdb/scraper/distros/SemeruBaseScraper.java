@@ -13,10 +13,10 @@ import java.util.regex.Pattern;
 public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 	// Parse filename patterns for both open and certified releases
 	protected static final Pattern rpmPattern = Pattern.compile(
-			"^ibm-semeru-(?:open|certified)-[0-9]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
+			"^ibm-semeru-(?:open|certified)-[0-9+]+-(jre|jdk)-(.+)\\.(x86_64|s390x|ppc64|ppc64le|aarch64)\\.rpm$");
 	protected static final Pattern tarPattern = Pattern.compile(
 			"^ibm-semeru-(?:open|certified)-(jre|jdk)_(x64|x86-32|s390x|ppc64|ppc64le|aarch64)_(aix|linux|mac|windows)_.+\\.(tar\\.gz|zip|msi|pkg)$");
-	protected static final Pattern versionPattern = Pattern.compile("jdk-?(.*)[_-]openj9-(.*)");
+	protected static final Pattern versionPattern = Pattern.compile("jdk-?(.*)([_-]openj9-.*|-m.*)");
 
 	public SemeruBaseScraper(ScraperConfig config) {
 		super(config);
@@ -122,8 +122,8 @@ public abstract class SemeruBaseScraper extends GitHubReleaseScraper {
 		Matcher versionMatcher = versionPattern.matcher(tagName);
 		versionMatcher.matches(); // Already verified in processRelease()
 		String parsedJavaVersion = versionMatcher.group(1);
-		String openj9Version = versionMatcher.group(2);
-		String version = parsedJavaVersion + "_openj9-" + openj9Version;
+		String restVersion = versionMatcher.group(2);
+		String version = parsedJavaVersion + restVersion;
 
 		String url = asset.get("browser_download_url").asText();
 
