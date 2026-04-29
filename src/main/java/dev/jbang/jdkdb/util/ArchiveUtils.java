@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -181,17 +182,24 @@ public class ArchiveUtils {
 							"--expand-full",
 							pkgFile.toAbsolutePath().toString(),
 							expandDir.toAbsolutePath().toString())
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE)
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.redirectError(ProcessBuilder.Redirect.DISCARD)
 					.start();
 
 			try {
-				int exitCode = process.waitFor();
+				boolean finished = process.waitFor(10, TimeUnit.MINUTES);
+				if (!finished) {
+					process.destroyForcibly();
+					logger.warn("pkgutil extraction timed out after 10 minutes");
+					return null;
+				}
+				int exitCode = process.exitValue();
 				if (exitCode != 0) {
 					logger.warn("pkgutil extraction failed with exit code: {}", exitCode);
 					return null;
 				}
 			} catch (InterruptedException e) {
+				process.destroyForcibly();
 				logger.info("pkgutil extraction interrupted");
 				return null;
 			}
@@ -237,18 +245,25 @@ public class ArchiveUtils {
 									"rpm2cpio '%s' | cpio -idm 2>/dev/null",
 									rpmFile.toAbsolutePath().toString()))
 					.directory(tempDir.toFile())
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE);
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.redirectError(ProcessBuilder.Redirect.DISCARD);
 
 			Process process = pb.start();
 
 			try {
-				int exitCode = process.waitFor();
+				boolean finished = process.waitFor(10, TimeUnit.MINUTES);
+				if (!finished) {
+					process.destroyForcibly();
+					logger.warn("RPM extraction timed out after 10 minutes");
+					return null;
+				}
+				int exitCode = process.exitValue();
 				if (exitCode != 0) {
 					logger.warn("RPM extraction failed with exit code: {}", exitCode);
 					return null;
 				}
 			} catch (InterruptedException e) {
+				process.destroyForcibly();
 				logger.info("RPM extraction interrupted");
 				return null;
 			}
@@ -289,17 +304,24 @@ public class ArchiveUtils {
 			Process arProcess = new ProcessBuilder(
 							"ar", "x", debFile.toAbsolutePath().toString())
 					.directory(tempDir.toFile())
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE)
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.redirectError(ProcessBuilder.Redirect.DISCARD)
 					.start();
 
 			try {
-				int exitCode = arProcess.waitFor();
+				boolean finished = arProcess.waitFor(10, TimeUnit.MINUTES);
+				if (!finished) {
+					arProcess.destroyForcibly();
+					logger.warn("DEB extraction (ar) timed out after 10 minutes");
+					return null;
+				}
+				int exitCode = arProcess.exitValue();
 				if (exitCode != 0) {
 					logger.warn("DEB extraction (ar) failed with exit code: {}", exitCode);
 					return null;
 				}
 			} catch (InterruptedException e) {
+				arProcess.destroyForcibly();
 				logger.info("DEB extraction (ar) interrupted");
 				return null;
 			}
@@ -326,17 +348,24 @@ public class ArchiveUtils {
 			Process tarProcess = new ProcessBuilder(
 							"tar", "xf", dataArchive.toAbsolutePath().toString())
 					.directory(dataExtractDir.toFile())
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE)
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.redirectError(ProcessBuilder.Redirect.DISCARD)
 					.start();
 
 			try {
-				int exitCode = tarProcess.waitFor();
+				boolean finished = tarProcess.waitFor(10, TimeUnit.MINUTES);
+				if (!finished) {
+					tarProcess.destroyForcibly();
+					logger.warn("DEB extraction (tar) timed out after 10 minutes");
+					return null;
+				}
+				int exitCode = tarProcess.exitValue();
 				if (exitCode != 0) {
 					logger.warn("DEB extraction (tar) failed with exit code: {}", exitCode);
 					return null;
 				}
 			} catch (InterruptedException e) {
+				tarProcess.destroyForcibly();
 				logger.info("DEB extraction (tar) interrupted");
 				return null;
 			}
@@ -379,17 +408,24 @@ public class ArchiveUtils {
 							"-C",
 							tempDir.toAbsolutePath().toString(),
 							msiFile.toAbsolutePath().toString())
-					.redirectOutput(ProcessBuilder.Redirect.PIPE)
-					.redirectError(ProcessBuilder.Redirect.PIPE)
+					.redirectOutput(ProcessBuilder.Redirect.DISCARD)
+					.redirectError(ProcessBuilder.Redirect.DISCARD)
 					.start();
 
 			try {
-				int exitCode = process.waitFor();
+				boolean finished = process.waitFor(10, TimeUnit.MINUTES);
+				if (!finished) {
+					process.destroyForcibly();
+					logger.warn("MSI extraction timed out after 10 minutes");
+					return null;
+				}
+				int exitCode = process.exitValue();
 				if (exitCode != 0) {
 					logger.warn("MSI extraction failed with exit code: {}", exitCode);
 					return null;
 				}
 			} catch (InterruptedException e) {
+				process.destroyForcibly();
 				logger.info("MSI extraction interrupted");
 				return null;
 			}
