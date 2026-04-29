@@ -502,8 +502,8 @@ public class ArchiveUtils {
 			case String s when s.endsWith(".msi") -> JdkMetadata.FileType.msi;
 			case String s when s.endsWith(".pkg") -> JdkMetadata.FileType.pkg;
 			case String s when s.endsWith(".rpm") -> JdkMetadata.FileType.rpm;
-			case String s when s.matches("(\\.tar\\.gz|\\.tgz)$") -> JdkMetadata.FileType.tar_gz;
-			case String s when s.matches("(\\.tar\\.xz|\\.txz)$") -> JdkMetadata.FileType.tar_xz;
+			case String s when s.matches("^.*(\\.tar\\.gz|\\.tgz)$") -> JdkMetadata.FileType.tar_gz;
+			case String s when s.matches("^.*(\\.tar\\.xz|\\.txz)$") -> JdkMetadata.FileType.tar_xz;
 			case String s when s.endsWith(".zip") -> JdkMetadata.FileType.zip;
 			default -> {
 				logger.warn("Unknown file type: " + fileName);
