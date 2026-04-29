@@ -46,7 +46,9 @@ public class HttpUtils {
 			HttpRequest request = request(url).build();
 			HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
-				throw new IOException("Failed to download file: " + url + " - HTTP status: " + response.statusCode());
+				throw new HttpStatusException(
+						response.statusCode(),
+						"Failed to download file: " + url + " - HTTP status: " + response.statusCode());
 			}
 			try (InputStream inputStream = response.body()) {
 				Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
@@ -71,7 +73,8 @@ public class HttpUtils {
 			HttpRequest request = request(url).build();
 			HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
-				throw new IOException(
+				throw new HttpStatusException(
+						response.statusCode(),
 						"Failed to download content: " + url + " - HTTP status: " + response.statusCode());
 			}
 			return response.body();
@@ -122,10 +125,17 @@ public class HttpUtils {
 				return operation.get();
 			} catch (IOException e) {
 				lastException = e;
+				if (e instanceof HttpStatusException) {
+					int statusCode = ((HttpStatusException) e).getStatusCode();
+					// Don't retry for client errors (4xx) except 429 Too Many Requests
+					if (statusCode >= 400 && statusCode < 500 && statusCode != 429) {
+						throw e;
+					}
+				}
 				if (attempt < DEFAULT_MAX_RETRIES - 1) {
 					// Exponential backoff: 2s, 4s, 8s, ...
 					long backoffMillis = INITIAL_BACKOFF.toMillis() * (1L << attempt);
-					logger.debug(
+					logger.info(
 							"HTTP operation failed (attempt {}/{}): {} - retrying after {}ms",
 							attempt + 1,
 							DEFAULT_MAX_RETRIES,
@@ -136,5 +146,18 @@ public class HttpUtils {
 			}
 		}
 		throw lastException;
+	}
+}
+
+class HttpStatusException extends IOException {
+	private final int statusCode;
+
+	public HttpStatusException(int statusCode, String message) {
+		super(message);
+		this.statusCode = statusCode;
+	}
+
+	public int getStatusCode() {
+		return statusCode;
 	}
 }
