@@ -1,14 +1,14 @@
 package dev.jbang.jdkdb.util;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,6 +32,7 @@ public class HttpUtils {
 	public static final String GITHUB_TOKEN_PROP = "github.token";
 	private static final int DEFAULT_MAX_RETRIES = 3;
 	private static final Duration INITIAL_BACKOFF = Duration.ofSeconds(2);
+	private static final Duration MAX_REQUEST_TIMEOUT = Duration.ofMinutes(10);
 
 	public HttpUtils() {
 		this.httpClient = HttpClient.newBuilder()
@@ -44,14 +45,17 @@ public class HttpUtils {
 	public Path downloadFile(String url, Path destination) throws IOException, InterruptedException {
 		return retry(() -> {
 			HttpRequest request = request(url).build();
-			HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+			HttpResponse<Path> response = httpClient.send(
+					request,
+					HttpResponse.BodyHandlers.ofFile(
+							destination,
+							StandardOpenOption.CREATE,
+							StandardOpenOption.WRITE,
+							StandardOpenOption.TRUNCATE_EXISTING));
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
 				throw new HttpStatusException(
 						response.statusCode(),
 						"Failed to download file: " + url + " - HTTP status: " + response.statusCode());
-			}
-			try (InputStream inputStream = response.body()) {
-				Files.copy(inputStream, destination, StandardCopyOption.REPLACE_EXISTING);
 			}
 
 			// Preserve original file timestamp from Last-Modified header if available
@@ -63,7 +67,7 @@ public class HttpUtils {
 					// Silently ignore if we can't parse or set the timestamp
 				}
 			});
-			return destination;
+			return response.body();
 		});
 	}
 
@@ -97,7 +101,7 @@ public class HttpUtils {
 
 	private HttpRequest.Builder request(String url) {
 		URI uri = URI.create(url);
-		HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).GET();
+		HttpRequest.Builder builder = HttpRequest.newBuilder().uri(uri).GET().timeout(MAX_REQUEST_TIMEOUT);
 
 		// If the URL is for GitHub API, add the Authorization header if a token is available
 		if (uri.getHost().equalsIgnoreCase("api.github.com")) {
@@ -125,6 +129,10 @@ public class HttpUtils {
 				return operation.get();
 			} catch (IOException e) {
 				lastException = e;
+				if (e instanceof HttpTimeoutException) {
+					// Don't retry on timeout — the request already took the maximum allowed time
+					throw e;
+				}
 				if (e instanceof HttpStatusException) {
 					int statusCode = ((HttpStatusException) e).getStatusCode();
 					// Don't retry for client errors (4xx) except 429 Too Many Requests
