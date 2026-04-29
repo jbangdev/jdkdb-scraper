@@ -65,7 +65,7 @@ public abstract class BaseScraper implements Scraper {
 			log("Completed successfully. Marked " + processingCount + " items for processing, skipped " + skippedCount
 					+ " existing items, and had " + failureCount + " failures.");
 
-			return ScraperResult.success(processingCount, skippedCount, failureCount);
+			return ScraperResult.success(processingCount, skippedCount, failureCount, allMetadata);
 		} catch (TooManyFailuresException e) {
 			warn("Aborted due to too many failures. Marked " + processingCount + " items for processing, skipped "
 					+ skippedCount + " existing items.");

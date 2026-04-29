@@ -2,6 +2,7 @@ package dev.jbang.jdkdb.scraper;
 
 import static org.assertj.core.api.Assertions.*;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ScraperResultTest {
@@ -9,7 +10,7 @@ class ScraperResultTest {
 	@Test
 	void testSuccessResult() {
 		// When
-		ScraperResult result = ScraperResult.success(10, 2, 1);
+		ScraperResult result = ScraperResult.success(10, 2, 1, List.of());
 
 		// Then
 		assertThat(result).isNotNull();
@@ -23,7 +24,7 @@ class ScraperResultTest {
 	@Test
 	void testSuccessResultWithZeroItems() {
 		// When
-		ScraperResult result = ScraperResult.success(0, 0, 0);
+		ScraperResult result = ScraperResult.success(0, 0, 0, List.of());
 
 		// Then
 		assertThat(result).isNotNull();
@@ -67,7 +68,7 @@ class ScraperResultTest {
 	@Test
 	void testSuccessResultToString() {
 		// Given
-		ScraperResult result = ScraperResult.success(5, 2, 3);
+		ScraperResult result = ScraperResult.success(5, 2, 3, List.of());
 
 		// When
 		String str = result.toString();
@@ -104,9 +105,9 @@ class ScraperResultTest {
 	@Test
 	void testResultEquality() {
 		// Given
-		ScraperResult result1 = ScraperResult.success(10, 2, 3);
-		ScraperResult result2 = ScraperResult.success(10, 2, 3);
-		ScraperResult result3 = ScraperResult.success(5, 1, 0);
+		ScraperResult result1 = ScraperResult.success(10, 2, 3, List.of());
+		ScraperResult result2 = ScraperResult.success(10, 2, 3, List.of());
+		ScraperResult result3 = ScraperResult.success(5, 1, 0, List.of());
 
 		// Then
 		assertThat(result1).isEqualTo(result2);

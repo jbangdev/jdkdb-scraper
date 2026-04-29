@@ -12,6 +12,7 @@ import dev.jbang.jdkdb.util.MetadataUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,7 +21,9 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +55,12 @@ public class UpdateCommand implements Callable<Integer> {
 			description = "Directory to store checksum files (default: db/checksums)",
 			defaultValue = "db/checksums")
 	private Path checksumDir;
+
+	@Option(
+			names = {"-p", "--prune-dir"},
+			description =
+					"Move prunable metadata and checksum files to this directory (retaining distro subfolder structure)")
+	private Path pruneDir;
 
 	@Option(
 			names = {"-s", "--scrapers"},
@@ -255,6 +264,8 @@ public class UpdateCommand implements Callable<Integer> {
 				logger.error("Download manager interrupted while waiting for completion");
 			}
 
+			pruneOldMetadata(results, allDiscoveries, scrapers);
+
 			if (!noIndex) {
 				// Generate all.json files for affected distro directories only
 				logger.info("");
@@ -415,6 +426,136 @@ public class UpdateCommand implements Callable<Integer> {
 
 		logger.info("");
 		logger.info("Total: {} scrapers", names.size());
+	}
+
+	private void pruneOldMetadata(
+			Map<String, ScraperResult> results,
+			Map<String, Scraper.Discovery> allDiscoveries,
+			Map<String, Scraper> scrapers) {
+		// 1. Collect all local metadata file paths (exclude index files)
+		var candidatePaths = new HashSet<Path>();
+		try (var pathStream = Files.walk(metadataDir, 2)) {
+			pathStream
+					.filter(Files::isRegularFile)
+					.filter(p -> p.getFileName().toString().endsWith(".json"))
+					.filter(p -> !p.getFileName().toString().equals("all.json"))
+					.filter(p -> !p.getFileName().toString().equals("latest.json"))
+					.map(p -> p.toAbsolutePath().normalize())
+					.forEach(candidatePaths::add);
+		} catch (IOException e) {
+			logger.error("Failed to collect metadata files for pruning: {}", e.getMessage(), e);
+			return;
+		}
+
+		// 2. Build protected-distro set: scrapers not scheduled to run, or that failed / returned empty results
+		var protectedDistros = new HashSet<String>();
+		for (var entry : allDiscoveries.entrySet()) {
+			if (!scrapers.containsKey(entry.getKey())) {
+				protectedDistros.add(entry.getValue().distro());
+			}
+		}
+		for (var entry : results.entrySet()) {
+			var result = entry.getValue();
+			var discovery = allDiscoveries.get(entry.getKey());
+			if (discovery == null) continue;
+			if (!result.success() || result.allMetadata().isEmpty()) {
+				protectedDistros.add(discovery.distro());
+			}
+		}
+
+		// 3. Remove files belonging to protected distros from candidates
+		candidatePaths.removeIf(p -> {
+			var parent = p.getParent();
+			return parent != null
+					&& protectedDistros.contains(parent.getFileName().toString());
+		});
+
+		// 4. Remove known-good files (still publicly listed by a successful scraper)
+		for (var entry : results.entrySet()) {
+			var result = entry.getValue();
+			if (!result.success() || result.allMetadata().isEmpty()) continue;
+			var discovery = allDiscoveries.get(entry.getKey());
+			if (discovery == null) continue;
+			String distro = discovery.distro();
+			for (var metadata : result.allMetadata()) {
+				Path expectedPath = metadataDir
+						.resolve(distro)
+						.resolve(metadata.metadataFile())
+						.toAbsolutePath()
+						.normalize();
+				candidatePaths.remove(expectedPath);
+			}
+		}
+
+		// 5. Log summary
+		var byDistro = new TreeMap<String, List<Path>>();
+		for (var path : candidatePaths) {
+			String distro = path.getParent().getFileName().toString();
+			byDistro.computeIfAbsent(distro, k -> new ArrayList<>()).add(path);
+		}
+
+		logger.info("");
+		logger.info("Prunable Metadata Files");
+		logger.info("=======================");
+		if (candidatePaths.isEmpty()) {
+			logger.info("No prunable metadata files found.");
+			return;
+		}
+		logger.info("Total prunable files: {}", candidatePaths.size());
+		for (var entry : byDistro.entrySet()) {
+			logger.info("  {}: {} file(s)", entry.getKey(), entry.getValue().size());
+		}
+
+		// 6. Move files if --prune-dir was specified
+		if (pruneDir != null) {
+			logger.info("Moving prunable files to: {}", pruneDir.toAbsolutePath());
+			int moved = 0;
+			int errors = 0;
+			for (var entry : byDistro.entrySet()) {
+				String distro = entry.getKey();
+				Path targetDistroDir = pruneDir.resolve(distro);
+				try {
+					Files.createDirectories(targetDistroDir);
+				} catch (IOException e) {
+					logger.error("Failed to create prune directory {}: {}", targetDistroDir, e.getMessage());
+					errors++;
+					continue;
+				}
+				for (var srcJson : entry.getValue()) {
+					// Move the .json metadata file
+					Path targetJson = targetDistroDir.resolve(srcJson.getFileName());
+					try {
+						Files.move(srcJson, targetJson, StandardCopyOption.REPLACE_EXISTING);
+						moved++;
+					} catch (IOException e) {
+						logger.error("Failed to move {}: {}", srcJson, e.getMessage());
+						errors++;
+						continue;
+					}
+					// Move corresponding checksum files alongside the json
+					String baseName = srcJson.getFileName().toString();
+					baseName = baseName.substring(0, baseName.length() - 5); // strip ".json"
+					for (var ext : List.of(".md5", ".sha1", ".sha256", ".sha512")) {
+						Path srcChecksum = checksumDir.resolve(distro).resolve(baseName + ext);
+						if (Files.exists(srcChecksum)) {
+							Path targetChecksum = targetDistroDir.resolve(baseName + ext);
+							try {
+								Files.move(srcChecksum, targetChecksum, StandardCopyOption.REPLACE_EXISTING);
+							} catch (IOException e) {
+								logger.error("Failed to move checksum file {}: {}", srcChecksum, e.getMessage());
+								errors++;
+							}
+						}
+					}
+				}
+			}
+			logger.info("Moved {} metadata file(s) to {}", moved, pruneDir.toAbsolutePath());
+			if (errors > 0) {
+				logger.warn("{} error(s) occurred during pruning", errors);
+			}
+		} else {
+			logger.info("Use --prune-dir to move prunable files to a separate directory.");
+		}
 	}
 
 	/**
