@@ -783,18 +783,23 @@ public class MetadataUtils {
 		}
 	}
 
-	private static Map<String, String> distroVendorMap = null;
+	private static class DistroVendorCache {
+		private static final Map<String, String> DISTRO_VENDOR_MAP = buildDistroVendorMap();
+		private static final Set<String> VENDORS = new HashSet<>(DISTRO_VENDOR_MAP.values());
 
-	public static Map<String, String> getDistroVendorMapping() {
-		if (distroVendorMap == null) {
-			distroVendorMap = new HashMap<>();
+		private static Map<String, String> buildDistroVendorMap() {
+			Map<String, String> map = new HashMap<>();
 			Collection<Scraper.Discovery> discs =
 					ScraperFactory.getAvailableScraperDiscoveries().values();
 			for (Scraper.Discovery discovery : discs) {
-				distroVendorMap.put(discovery.distro(), discovery.vendor());
+				map.put(discovery.distro(), discovery.vendor());
 			}
+			return map;
 		}
-		return distroVendorMap;
+	}
+
+	public static Map<String, String> getDistroVendorMapping() {
+		return DistroVendorCache.DISTRO_VENDOR_MAP;
 	}
 
 	public static Set<String> getAllDistros() {
@@ -802,15 +807,8 @@ public class MetadataUtils {
 		return map.keySet();
 	}
 
-	private static Set<String> vendors = null;
-
 	public static Set<String> getAllVendors() {
-		if (vendors == null) {
-			vendors = new HashSet<>();
-			Map<String, String> map = getDistroVendorMapping();
-			vendors.addAll(map.values());
-		}
-		return vendors;
+		return DistroVendorCache.VENDORS;
 	}
 
 	public static boolean isValidReleaseInfo(Map<String, String> releaseInfo) {

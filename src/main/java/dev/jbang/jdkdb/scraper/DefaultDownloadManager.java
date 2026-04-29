@@ -255,9 +255,8 @@ public class DefaultDownloadManager implements DownloadManager {
 
 		// Check if we can download from this host
 		AtomicInteger hostCount = activeDownloadsPerHost.computeIfAbsent(host, k -> new AtomicInteger(0));
-		int currentCount = hostCount.get();
 
-		if (currentCount >= maxDownloadsPerHost) {
+		if (!tryAcquireHostSlot(hostCount)) {
 			// Host limit reached, put task back at end of queue and try next one
 			downloadQueue.offer(task);
 			// Small sleep to avoid busy waiting when all hosts are at limit
@@ -265,8 +264,7 @@ public class DefaultDownloadManager implements DownloadManager {
 			return;
 		}
 
-		// Increment host counter and proceed with download
-		hostCount.incrementAndGet();
+		// Host slot acquired, proceed with download
 		activeDownloads.incrementAndGet();
 		try {
 			processDownload(task);
@@ -289,6 +287,18 @@ public class DefaultDownloadManager implements DownloadManager {
 			// Clean up if no more active downloads for this host
 			if (newCount == 0) {
 				activeDownloadsPerHost.remove(host, hostCount);
+			}
+		}
+	}
+
+	private boolean tryAcquireHostSlot(AtomicInteger hostCount) {
+		while (true) {
+			int current = hostCount.get();
+			if (current >= maxDownloadsPerHost) {
+				return false;
+			}
+			if (hostCount.compareAndSet(current, current + 1)) {
+				return true;
 			}
 		}
 	}
