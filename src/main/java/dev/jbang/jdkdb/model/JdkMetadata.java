@@ -50,6 +50,7 @@ public class JdkMetadata {
 		ppc32,
 		ppc64,
 		ppc64le,
+		s390,
 		s390x,
 		sparcv9,
 		riscv64,
