@@ -1,7 +1,6 @@
 package dev.jbang.jdkdb;
 
 import dev.jbang.jdkdb.model.JdkMetadata;
-import dev.jbang.jdkdb.scraper.DefaultDownloadManager;
 import dev.jbang.jdkdb.scraper.DownloadManager;
 import dev.jbang.jdkdb.scraper.NoOpDownloadManager;
 import dev.jbang.jdkdb.scraper.Scraper;
@@ -104,16 +103,6 @@ public class UpdateCommand implements Callable<Integer> {
 	private int limitTotal;
 
 	@Option(
-			names = {"--no-download"},
-			description = "Skip downloading files and only generate metadata (for testing/dry-run)")
-	private boolean noDownload;
-
-	@Option(
-			names = {"--no-index"},
-			description = "Skip generating index files (for testing/dry-run)")
-	private boolean noIndex;
-
-	@Option(
 			names = {"--skip-ea"},
 			description =
 					"Skip early access (EA) releases older than the specified duration (e.g., '6m' for 6 months, '1y' for 1 year) (default: 6m)",
@@ -168,16 +157,9 @@ public class UpdateCommand implements Callable<Integer> {
 
 		// Create and start download manager
 		DownloadManager downloadManager;
-		if (noDownload) {
-			downloadManager = new NoOpDownloadManager(fileTypeFilter);
-			downloadManager.start();
-			logger.info("No-download mode enabled - files will not be downloaded");
-		} else {
-			downloadManager =
-					new DefaultDownloadManager(threadCount, metadataDir, checksumDir, 3, limitTotal, fileTypeFilter);
-			downloadManager.start();
-			logger.info("Started download manager with {} download threads", threadCount);
-		}
+		downloadManager = new NoOpDownloadManager(fileTypeFilter);
+		downloadManager.start();
+		logger.info("No-download mode enabled - files will not be downloaded");
 		if (fileTypeFilter != null) {
 			logger.info("File type filter enabled: {}", fileTypeFilter);
 		}
@@ -251,32 +233,8 @@ public class UpdateCommand implements Callable<Integer> {
 
 			// All scrapers have completed, signal download manager to shut down
 			logger.info("");
-			logger.info("All scrapers completed. Waiting for downloads to complete...");
+			logger.info("All scrapers completed.");
 			downloadManager.shutdown();
-
-			try {
-				downloadManager.awaitCompletion();
-				logger.info("All downloads completed.");
-				logger.info("  Total completed: {}", downloadManager.getCompletedCount());
-				logger.info("  Total failed: {}", downloadManager.getFailedCount());
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				logger.error("Download manager interrupted while waiting for completion");
-			}
-
-			pruneOldMetadata(results, allDiscoveries, scrapers);
-
-			if (!noIndex) {
-				// Generate all.json files for affected distro directories only
-				logger.info("");
-				logger.info("Generating all.json files for affected distro directories...");
-				try {
-					IndexCommand.generateIndices(metadataDir, indexDir, new ArrayList<>(affectedDistros), noDownload);
-					logger.info("Successfully generated all.json files");
-				} catch (Exception e) {
-					logger.error("Failed to generate all.json files: {}", e.getMessage(), e);
-				}
-			}
 
 			// Allow time for async logging to flush before printing summary
 			try {
@@ -342,6 +300,8 @@ public class UpdateCommand implements Callable<Integer> {
 			var duration = (endTime - startTime) / 1000.0;
 			logger.info("");
 			logger.info("All scrapers completed in {} seconds", duration);
+
+			pruneOldMetadata(results, allDiscoveries, scrapers);
 
 			return successful > 0 ? 0 : 1;
 		}
