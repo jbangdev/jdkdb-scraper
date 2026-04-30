@@ -759,7 +759,7 @@ public class MetadataUtils {
 			return false;
 		}
 
-		if (!isValidEnum(JdkMetadata.FileType.class, metadata.getFileType())) {
+		if (!isValidEnum(JdkMetadata.FileType.class, metadata.getFileType().replace(".", "_"))) {
 			// For unknown file types we can't reliably determine if the release
 			// info is missing or not, so we will not consider it incomplete
 			return false;

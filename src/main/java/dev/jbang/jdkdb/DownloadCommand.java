@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -157,37 +158,30 @@ public class DownloadCommand implements Callable<Integer> {
 						|| !"exe".equals(m.getFileType())
 						|| MetadataUtils.hasMissingChecksums(m)
 						|| !MetadataUtils.hasMissingReleaseInfo(m))
-				.sorted((m1, m2) -> {
-					boolean m1MissingChecksums = MetadataUtils.hasMissingChecksums(m1);
-					boolean m2MissingChecksums = MetadataUtils.hasMissingChecksums(m2);
-					if (m1MissingChecksums && !m2MissingChecksums) {
-						return -1; // m1 comes before m2
-					} else if (!m1MissingChecksums && m2MissingChecksums) {
-						return 1; // m2 comes before m1
-					} else {
-						return 0; // Both are equal in terms of missing data
-					}
-				})
 				.collect(Collectors.toCollection(ArrayList::new));
 
-		// Randomize the order if requested
+		metadataList = prioritizeMetadata(metadataList, randomize);
 		if (randomize) {
-			Collections.shuffle(metadataList);
-			logger.info("Randomized download order");
+			logger.info("Randomized download order (preserving checksum-first priority)");
 		}
 
 		Map<String, Integer> distroMissingCounts = new HashMap<>();
+		Set<String> distrosAtProgressLimit = new HashSet<>();
 		for (JdkMetadata metadata : metadataList) {
 			try {
 				String distroName = metadata.getDistro();
 				if (!distrosToProcess.contains(distroName)) {
 					continue; // Skip distros not in the specified list
 				}
+				if (limitProgress > 0 && distrosAtProgressLimit.contains(distroName)) {
+					continue;
+				}
 				Logger dl = LoggerFactory.getLogger("distros." + distroName);
 				downloadManager.submit(metadata, distroName, dl);
 				distroMissingCounts.put(distroName, distroMissingCounts.getOrDefault(distroName, 0) + 1);
 				int distroMissing = distroMissingCounts.get(distroName);
 				if (limitProgress > 0 && distroMissing >= limitProgress) {
+					distrosAtProgressLimit.add(distroName);
 					dl.info(
 							"Reached progress limit of {} items for distro {}, skipping remaining files for this distro",
 							limitProgress,
@@ -196,7 +190,7 @@ public class DownloadCommand implements Callable<Integer> {
 							"Reached progress limit of {} items for distro {}, skipping remaining files for this distro",
 							limitProgress,
 							distroName);
-					break;
+					continue;
 				}
 			} catch (InterruptedProgressException e) {
 				logger.info("Progress limit reached, stopping submission of new downloads");
@@ -263,6 +257,25 @@ public class DownloadCommand implements Callable<Integer> {
 		}
 
 		return totalCompleted > 0 ? 0 : 1;
+	}
+
+	static List<JdkMetadata> prioritizeMetadata(List<JdkMetadata> metadataList, boolean randomize) {
+		List<JdkMetadata> missingChecksums = metadataList.stream()
+				.filter(MetadataUtils::hasMissingChecksums)
+				.collect(Collectors.toCollection(ArrayList::new));
+		List<JdkMetadata> missingReleaseInfoOnly = metadataList.stream()
+				.filter(m -> !MetadataUtils.hasMissingChecksums(m) && MetadataUtils.hasMissingReleaseInfo(m))
+				.collect(Collectors.toCollection(ArrayList::new));
+
+		if (randomize) {
+			Collections.shuffle(missingChecksums);
+			Collections.shuffle(missingReleaseInfoOnly);
+		}
+
+		List<JdkMetadata> ordered = new ArrayList<>(metadataList.size());
+		ordered.addAll(missingChecksums);
+		ordered.addAll(missingReleaseInfoOnly);
+		return ordered;
 	}
 
 	/**
