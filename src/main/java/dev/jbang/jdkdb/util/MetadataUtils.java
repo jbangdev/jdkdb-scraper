@@ -207,11 +207,12 @@ public class MetadataUtils {
 			if (ri == null) {
 				continue;
 			}
-			String fullVersion = ri.getOrDefault(
+			String betterJavaVersion = ri.getOrDefault(
 					"JAVA_RUNTIME_VERSION", ri.getOrDefault("FULL_VERSION", ri.getOrDefault("JAVA_VERSION", null)));
-			if (fullVersion != null && fullVersion.length() > md.getVersion().length()) {
+			if (betterJavaVersion != null
+					&& betterJavaVersion.length() > md.getVersion().length()) {
 				// A longer version will be considered "better" (ie containing more details)
-				md.setVersion(fullVersion);
+				md.setJavaVersion(betterJavaVersion);
 			}
 		}
 
