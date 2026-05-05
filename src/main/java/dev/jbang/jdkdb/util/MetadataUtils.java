@@ -201,6 +201,20 @@ public class MetadataUtils {
 
 		List<JdkMetadata> sortedList = metadataList.stream().sorted(comparator).toList();
 
+		// Copy better data from release_info to top-level fields
+		for (JdkMetadata md : sortedList) {
+			var ri = md.getReleaseInfo();
+			if (ri == null) {
+				continue;
+			}
+			String fullVersion = ri.getOrDefault(
+					"JAVA_RUNTIME_VERSION", ri.getOrDefault("FULLE_VERSION", ri.getOrDefault("JAVA_VERSION", null)));
+			if (fullVersion != null && fullVersion.length() > md.getVersion().length()) {
+				// A longer version will be considered "better" (ie containing more details)
+				md.setVersion(fullVersion);
+			}
+		}
+
 		// Clear release_info from all metadata entries before writing lists!
 		for (JdkMetadata md : sortedList) {
 			md.setReleaseInfo(null);
