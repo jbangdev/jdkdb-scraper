@@ -75,9 +75,9 @@ public class IndexCommand implements Callable<Integer> {
 		}
 		logger.info("");
 
-		int result = generateIndices(metadataDir, indexDir, distrosToProcess, allowIncomplete);
+		generateIndices(metadataDir, indexDir, distrosToProcess, allowIncomplete);
 
-		return result;
+		return 0;
 	}
 
 	public static Integer generateIndices(

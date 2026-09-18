@@ -274,7 +274,7 @@ public class DownloadCommand implements Callable<Integer> {
 			logger.info("Total downloads failed: {}", totalFailed);
 		}
 
-		return totalCompleted > 0 ? 0 : 1;
+		return 0;
 	}
 
 	static List<JdkMetadata> prioritizeMetadata(List<JdkMetadata> metadataList, boolean randomize) {

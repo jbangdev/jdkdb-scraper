@@ -142,7 +142,7 @@ public class ConvertCommand implements Callable<Integer> {
 		logger.info("Files converted: {}", successful);
 		logger.info("Files failed: {}", failed);
 
-		return successful > 0 ? 0 : 1;
+		return 0;
 	}
 
 	public static List<JdkMetadataOld> collectAllOldMetadata(Path dir, int maxDepth) throws IOException {

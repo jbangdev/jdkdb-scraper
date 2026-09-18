@@ -254,7 +254,7 @@ public class VerifyCommand implements Callable<Integer> {
 			}
 		}
 
-		return totalCompleted > 0 ? 0 : 1;
+		return 0;
 	}
 
 	static List<JdkMetadata> prioritizeUnlistedEa(List<JdkMetadata> metadataList, boolean randomize) {

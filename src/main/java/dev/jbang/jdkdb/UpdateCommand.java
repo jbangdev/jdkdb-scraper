@@ -297,7 +297,7 @@ public class UpdateCommand implements Callable<Integer> {
 				markUnlistedMetadata(results, allDiscoveries, scrapers);
 			}
 
-			return successful > 0 ? 0 : 1;
+			return 0;
 		}
 	}
 
