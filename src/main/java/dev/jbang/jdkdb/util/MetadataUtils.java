@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import dev.jbang.jdkdb.model.JdkMetadata;
 import dev.jbang.jdkdb.scraper.Scraper;
 import dev.jbang.jdkdb.scraper.ScraperFactory;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -548,9 +549,29 @@ public class MetadataUtils {
 					latestFileTypeMetadata.size());
 			saveMetadata(latestFileTypeJsonFile, latestFileTypeMetadata);
 			fileCount++;
+
+			// Save only the urls as text files using the same info
+			Path latestFileTypeUrlsFile = baseDir.resolve(fileType + "-latest-url.txt");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestFileTypeUrlsFile),
+					latestFileTypeMetadata.size());
+			saveFields(latestFileTypeUrlsFile, latestFileTypeMetadata, JdkMetadata::getUrl);
+			fileCount++;
 		}
 
 		return fileCount;
+	}
+
+	private static <T> void saveFields(
+			Path file, List<JdkMetadata> metadataList, java.util.function.Function<JdkMetadata, T> fieldExtractor)
+			throws IOException {
+		try (BufferedWriter writer = Files.newBufferedWriter(file)) {
+			for (JdkMetadata md : metadataList) {
+				writer.write(String.valueOf(fieldExtractor.apply(md)));
+				writer.newLine();
+			}
+		}
 	}
 
 	/**

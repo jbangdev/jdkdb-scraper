@@ -293,6 +293,74 @@ class MetadataUtilsTest {
 	}
 
 	@Test
+	void testGenerateComprehensiveIndicesLatestUrls() throws Exception {
+		Path metadataDir = tempDir.resolve("metadata");
+		Path distroDir = metadataDir.resolve("temurin");
+		Path indexDir = tempDir.resolve("index");
+		Files.createDirectories(distroDir);
+
+		for (String releaseType : List.of("ga", "ea")) {
+			for (String version : List.of("17.0.5", "17.0.8")) {
+				for (String fileType : List.of("tar.gz", "zip")) {
+					for (String asset : List.of("a", "b")) {
+						String filename = "temurin-" + releaseType + "-" + version + "-" + asset + "." + fileType;
+						JdkMetadata metadata = JdkMetadata.create()
+								.setDistro("temurin")
+								.setFilename(filename)
+								.setReleaseType(releaseType)
+								.setVersion(version)
+								.setJavaVersion("17")
+								.setJvmImpl("hotspot")
+								.setOs("linux")
+								.setArchitecture("x86_64")
+								.setFileType(fileType)
+								.setImageType("jdk")
+								.setUrl("https://example.com/" + filename + "?download=true&source=index")
+								.setReleaseInfo(Collections.emptyMap())
+								.download(new DownloadResult("md5", "sha1", "sha256", "sha512", 100_000_000L));
+						MetadataUtils.saveMetadataFile(distroDir.resolve(metadata.metadataFile()), metadata);
+					}
+				}
+			}
+		}
+
+		int fileCount = MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+
+		for (String releaseType : List.of("ga", "ea", "all")) {
+			Path baseDir = indexDir.resolve(releaseType + "/linux/x86_64/jdk/hotspot/temurin/17");
+			for (String fileType : List.of("tar.gz", "zip")) {
+				String winningReleaseType = releaseType.equals("all") ? "ga" : releaseType;
+				List<String> expectedUrls = List.of(
+						"https://example.com/temurin-" + winningReleaseType + "-17.0.8-a." + fileType
+								+ "?download=true&source=index",
+						"https://example.com/temurin-" + winningReleaseType + "-17.0.8-b." + fileType
+								+ "?download=true&source=index");
+				Path urlsFile = baseDir.resolve(fileType + "-latest-url.txt");
+				assertThat(Files.readAllLines(urlsFile)).containsExactlyInAnyOrderElementsOf(expectedUrls);
+				assertThat(parseMetadatas(Files.readString(baseDir.resolve(fileType + "-latest.json"))))
+						.extracting(JdkMetadata::getUrl)
+						.containsExactlyInAnyOrderElementsOf(expectedUrls);
+
+				// Regeneration must replace the old contents rather than append to them.
+				Files.writeString(urlsFile, "https://example.com/stale.tar.gz\n");
+			}
+		}
+		try (var files = Files.walk(indexDir)) {
+			assertThat(files.filter(Files::isRegularFile).count()).isEqualTo(fileCount);
+		}
+
+		MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+		try (var files = Files.walk(indexDir)) {
+			for (Path urlsFile :
+					files.filter(p -> p.toString().endsWith("-latest-url.txt")).toList()) {
+				assertThat(Files.readAllLines(urlsFile)).hasSize(2).allSatisfy(url -> {
+					assertThat(url).contains("17.0.8").doesNotContain("stale");
+				});
+			}
+		}
+	}
+
+	@Test
 	void testGenerateComprehensiveIndicesBasic() throws Exception {
 		// Given - create distro directories with metadata files
 		Path metadataDir = tempDir.resolve("metadata");
