@@ -283,14 +283,14 @@ public class MetadataUtils {
 		// Group by OS
 		var byOs = metadata.stream()
 				.collect(java.util.stream.Collectors.groupingBy(
-						md -> normalizeValue(md.getOs(), "unknown-os-"),
+						MetadataUtils::extractSpecializedOs,
 						java.util.LinkedHashMap::new,
 						java.util.stream.Collectors.toList()));
 
 		for (var osEntry : byOs.entrySet()) {
 			String os = osEntry.getKey();
 
-			if (!isValidEnumOrUnknown(JdkMetadata.Os.class, os)) {
+			if (!isValidEnumOrUnknown(JdkMetadata.Os.class, os) && !os.equals("linux-musl")) {
 				logger.warn("Skipping invalid OS: {}", os);
 				continue;
 			}
@@ -309,6 +309,15 @@ public class MetadataUtils {
 		}
 
 		return fileCount;
+	}
+
+	private static String extractSpecializedOs(JdkMetadata md) {
+		String os = md.getOs();
+		os = normalizeValue(os, "unknown-os-");
+		if (os.equals(JdkMetadata.Os.linux.name()) && md.getFeatures().contains("musl")) {
+			os = "linux-musl";
+		}
+		return os;
 	}
 
 	private static int generateArchitectureIndices(Path indexDir, Path baseDir, List<JdkMetadata> osMetadata)

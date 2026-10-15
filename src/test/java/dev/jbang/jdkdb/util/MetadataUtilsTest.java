@@ -384,6 +384,74 @@ class MetadataUtilsTest {
 	}
 
 	@Test
+	void testGenerateComprehensiveIndicesSeparatesLinuxMusl() throws Exception {
+		Path metadataDir = tempDir.resolve("metadata");
+		Path distroDir = metadataDir.resolve("temurin");
+		Path indexDir = tempDir.resolve("index");
+		Files.createDirectories(distroDir);
+
+		for (String variant : List.of("linux", "linux-other-feature", "linux-musl", "windows-musl")) {
+			JdkMetadata metadata = JdkMetadata.create()
+					.setDistro("temurin")
+					.setFilename("temurin-jdk-17-" + variant + ".tar.gz")
+					.setReleaseType("ga")
+					.setVersion("17.0.5")
+					.setJavaVersion("17")
+					.setJvmImpl("hotspot")
+					.setOs(variant.startsWith("linux") ? "linux" : "windows")
+					.setArchitecture("x86_64")
+					.setFileType("tar.gz")
+					.setImageType("jdk")
+					.setFeatures(
+							variant.endsWith("musl")
+									? List.of("other-feature", "musl")
+									: variant.endsWith("other-feature") ? List.of("other-feature") : List.of())
+					.setUrl("https://example.com/" + variant + ".tar.gz")
+					.setReleaseInfo(Collections.emptyMap())
+					.download(new DownloadResult("md5", "sha1", "sha256", "sha512", 100_000_000L));
+			MetadataUtils.saveMetadataFile(distroDir.resolve(metadata.metadataFile()), metadata);
+		}
+
+		MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+
+		for (String releaseType : List.of("ga", "all")) {
+			Path releaseDir = indexDir.resolve(releaseType);
+			assertThat(parseMetadatas(Files.readString(indexDir.resolve(releaseType + ".json"))))
+					.hasSize(4);
+			assertThat(releaseDir.resolve("windows-musl")).doesNotExist();
+			assertThat(releaseDir.resolve("windows-musl.json")).doesNotExist();
+
+			for (String os : List.of("linux", "linux-musl", "windows")) {
+				List<String> expectedFilenames = os.equals("linux")
+						? List.of("temurin-jdk-17-linux.tar.gz", "temurin-jdk-17-linux-other-feature.tar.gz")
+						: List.of("temurin-jdk-17-" + (os.equals("windows") ? "windows-musl" : os) + ".tar.gz");
+				assertThat(releaseDir.resolve(os)).isDirectory();
+				for (String suffix : List.of(
+						".json",
+						"/x86_64.json",
+						"/x86_64/jdk.json",
+						"/x86_64/jdk/hotspot.json",
+						"/x86_64/jdk/hotspot/temurin.json",
+						"/x86_64/jdk/hotspot/temurin/17.json",
+						"/x86_64/jdk/hotspot/temurin/17/tar.gz.json",
+						"/x86_64/jdk/hotspot/temurin/17/tar.gz-latest.json")) {
+					JdkMetadata[] entries = parseMetadatas(Files.readString(releaseDir.resolve(os + suffix)));
+					assertThat(entries)
+							.as("entries in %s/%s%s", releaseType, os, suffix)
+							.extracting(JdkMetadata::getFilename)
+							.containsExactlyInAnyOrderElementsOf(expectedFilenames);
+					assertThat(entries).allSatisfy(entry -> {
+						assertThat(entry.getOs()).isEqualTo(os.equals("linux-musl") ? "linux" : os);
+						if (os.equals("linux-musl")) {
+							assertThat(entry.getFeatures()).contains("musl");
+						}
+					});
+				}
+			}
+		}
+	}
+
+	@Test
 	void testGenerateComprehensiveIndicesMultipleDistros() throws Exception {
 		// Given - multiple distros with overlapping properties
 		Path metadataDir = tempDir.resolve("metadata");
