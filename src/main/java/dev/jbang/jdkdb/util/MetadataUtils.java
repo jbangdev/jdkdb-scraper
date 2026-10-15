@@ -314,7 +314,9 @@ public class MetadataUtils {
 	private static String extractSpecializedOs(JdkMetadata md) {
 		String os = md.getOs();
 		os = normalizeValue(os, "unknown-os-");
-		if (os.equals(JdkMetadata.Os.linux.name()) && md.getFeatures().contains("musl")) {
+		if (os.equals(JdkMetadata.Os.linux.name())
+				&& md.getFeatures() != null
+				&& md.getFeatures().contains("musl")) {
 			os = "linux-musl";
 		}
 		return os;
