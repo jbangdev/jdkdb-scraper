@@ -15,9 +15,57 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class MetadataUtilsTest {
+	private static final String TSV_HEADER =
+			"release_type\tos\tarchitecture\timage_type\tjvm_impl\tvendor\tdistro\tjava_version\t"
+					+ "url\tfilename\tsize\tsha256\tfeatures\n";
 
 	@TempDir
 	Path tempDir;
+
+	@Test
+	void testSaveMetadataTsvFile() throws Exception {
+		JdkMetadata metadata = JdkMetadata.create()
+				.setReleaseType("ea")
+				.setOs("linux")
+				.setArchitecture("aarch64")
+				.setImageType("jre")
+				.setJvmImpl("openj9")
+				.setDistro("temurin")
+				.setVendor("Eclipse")
+				.setVersion("21.0.1")
+				.setJavaVersion("21.0.1+12")
+				.setUrl("https://example.com/jre.tar.gz")
+				.setFilename("jre.tar.gz")
+				.setSize(12345678901L)
+				.setSha256("checksum")
+				.setFeatures(List.of("musl", "javafx", "feature-1", "feature_2"))
+				.setReleaseInfo(Collections.singletonMap("JAVA_VERSION", "other-version"));
+		Path file = tempDir.resolve("metadata.tsv");
+
+		MetadataUtils.saveMetadataTsvFile(file, metadata);
+
+		assertThat(Files.readString(file))
+				.isEqualTo(TSV_HEADER + "ea\tlinux\taarch64\tjre\topenj9\tEclipse\ttemurin\t21.0.1+12\t"
+						+ "https://example.com/jre.tar.gz\tjre.tar.gz\t12345678901\tchecksum\t"
+						+ "[musl,javafx,feature-1,feature_2]\n");
+		assertThat(metadata.getReleaseInfo()).containsEntry("JAVA_VERSION", "other-version");
+	}
+
+	@Test
+	void testSaveMetadataTsvWithMissingFieldsAndEscapedText() throws Exception {
+		JdkMetadata first = new JdkMetadata().setFeatures(null).setVendor("é\\\t\r\n");
+		JdkMetadata second = new JdkMetadata().setJavaVersion("17");
+		Path file = tempDir.resolve("metadata.tsv");
+
+		MetadataUtils.saveMetadataTsv(file, List.of(first, second));
+
+		assertThat(Files.readString(file))
+				.isEqualTo(TSV_HEADER + "ga\t\t\tjdk\thotspot\té\\\\\\t\\r\\n\t\t\t\t\t0\t\t[]\n"
+						+ "ga\t\t\tjdk\thotspot\t\t\t17\t\t\t0\t\t[]\n");
+
+		MetadataUtils.saveMetadataTsv(file, List.of());
+		assertThat(Files.readString(file)).isEqualTo(TSV_HEADER);
+	}
 
 	@Test
 	void testValidSaveMetadata() throws Exception {
@@ -882,6 +930,24 @@ class MetadataUtilsTest {
 				assertThat(latest).extracting(JdkMetadata::getImageType).containsOnly(imageType);
 				assertThat(latest).extracting(JdkMetadata::getVersion).containsOnly("17.0.8", "21.0.1");
 				assertThat(latest).extracting(JdkMetadata::getFileType).containsOnly("tar.gz", "zip");
+
+				for (String suffix : List.of("", "-latest")) {
+					List<String> rows = Files.readAllLines(baseDir.resolve(imageType + suffix + ".tsv"));
+					assertThat(rows.getFirst()).isEqualTo(TSV_HEADER.stripTrailing());
+					rows = rows.subList(1, rows.size());
+					JdkMetadata[] json =
+							parseMetadatas(Files.readString(baseDir.resolve(imageType + suffix + ".json")));
+					assertThat(rows).hasSize(suffix.isEmpty() ? 6 : 4);
+					for (String row : rows) {
+						assertThat(row.split("\t", -1)).hasSize(13);
+						assertThat(row.split("\t", -1)[3]).isEqualTo(imageType);
+						assertThat(row.split("\t", -1)[12]).isEqualTo("[]");
+					}
+					assertThat(rows.stream().map(row -> row.split("\t", -1)[9]).toList())
+							.containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(json)
+									.map(JdkMetadata::getFilename)
+									.toList());
+				}
 			}
 		}
 		try (var files = Files.walk(indexDir)) {

@@ -118,6 +118,59 @@ public class MetadataUtils {
 		}
 	}
 
+	/** Save a single metadata object as a TSV file with a header; see {@link #saveMetadataTsv}. */
+	public static void saveMetadataTsvFile(Path metadataFile, JdkMetadata metadata) throws IOException {
+		saveMetadataTsv(metadataFile, List.of(metadata));
+	}
+
+	/**
+	 * Write UTF-8 TSV rows with a header, preserving input order. Columns are release_type, os,
+	 * architecture, image_type, jvm_impl, vendor, distro, java_version, url, filename, size, sha256,
+	 * features. Null text fields are empty; null or empty features are written as {@code []}.
+	 * Backslashes, tabs, carriage returns and newlines in text fields are backslash-escaped.
+	 */
+	public static void saveMetadataTsv(Path metadataFile, List<JdkMetadata> metadataList) throws IOException {
+		try (var writer = Files.newBufferedWriter(metadataFile)) {
+			writer.write("release_type\tos\tarchitecture\timage_type\tjvm_impl\tvendor\tdistro\tjava_version\t"
+					+ "url\tfilename\tsize\tsha256\tfeatures\n");
+			for (JdkMetadata metadata : metadataList) {
+				String features =
+						metadata.getFeatures() == null ? "[]" : "[" + String.join(",", metadata.getFeatures()) + "]";
+				String[] fields = {
+					metadata.getReleaseType(),
+					metadata.getOs(),
+					metadata.getArchitecture(),
+					metadata.getImageType(),
+					metadata.getJvmImpl(),
+					metadata.getVendor(),
+					metadata.getDistro(),
+					metadata.getJavaVersion(),
+					metadata.getUrl(),
+					metadata.getFilename(),
+					Long.toString(metadata.getSize()),
+					metadata.getSha256(),
+					features
+				};
+				for (int i = 0; i < fields.length; i++) {
+					if (i > 0) {
+						writer.write('\t');
+					}
+					writer.write(escapeTsvField(fields[i]));
+				}
+				writer.write('\n');
+			}
+		}
+	}
+
+	private static String escapeTsvField(String value) {
+		return value == null
+				? ""
+				: value.replace("\\", "\\\\")
+						.replace("\t", "\\t")
+						.replace("\r", "\\r")
+						.replace("\n", "\\n");
+	}
+
 	/** Save all metadata and create combined all.json file */
 	public static void saveMetadata(Path metadataFile, List<JdkMetadata> metadataList) throws IOException {
 		// Sort by version first (using VersionComparator) and filename second
@@ -392,11 +445,22 @@ public class MetadataUtils {
 			saveMetadata(imageJsonFile, imageMetadata);
 			fileCount++;
 
+			Path imageTsvFile = baseDir.resolve(imageType + ".tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(imageTsvFile), imageMetadata.size());
+			saveMetadataTsv(imageTsvFile, imageMetadata);
+			fileCount++;
+
 			List<JdkMetadata> latestImageMetadata = filterLatestVersions(imageMetadata);
 			Path latestImageJsonFile = baseDir.resolve(imageType + "-latest.json");
 			logger.debug(
 					"Generating {} ({} entries)", indexDir.relativize(latestImageJsonFile), latestImageMetadata.size());
 			saveMetadata(latestImageJsonFile, latestImageMetadata);
+			fileCount++;
+
+			Path latestImageTsvFile = baseDir.resolve(imageType + "-latest.tsv");
+			logger.debug(
+					"Generating {} ({} entries)", indexDir.relativize(latestImageTsvFile), latestImageMetadata.size());
+			saveMetadataTsv(latestImageTsvFile, latestImageMetadata);
 			fileCount++;
 
 			fileCount += generateJvmImplIndices(indexDir, imageDir, imageMetadata);
