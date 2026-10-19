@@ -462,6 +462,7 @@ The scrapers and indexer generate structured output in the `metadata/` directory
 2. **Organized by release type** (`all/`, `ea/`, `ga/`):
 - OS-specific files: `linux.json`, `macosx.json`, `windows.json`, `aix.json`, `solaris.json`
 - Architecture-specific subdirectories with further breakdowns
+- Image type files within each architecture: `jdk.json` and `jre.json`, plus `jdk-latest.json` and `jre-latest.json` containing the latest release per major version for each distro and JVM implementation
 3. **Distro-specific metadata** (`<distro-name>/`):
 - Individual `.json` files for each JDK release
 - `all.json` file combining all releases for that distro

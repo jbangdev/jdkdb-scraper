@@ -841,6 +841,55 @@ class MetadataUtilsTest {
 	}
 
 	@Test
+	void testGenerateLatestImageTypeIndices() throws Exception {
+		Path metadataDir = tempDir.resolve("metadata");
+		Path distroDir = metadataDir.resolve("temurin");
+		Path indexDir = tempDir.resolve("index");
+		Files.createDirectories(distroDir);
+
+		for (String imageType : List.of("jdk", "jre")) {
+			for (String version : List.of("17.0.5", "17.0.8", "21.0.1")) {
+				for (String fileType : List.of("tar.gz", "zip")) {
+					String filename = "temurin-" + imageType + "-" + version + "." + fileType;
+					JdkMetadata metadata = JdkMetadata.create()
+							.setDistro("temurin")
+							.setFilename(filename)
+							.setReleaseType("ga")
+							.setVersion(version)
+							.setJavaVersion(version)
+							.setJvmImpl("hotspot")
+							.setOs("linux")
+							.setArchitecture("x86_64")
+							.setFileType(fileType)
+							.setImageType(imageType)
+							.setUrl("https://example.com/" + filename)
+							.setReleaseInfo(Collections.emptyMap())
+							.download(new DownloadResult("md5", "sha1", "sha256", "sha512", 100L));
+					MetadataUtils.saveMetadataFile(distroDir.resolve(metadata.metadataFile()), metadata);
+				}
+			}
+		}
+
+		int fileCount = MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+
+		for (String releaseType : List.of("ga", "all")) {
+			for (String imageType : List.of("jdk", "jre")) {
+				Path baseDir = indexDir.resolve(releaseType + "/linux/x86_64");
+				assertThat(parseMetadatas(Files.readString(baseDir.resolve(imageType + ".json"))))
+						.hasSize(6);
+				JdkMetadata[] latest = parseMetadatas(Files.readString(baseDir.resolve(imageType + "-latest.json")));
+				assertThat(latest).hasSize(4);
+				assertThat(latest).extracting(JdkMetadata::getImageType).containsOnly(imageType);
+				assertThat(latest).extracting(JdkMetadata::getVersion).containsOnly("17.0.8", "21.0.1");
+				assertThat(latest).extracting(JdkMetadata::getFileType).containsOnly("tar.gz", "zip");
+			}
+		}
+		try (var files = Files.walk(indexDir)) {
+			assertThat(files.filter(Files::isRegularFile).count()).isEqualTo(fileCount);
+		}
+	}
+
+	@Test
 	void testGenerateComprehensiveIndicesWithDifferentImageTypes() throws Exception {
 		// Given - metadata with different image types (jdk, jre)
 		Path metadataDir = tempDir.resolve("metadata");
