@@ -392,6 +392,13 @@ public class MetadataUtils {
 			saveMetadata(imageJsonFile, imageMetadata);
 			fileCount++;
 
+			List<JdkMetadata> latestImageMetadata = filterLatestVersions(imageMetadata);
+			Path latestImageJsonFile = baseDir.resolve(imageType + "-latest.json");
+			logger.debug(
+					"Generating {} ({} entries)", indexDir.relativize(latestImageJsonFile), latestImageMetadata.size());
+			saveMetadata(latestImageJsonFile, latestImageMetadata);
+			fileCount++;
+
 			fileCount += generateJvmImplIndices(indexDir, imageDir, imageMetadata);
 		}
 
