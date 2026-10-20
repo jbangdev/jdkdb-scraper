@@ -125,14 +125,14 @@ public class MetadataUtils {
 
 	/**
 	 * Write UTF-8 TSV rows with a header, preserving input order. Columns are release_type, os,
-	 * architecture, image_type, jvm_impl, vendor, distro, java_version, url, filename, size, sha256,
+	 * architecture, image_type, jvm_impl, vendor, distro, java_version, version, file_type, url, filename, size, sha256,
 	 * features. Null text fields are empty; null or empty features are written as {@code []}.
 	 * Backslashes, tabs, carriage returns and newlines in text fields are backslash-escaped.
 	 */
 	public static void saveMetadataTsv(Path metadataFile, List<JdkMetadata> metadataList) throws IOException {
 		try (var writer = Files.newBufferedWriter(metadataFile)) {
 			writer.write("release_type\tos\tarchitecture\timage_type\tjvm_impl\tvendor\tdistro\tjava_version\t"
-					+ "url\tfilename\tsize\tsha256\tfeatures\n");
+					+ "version\tfile_type\turl\tfilename\tsize\tsha256\tfeatures\n");
 			for (JdkMetadata metadata : metadataList) {
 				String features =
 						metadata.getFeatures() == null ? "[]" : "[" + String.join(",", metadata.getFeatures()) + "]";
@@ -145,6 +145,8 @@ public class MetadataUtils {
 					metadata.getVendor(),
 					metadata.getDistro(),
 					metadata.getJavaVersion(),
+					metadata.getVersion(),
+					metadata.getFileType(),
 					metadata.getUrl(),
 					metadata.getFilename(),
 					Long.toString(metadata.getSize()),

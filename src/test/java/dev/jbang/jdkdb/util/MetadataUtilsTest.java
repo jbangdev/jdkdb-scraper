@@ -17,7 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 class MetadataUtilsTest {
 	private static final String TSV_HEADER =
 			"release_type\tos\tarchitecture\timage_type\tjvm_impl\tvendor\tdistro\tjava_version\t"
-					+ "url\tfilename\tsize\tsha256\tfeatures\n";
+					+ "version\tfile_type\turl\tfilename\tsize\tsha256\tfeatures\n";
 
 	@TempDir
 	Path tempDir;
@@ -34,6 +34,7 @@ class MetadataUtilsTest {
 				.setVendor("Eclipse")
 				.setVersion("21.0.1")
 				.setJavaVersion("21.0.1+12")
+				.setFileType("tar.gz")
 				.setUrl("https://example.com/jre.tar.gz")
 				.setFilename("jre.tar.gz")
 				.setSize(12345678901L)
@@ -46,7 +47,7 @@ class MetadataUtilsTest {
 
 		assertThat(Files.readString(file))
 				.isEqualTo(TSV_HEADER + "ea\tlinux\taarch64\tjre\topenj9\tEclipse\ttemurin\t21.0.1+12\t"
-						+ "https://example.com/jre.tar.gz\tjre.tar.gz\t12345678901\tchecksum\t"
+						+ "21.0.1\ttar.gz\thttps://example.com/jre.tar.gz\tjre.tar.gz\t12345678901\tchecksum\t"
 						+ "[musl,javafx,feature-1,feature_2]\n");
 		assertThat(metadata.getReleaseInfo()).containsEntry("JAVA_VERSION", "other-version");
 	}
@@ -60,8 +61,8 @@ class MetadataUtilsTest {
 		MetadataUtils.saveMetadataTsv(file, List.of(first, second));
 
 		assertThat(Files.readString(file))
-				.isEqualTo(TSV_HEADER + "ga\t\t\tjdk\thotspot\té\\\\\\t\\r\\n\t\t\t\t\t0\t\t[]\n"
-						+ "ga\t\t\tjdk\thotspot\t\t\t17\t\t\t0\t\t[]\n");
+				.isEqualTo(TSV_HEADER + "ga\t\t\tjdk\thotspot\té\\\\\\t\\r\\n\t\t\t\t\t\t\t0\t\t[]\n"
+						+ "ga\t\t\tjdk\thotspot\t\t\t17\t\t\t\t\t0\t\t[]\n");
 
 		MetadataUtils.saveMetadataTsv(file, List.of());
 		assertThat(Files.readString(file)).isEqualTo(TSV_HEADER);
@@ -939,11 +940,11 @@ class MetadataUtilsTest {
 							parseMetadatas(Files.readString(baseDir.resolve(imageType + suffix + ".json")));
 					assertThat(rows).hasSize(suffix.isEmpty() ? 6 : 4);
 					for (String row : rows) {
-						assertThat(row.split("\t", -1)).hasSize(13);
+						assertThat(row.split("\t", -1)).hasSize(15);
 						assertThat(row.split("\t", -1)[3]).isEqualTo(imageType);
-						assertThat(row.split("\t", -1)[12]).isEqualTo("[]");
+						assertThat(row.split("\t", -1)[14]).isEqualTo("[]");
 					}
-					assertThat(rows.stream().map(row -> row.split("\t", -1)[9]).toList())
+					assertThat(rows.stream().map(row -> row.split("\t", -1)[11]).toList())
 							.containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(json)
 									.map(JdkMetadata::getFilename)
 									.toList());
