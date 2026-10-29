@@ -927,9 +927,9 @@ class MetadataUtilsTest {
 				assertThat(parseMetadatas(Files.readString(baseDir.resolve(imageType + ".json"))))
 						.hasSize(6);
 				JdkMetadata[] latest = parseMetadatas(Files.readString(baseDir.resolve(imageType + "-latest.json")));
-				assertThat(latest).hasSize(2);
+				assertThat(latest).hasSize(4);
 				assertThat(latest).extracting(JdkMetadata::getImageType).containsOnly(imageType);
-				assertThat(latest).extracting(JdkMetadata::getVersion).containsOnly("21.0.1");
+				assertThat(latest).extracting(JdkMetadata::getVersion).containsOnly("17.0.8", "21.0.1");
 				assertThat(latest).extracting(JdkMetadata::getFileType).containsOnly("tar.gz", "zip");
 
 				for (String suffix : List.of("", "-latest")) {
@@ -938,7 +938,7 @@ class MetadataUtilsTest {
 					rows = rows.subList(1, rows.size());
 					JdkMetadata[] json =
 							parseMetadatas(Files.readString(baseDir.resolve(imageType + suffix + ".json")));
-					assertThat(rows).hasSize(suffix.isEmpty() ? 6 : 2);
+					assertThat(rows).hasSize(suffix.isEmpty() ? 6 : 4);
 					for (String row : rows) {
 						assertThat(row.split("\t", -1)).hasSize(15);
 						assertThat(row.split("\t", -1)[3]).isEqualTo(imageType);
@@ -948,6 +948,11 @@ class MetadataUtilsTest {
 							.containsExactlyInAnyOrderElementsOf(java.util.Arrays.stream(json)
 									.map(JdkMetadata::getFilename)
 									.toList());
+					// With only HotSpot in this fixture, the JVM indices match the image indices.
+					assertThat(Files.readString(baseDir.resolve(imageType + "/hotspot" + suffix + ".json")))
+							.isEqualTo(Files.readString(baseDir.resolve(imageType + suffix + ".json")));
+					assertThat(Files.readString(baseDir.resolve(imageType + "/hotspot" + suffix + ".tsv")))
+							.isEqualTo(Files.readString(baseDir.resolve(imageType + suffix + ".tsv")));
 				}
 			}
 		}
@@ -1464,7 +1469,7 @@ class MetadataUtilsTest {
 	}
 
 	@Test
-	void testFilterLatestVersionsIncludesOnlyWinningVersionFileTypes() throws Exception {
+	void testFilterLatestVersionsSelectsEachFileTypeIndependently() throws Exception {
 		// Given - multiple versions with different file types
 		Path distroDir = tempDir.resolve("temurin");
 		Files.createDirectories(distroDir);
@@ -1557,26 +1562,11 @@ class MetadataUtilsTest {
 		// When
 		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
 
-		// Then - verify latest.json contains only file types from the winning version
-		Path latestJson = distroDir.resolve("latest.json");
-		assertThat(latestJson).exists();
-		String latestContent = Files.readString(latestJson);
-
-		// GA 17.0.8 should win over EA 17.0.10
-		// So we should have tar.gz and zip from 17.0.8, but NOT deb from 17.0.10
-		assertThat(latestContent).contains("17.0.8");
-		assertThat(latestContent).doesNotContain("17.0.10");
-
-		// Parse and verify
-		JdkMetadata[] latestArray = parseMetadatas(latestContent);
-
-		// Should have exactly 2 entries: tar.gz and zip from 17.0.8 GA
-		assertThat(latestArray).hasSize(2);
-		assertThat(latestArray).allMatch(md -> md.getVersion().equals("17.0.8"));
-		assertThat(latestArray).allMatch(md -> md.getReleaseType().equals("ga"));
-		assertThat(latestArray).extracting(JdkMetadata::getFileType).containsExactlyInAnyOrder("tar.gz", "zip");
-		// Should NOT contain deb (which only exists in EA version)
-		assertThat(latestArray).extracting(JdkMetadata::getFileType).doesNotContain("deb");
+		JdkMetadata[] latestArray = parseMetadatas(Files.readString(distroDir.resolve("latest.json")));
+		assertThat(latestArray)
+				.extracting(JdkMetadata::getFileType, JdkMetadata::getReleaseType, JdkMetadata::getVersion)
+				.containsExactlyInAnyOrder(
+						tuple("tar.gz", "ga", "17.0.8"), tuple("zip", "ga", "17.0.8"), tuple("deb", "ea", "17.0.10"));
 	}
 
 	@Test
@@ -1614,26 +1604,20 @@ class MetadataUtilsTest {
 					.containsExactlyInAnyOrder("tar.gz", "zip");
 			assertThat(latest)
 					.filteredOn(md -> md.getDistro().equals("temurin"))
-					.allMatch(md -> md.getVersion()
-							.equals(
-									md.getFileType().equals("zip") && releaseType.equals("all")
-											? "21.0.13+9-ea-beta"
-											: "21.0.12.1+1"))
+					.allMatch(md -> md.getVersion().equals("21.0.12.1+1"))
 					.extracting(JdkMetadata::getFileType)
 					.containsExactlyInAnyOrder("msi", "zip");
 			List<String> tsv = Files.readAllLines(archDir.resolve("jdk-latest.tsv"));
 			assertThat(tsv).hasSize(5);
 			assertThat(tsv.subList(1, tsv.size()))
-					.allMatch(line -> line.contains("\t17.0.14b1367.22\t")
-							|| line.contains("\t21.0.12.1+1\t")
-							|| (releaseType.equals("all") && line.contains("\t21.0.13+9-ea-beta\t")));
+					.allMatch(line -> line.contains("\t17.0.14b1367.22\t") || line.contains("\t21.0.12.1+1\t"));
 			assertThat(parseMetadatas(Files.readString(archDir.resolve("jdk.json"))))
 					.hasSize(releaseType.equals("all") ? 9 : 8);
 		}
 	}
 
 	@Test
-	void testLatestImageIndicesGroupByJvmDistroAndFileTypeAcrossMajorVersions() throws Exception {
+	void testLatestImageIndicesGroupByJvmDistroMajorVersionAndFileType() throws Exception {
 		Path metadataDir = tempDir.resolve("metadata");
 		Path indexDir = tempDir.resolve("indices");
 		List<JdkMetadata> metadata = List.of(
@@ -1664,22 +1648,28 @@ class MetadataUtilsTest {
 		for (String releaseType : List.of("all", "ga", "ea")) {
 			Path archDir = indexDir.resolve(releaseType + "/windows/x86_64");
 			JdkMetadata[] latest = parseMetadatas(Files.readString(archDir.resolve("jdk-latest.json")));
-			String zipVersion = releaseType.equals("ga") ? "25+36" : "26+1";
+			String zipVersion = "25+36";
 			if (releaseType.equals("ea")) {
 				assertThat(latest).hasSize(1);
-				assertThat(latest[0].getVersion()).isEqualTo(zipVersion);
+				assertThat(latest[0].getVersion()).isEqualTo("26+1");
 			} else {
+				var expected = new java.util.ArrayList<>(List.of(
+						tuple("hotspot", "temurin", "zip", "17.0.14+7"),
+						tuple("hotspot", "temurin", "zip", zipVersion),
+						tuple("hotspot", "temurin", "zip", zipVersion),
+						tuple("hotspot", "temurin", "msi", "21+35"),
+						tuple("openj9", "temurin", "zip", "11.0.1"),
+						tuple("hotspot", "jetbrains", "zip", "17.0.14b1367.22")));
+				if (releaseType.equals("all")) {
+					expected.add(tuple("hotspot", "temurin", "zip", "26+1"));
+				}
 				assertThat(latest)
 						.extracting(
 								JdkMetadata::getJvmImpl,
 								JdkMetadata::getDistro,
 								JdkMetadata::getFileType,
 								JdkMetadata::getVersion)
-						.containsExactlyInAnyOrder(
-								tuple("hotspot", "temurin", "zip", zipVersion),
-								tuple("hotspot", "temurin", "msi", "21+35"),
-								tuple("openj9", "temurin", "zip", "11.0.1"),
-								tuple("hotspot", "jetbrains", "zip", "17.0.14b1367.22"));
+						.containsExactlyInAnyOrderElementsOf(expected);
 			}
 			List<String> rows = Files.readAllLines(archDir.resolve("jdk-latest.tsv"));
 			assertThat(rows).hasSize(latest.length + 1);
@@ -1688,6 +1678,161 @@ class MetadataUtilsTest {
 					.containsExactlyInAnyOrderElementsOf(List.of(latest).stream()
 							.map(JdkMetadata::getFilename)
 							.toList());
+			for (String jvmImpl : List.of("hotspot", "openj9")) {
+				if (releaseType.equals("ea") && jvmImpl.equals("openj9")) {
+					assertThat(archDir.resolve("jdk/openj9-latest.json")).doesNotExist();
+					continue;
+				}
+				for (String suffix : List.of("", "-latest")) {
+					JdkMetadata[] imageEntries =
+							parseMetadatas(Files.readString(archDir.resolve("jdk" + suffix + ".json")));
+					List<String> expectedFilenames = List.of(imageEntries).stream()
+							.filter(md -> md.getJvmImpl().equals(jvmImpl))
+							.map(JdkMetadata::getFilename)
+							.toList();
+					Path jvmBase = archDir.resolve("jdk/" + jvmImpl + suffix);
+					JdkMetadata[] jvmEntries = parseMetadatas(Files.readString(Path.of(jvmBase + ".json")));
+					assertThat(jvmEntries).extracting(JdkMetadata::getJvmImpl).containsOnly(jvmImpl);
+					assertThat(jvmEntries)
+							.extracting(JdkMetadata::getFilename)
+							.containsExactlyInAnyOrderElementsOf(expectedFilenames);
+					List<String> jvmRows = Files.readAllLines(Path.of(jvmBase + ".tsv"));
+					assertThat(jvmRows.getFirst()).isEqualTo(TSV_HEADER.stripTrailing());
+					assertThat(jvmRows.subList(1, jvmRows.size()))
+							.extracting(row -> row.split("\t")[11])
+							.containsExactlyInAnyOrderElementsOf(expectedFilenames);
+					for (String distro : List.of("temurin", "jetbrains")) {
+						List<String> distroFilenames = List.of(jvmEntries).stream()
+								.filter(md -> md.getDistro().equals(distro))
+								.map(JdkMetadata::getFilename)
+								.toList();
+						Path distroDir = archDir.resolve("jdk/" + jvmImpl);
+						Path distroJson = distroDir.resolve(distro + suffix + ".json");
+						Path distroTsv = distroDir.resolve(distro + suffix + ".tsv");
+						if (distroFilenames.isEmpty()) {
+							assertThat(distroJson).doesNotExist();
+							assertThat(distroTsv).doesNotExist();
+							continue;
+						}
+						JdkMetadata[] distroEntries = parseMetadatas(Files.readString(distroJson));
+						assertThat(distroEntries)
+								.extracting(JdkMetadata::getDistro)
+								.containsOnly(distro);
+						assertThat(distroEntries)
+								.extracting(JdkMetadata::getFilename)
+								.containsExactlyInAnyOrderElementsOf(distroFilenames);
+						List<String> distroRows = Files.readAllLines(distroTsv);
+						assertThat(distroRows.getFirst()).isEqualTo(TSV_HEADER.stripTrailing());
+						assertThat(distroRows.subList(1, distroRows.size()))
+								.extracting(row -> row.split("\t")[11])
+								.containsExactlyInAnyOrderElementsOf(distroFilenames);
+						for (String majorVersion : List.of("11", "17", "21", "25", "26")) {
+							List<String> versionFilenames = List.of(distroEntries).stream()
+									.filter(md ->
+											md.getJavaVersion().split("[.+]")[0].equals(majorVersion))
+									.map(JdkMetadata::getFilename)
+									.toList();
+							Path versionDir = distroDir.resolve(distro);
+							Path versionJson = versionDir.resolve(majorVersion + suffix + ".json");
+							Path versionTsv = versionDir.resolve(majorVersion + suffix + ".tsv");
+							if (versionFilenames.isEmpty()) {
+								assertThat(versionJson).doesNotExist();
+								assertThat(versionTsv).doesNotExist();
+								continue;
+							}
+							assertThat(parseMetadatas(Files.readString(versionJson)))
+									.extracting(JdkMetadata::getFilename)
+									.containsExactlyInAnyOrderElementsOf(versionFilenames);
+							List<String> versionRows = Files.readAllLines(versionTsv);
+							assertThat(versionRows.getFirst()).isEqualTo(TSV_HEADER.stripTrailing());
+							assertThat(versionRows.subList(1, versionRows.size()))
+									.extracting(row -> row.split("\t")[11])
+									.containsExactlyInAnyOrderElementsOf(versionFilenames);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	@Test
+	void testLatestIndicesPreferGaWithinEachFileTypeGroup() throws Exception {
+		Path metadataDir = tempDir.resolve("metadata");
+		Path distroDir = metadataDir.resolve("temurin");
+		Path indexDir = tempDir.resolve("indices");
+		Files.createDirectories(distroDir);
+		for (JdkMetadata md : List.of(
+				windowsJdk("temurin", "25+35", "25", "zip"),
+				windowsJdk("temurin", "25+36", "25", "zip"),
+				windowsJdk("temurin", "25+37", "25", "zip").setReleaseType("ea"),
+				windowsJdk("temurin", "26+1", "26", "msi").setReleaseType("ea"),
+				windowsJdk("temurin", "26+2", "26", "msi").setReleaseType("ea"))) {
+			MetadataUtils.saveMetadataFile(distroDir.resolve(md.metadataFile()), md);
+		}
+		MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+		for (String index : List.of("jdk", "jdk/hotspot", "jdk/hotspot/temurin")) {
+			Path baseDir = indexDir.resolve("all/windows/x86_64");
+			JdkMetadata[] latest = parseMetadatas(Files.readString(baseDir.resolve(index + "-latest.json")));
+			assertThat(latest)
+					.extracting(JdkMetadata::getFileType, JdkMetadata::getReleaseType, JdkMetadata::getVersion)
+					.containsExactlyInAnyOrder(tuple("zip", "ga", "25+36"), tuple("msi", "ea", "26+2"));
+			assertThat(Files.readString(baseDir.resolve(index + "-latest.tsv")))
+					.contains("\t25+36\tzip\t", "\t26+2\tmsi\t")
+					.doesNotContain("\t26+1\t", "\t25+35\t", "\t25+37\t");
+		}
+	}
+
+	@Test
+	void testLatestIndicesKeepHighestVersionPerMajorVersionAndFileType() throws Exception {
+		Path metadataDir = tempDir.resolve("metadata");
+		Path distroDir = metadataDir.resolve("temurin");
+		Path indexDir = tempDir.resolve("indices");
+		Files.createDirectories(distroDir);
+		for (JdkMetadata md : List.of(
+				windowsJdk("temurin", "21.0.9", "21.0.9", "zip"),
+				windowsJdk("temurin", "21.0.7", "21.0.7", "zip"),
+				windowsJdk("temurin", "21.0.8", "21.0.8", "msi"),
+				windowsJdk("temurin", "21.0.7", "21.0.7", "msi"),
+				windowsJdk("temurin", "25.0.1", "25.0.1", "zip"),
+				windowsJdk("temurin", "25.0.0", "25.0.0", "zip"))) {
+			MetadataUtils.saveMetadataFile(distroDir.resolve(md.metadataFile()), md);
+		}
+		MetadataUtils.generateAllJsonFromDirectory(distroDir, distroDir, false);
+		MetadataUtils.generateComprehensiveIndices(metadataDir, indexDir, false);
+
+		var expected = List.of(tuple("21.0.9", "zip"), tuple("21.0.8", "msi"), tuple("25.0.1", "zip"));
+		for (Path json : List.of(distroDir.resolve("latest.json"), indexDir.resolve("latest.json"))) {
+			assertThat(parseMetadatas(Files.readString(json)))
+					.extracting(JdkMetadata::getVersion, JdkMetadata::getFileType)
+					.containsExactlyInAnyOrderElementsOf(expected);
+		}
+		for (String releaseType : List.of("all", "ga")) {
+			Path archDir = indexDir.resolve(releaseType + "/windows/x86_64");
+			for (String index : List.of("jdk", "jdk/hotspot", "jdk/hotspot/temurin")) {
+				assertThat(parseMetadatas(Files.readString(archDir.resolve(index + "-latest.json"))))
+						.extracting(JdkMetadata::getVersion, JdkMetadata::getFileType)
+						.containsExactlyInAnyOrderElementsOf(expected);
+				List<String> rows = Files.readAllLines(archDir.resolve(index + "-latest.tsv"));
+				assertThat(rows.subList(1, rows.size()))
+						.extracting(row -> tuple(row.split("\t")[8], row.split("\t")[9]))
+						.containsExactlyInAnyOrderElementsOf(expected);
+			}
+		}
+		for (String releaseType : List.of("all", "ga")) {
+			Path leafDir = indexDir.resolve(releaseType + "/windows/x86_64/jdk/hotspot/temurin");
+			for (String leaf : List.of("21/zip", "21/msi", "25/zip")) {
+				for (String suffix : List.of("", "-latest")) {
+					JdkMetadata[] json = parseMetadatas(Files.readString(leafDir.resolve(leaf + suffix + ".json")));
+					List<String> rows = Files.readAllLines(leafDir.resolve(leaf + suffix + ".tsv"));
+					assertThat(json).hasSize(suffix.isEmpty() ? 2 : 1);
+					assertThat(rows.getFirst()).isEqualTo(TSV_HEADER.stripTrailing());
+					assertThat(rows.subList(1, rows.size()))
+							.extracting(row -> tuple(row.split("\t")[8], row.split("\t")[9], row.split("\t")[11]))
+							.containsExactlyInAnyOrderElementsOf(List.of(json).stream()
+									.map(md -> tuple(md.getVersion(), md.getFileType(), md.getFilename()))
+									.toList());
+				}
+			}
 		}
 	}
 
