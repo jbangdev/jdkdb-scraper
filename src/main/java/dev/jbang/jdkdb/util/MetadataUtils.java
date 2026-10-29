@@ -452,7 +452,7 @@ public class MetadataUtils {
 			saveMetadataTsv(imageTsvFile, imageMetadata);
 			fileCount++;
 
-			List<JdkMetadata> latestImageMetadata = filterLatestImageVersions(imageMetadata);
+			List<JdkMetadata> latestImageMetadata = filterLatestVersions(imageMetadata);
 			Path latestImageJsonFile = baseDir.resolve(imageType + "-latest.json");
 			logger.debug(
 					"Generating {} ({} entries)", indexDir.relativize(latestImageJsonFile), latestImageMetadata.size());
@@ -469,23 +469,6 @@ public class MetadataUtils {
 		}
 
 		return fileCount;
-	}
-
-	/** Select one latest asset per JVM implementation, distro and file type within an image index. */
-	private static List<JdkMetadata> filterLatestImageVersions(List<JdkMetadata> imageMetadata) {
-		Comparator<JdkMetadata> byVersion = Comparator.comparing(JdkMetadata::getVersion, VersionComparator.INSTANCE)
-				// Choose consistently when multiple assets have the same version.
-				.thenComparing(JdkMetadata::getFilename, Comparator.nullsFirst(Comparator.naturalOrder()));
-		var latest = imageMetadata.stream()
-				.collect(Collectors.toMap(
-						md -> List.of(
-								normalizeValue(md.getJvmImpl(), "unknown-jvm-impl"),
-								normalizeValue(md.getDistro(), "unknown-distro"),
-								normalizeValue(md.getFileType(), "unknown-file-type")),
-						md -> md,
-						java.util.function.BinaryOperator.maxBy(byVersion),
-						LinkedHashMap::new));
-		return new ArrayList<>(latest.values());
 	}
 
 	private static int generateJvmImplIndices(Path indexDir, Path baseDir, List<JdkMetadata> imageMetadata)
@@ -515,6 +498,23 @@ public class MetadataUtils {
 			Path jvmJsonFile = baseDir.resolve(jvmImpl + ".json");
 			logger.debug("Generating {} ({} entries)", indexDir.relativize(jvmJsonFile), jvmMetadata.size());
 			saveMetadata(jvmJsonFile, jvmMetadata);
+			fileCount++;
+
+			Path jvmTsvFile = baseDir.resolve(jvmImpl + ".tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(jvmTsvFile), jvmMetadata.size());
+			saveMetadataTsv(jvmTsvFile, jvmMetadata);
+			fileCount++;
+
+			List<JdkMetadata> latestJvmMetadata = filterLatestVersions(jvmMetadata);
+			Path latestJvmJsonFile = baseDir.resolve(jvmImpl + "-latest.json");
+			logger.debug(
+					"Generating {} ({} entries)", indexDir.relativize(latestJvmJsonFile), latestJvmMetadata.size());
+			saveMetadata(latestJvmJsonFile, latestJvmMetadata);
+			fileCount++;
+
+			Path latestJvmTsvFile = baseDir.resolve(jvmImpl + "-latest.tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(latestJvmTsvFile), latestJvmMetadata.size());
+			saveMetadataTsv(latestJvmTsvFile, latestJvmMetadata);
 			fileCount++;
 
 			fileCount += generateDistroIndices(indexDir, jvmDir, jvmMetadata);
@@ -562,6 +562,28 @@ public class MetadataUtils {
 			saveMetadata(distroJsonFile, distroMetadata);
 			fileCount++;
 
+			Path distroTsvFile = baseDir.resolve(distro + ".tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(distroTsvFile), distroMetadata.size());
+			saveMetadataTsv(distroTsvFile, distroMetadata);
+			fileCount++;
+
+			List<JdkMetadata> latestDistroMetadata = filterLatestVersions(distroMetadata);
+			Path latestDistroJsonFile = baseDir.resolve(distro + "-latest.json");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestDistroJsonFile),
+					latestDistroMetadata.size());
+			saveMetadata(latestDistroJsonFile, latestDistroMetadata);
+			fileCount++;
+
+			Path latestDistroTsvFile = baseDir.resolve(distro + "-latest.tsv");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestDistroTsvFile),
+					latestDistroMetadata.size());
+			saveMetadataTsv(latestDistroTsvFile, latestDistroMetadata);
+			fileCount++;
+
 			fileCount += generateMajorVersionIndices(indexDir, distroDir, distroMetadata);
 		}
 
@@ -597,6 +619,28 @@ public class MetadataUtils {
 			saveMetadata(versionJsonFile, versionMetadata);
 			fileCount++;
 
+			Path versionTsvFile = baseDir.resolve(majorVersion + ".tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(versionTsvFile), versionMetadata.size());
+			saveMetadataTsv(versionTsvFile, versionMetadata);
+			fileCount++;
+
+			List<JdkMetadata> latestVersionMetadata = filterLatestVersions(versionMetadata);
+			Path latestVersionJsonFile = baseDir.resolve(majorVersion + "-latest.json");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestVersionJsonFile),
+					latestVersionMetadata.size());
+			saveMetadata(latestVersionJsonFile, latestVersionMetadata);
+			fileCount++;
+
+			Path latestVersionTsvFile = baseDir.resolve(majorVersion + "-latest.tsv");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestVersionTsvFile),
+					latestVersionMetadata.size());
+			saveMetadataTsv(latestVersionTsvFile, latestVersionMetadata);
+			fileCount++;
+
 			fileCount += generateFileTypeIndices(indexDir, versionDir, versionMetadata);
 		}
 
@@ -630,6 +674,11 @@ public class MetadataUtils {
 			saveMetadata(fileTypeJsonFile, fileTypeMetadata);
 			fileCount++;
 
+			Path fileTypeTsvFile = baseDir.resolve(fileType + ".tsv");
+			logger.debug("Generating {} ({} entries)", indexDir.relativize(fileTypeTsvFile), fileTypeMetadata.size());
+			saveMetadataTsv(fileTypeTsvFile, fileTypeMetadata);
+			fileCount++;
+
 			// Save the same info filtered by latest versions
 			List<JdkMetadata> latestFileTypeMetadata = filterLatestVersions(fileTypeMetadata);
 			Path latestFileTypeJsonFile = baseDir.resolve(fileType + "-latest.json");
@@ -638,6 +687,14 @@ public class MetadataUtils {
 					indexDir.relativize(latestFileTypeJsonFile),
 					latestFileTypeMetadata.size());
 			saveMetadata(latestFileTypeJsonFile, latestFileTypeMetadata);
+			fileCount++;
+
+			Path latestFileTypeTsvFile = baseDir.resolve(fileType + "-latest.tsv");
+			logger.debug(
+					"Generating {} ({} entries)",
+					indexDir.relativize(latestFileTypeTsvFile),
+					latestFileTypeMetadata.size());
+			saveMetadataTsv(latestFileTypeTsvFile, latestFileTypeMetadata);
 			fileCount++;
 
 			// Save only the urls as text files using the same info
@@ -680,54 +737,29 @@ public class MetadataUtils {
 		return matcher.find() ? matcher.group(1) : "unknown";
 	}
 
-	/**
-	 * Filter metadata to keep only the latest version per major version for each unique group.
-	 * Groups by: os, architecture, image_type, jvm_impl, distro, major_version
-	 * Special handling: If both GA and EA exist for the same version, only GA is kept.
-	 * All assets for the winning version are included in the result.
-	 *
-	 * @param metadataList The list of metadata to filter
-	 * @return Filtered list containing all assets for the latest version per major version per group
-	 */
-	private static List<JdkMetadata> filterLatestVersions(List<JdkMetadata> metadataList) {
-		// Group by all the required fields including major version
-		var grouped = metadataList.stream().collect(Collectors.groupingBy(md -> {
-			String os = normalizeValue(md.getOs(), "unknown-os");
-			String arch = normalizeValue(md.getArchitecture(), "unknown-arch");
-			String imageType = normalizeValue(md.getImageType(), "unknown-image-type");
-			String jvmImpl = normalizeValue(md.getJvmImpl(), "unknown-jvm-impl");
-			String distro = normalizeValue(md.getDistro(), "unknown-distro");
-			String majorVersion = extractMajorVersion(md.getJavaVersion());
-
-			return String.format("%s|%s|%s|%s|%s|%s", os, arch, imageType, jvmImpl, distro, majorVersion);
-		}));
-
-		List<JdkMetadata> result = new ArrayList<>();
-
-		// For each group (which represents a unique major version + platform combination)
-		for (var group : grouped.values()) {
-			// Sort by release_type first (ga before ea), then by version (descending, latest first)
-			var sorted = group.stream()
-					.sorted(Comparator.<JdkMetadata, String>comparing(
-									md -> md.getReleaseType(), Comparator.reverseOrder())
-							.thenComparing(md -> md.getVersion(), VersionComparator.INSTANCE.reversed()))
-					.toList();
-
-			if (!sorted.isEmpty()) {
-				// The first element is the winner (highest version, GA preferred over EA)
-				JdkMetadata winner = sorted.get(0);
-				String winningVersion = winner.getVersion();
-				String winningReleaseType = winner.getReleaseType();
-
-				// Add all assets that match the winning version and release type
-				group.stream()
-						.filter(md -> md.getVersion().equals(winningVersion)
-								&& md.getReleaseType().equals(winningReleaseType))
-						.forEach(result::add);
-			}
-		}
-
-		return result;
+	/** Keep all highest-version assets per platform, image, JVM, distro, major version and file type, preferring GA within each group. */
+	private static List<JdkMetadata> filterLatestVersions(List<JdkMetadata> imageMetadata) {
+		Comparator<JdkMetadata> byVersion = Comparator.<JdkMetadata, Boolean>comparing(
+						md -> "ga".equals(md.getReleaseType()))
+				.thenComparing(JdkMetadata::getVersion, VersionComparator.INSTANCE);
+		var grouped = imageMetadata.stream()
+				.collect(Collectors.groupingBy(
+						md -> List.of(
+								normalizeValue(md.getOs(), "unknown-os"),
+								normalizeValue(md.getArchitecture(), "unknown-arch"),
+								normalizeValue(md.getImageType(), "unknown-image-type"),
+								extractMajorVersion(md.getJavaVersion()),
+								normalizeValue(md.getJvmImpl(), "unknown-jvm-impl"),
+								normalizeValue(md.getDistro(), "unknown-distro"),
+								normalizeValue(md.getFileType(), "unknown-file-type")),
+						LinkedHashMap::new,
+						Collectors.toList()));
+		return grouped.values().stream()
+				.flatMap(group -> {
+					JdkMetadata latest = group.stream().max(byVersion).orElseThrow();
+					return group.stream().filter(md -> byVersion.compare(md, latest) == 0);
+				})
+				.toList();
 	}
 
 	/**
