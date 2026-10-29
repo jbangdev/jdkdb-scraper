@@ -452,7 +452,7 @@ public class MetadataUtils {
 			saveMetadataTsv(imageTsvFile, imageMetadata);
 			fileCount++;
 
-			List<JdkMetadata> latestImageMetadata = filterLatestVersions(imageMetadata);
+			List<JdkMetadata> latestImageMetadata = filterLatestImageVersions(imageMetadata);
 			Path latestImageJsonFile = baseDir.resolve(imageType + "-latest.json");
 			logger.debug(
 					"Generating {} ({} entries)", indexDir.relativize(latestImageJsonFile), latestImageMetadata.size());
@@ -469,6 +469,23 @@ public class MetadataUtils {
 		}
 
 		return fileCount;
+	}
+
+	/** Select one latest asset per JVM implementation, distro and file type within an image index. */
+	private static List<JdkMetadata> filterLatestImageVersions(List<JdkMetadata> imageMetadata) {
+		Comparator<JdkMetadata> byVersion = Comparator.comparing(JdkMetadata::getVersion, VersionComparator.INSTANCE)
+				// Choose consistently when multiple assets have the same version.
+				.thenComparing(JdkMetadata::getFilename, Comparator.nullsFirst(Comparator.naturalOrder()));
+		var latest = imageMetadata.stream()
+				.collect(Collectors.toMap(
+						md -> List.of(
+								normalizeValue(md.getJvmImpl(), "unknown-jvm-impl"),
+								normalizeValue(md.getDistro(), "unknown-distro"),
+								normalizeValue(md.getFileType(), "unknown-file-type")),
+						md -> md,
+						java.util.function.BinaryOperator.maxBy(byVersion),
+						LinkedHashMap::new));
+		return new ArrayList<>(latest.values());
 	}
 
 	private static int generateJvmImplIndices(Path indexDir, Path baseDir, List<JdkMetadata> imageMetadata)
