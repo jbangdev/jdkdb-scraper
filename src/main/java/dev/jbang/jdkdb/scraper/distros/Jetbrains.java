@@ -91,18 +91,18 @@ public class Jetbrains extends GitHubReleaseScraper {
 		String version = versionPart + buildNumber;
 		String imageType = (sdkMarker != null && !sdkMarker.isEmpty()) ? "jdk" : "jre";
 
-		// Build features list
+		// Combine description and filename markers; release tables may omit variant details.
 		List<String> features = new ArrayList<>();
-		if (description.contains("fastdebug")) {
+		if (description.contains("fastdebug") || assetName.contains("-fastdebug-")) {
 			features.add("fastdebug");
 		}
-		if (description.contains("debug symbols")) {
+		if (description.contains("debug symbols") || assetName.contains("_pdb.")) {
 			features.add("debug");
 		}
-		if (description.contains("FreeType")) {
+		if (description.contains("FreeType") || assetName.contains("_ft-")) {
 			features.add("freetype");
 		}
-		if (description.contains("JCEF")) {
+		if (description.contains("JCEF") || assetName.contains("_jcef-")) {
 			features.add("jcef");
 		}
 		if (description.contains("Legacy Binary")) {
