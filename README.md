@@ -462,7 +462,7 @@ The scrapers and indexer generate structured output in the `metadata/` directory
 2. **Organized by release type** (`all/`, `ea/`, `ga/`):
 - OS-specific files: `linux.json`, `macosx.json`, `windows.json`, `aix.json`, `solaris.json`
 - Architecture-specific subdirectories with further breakdowns
-- Image type files within each architecture: `jdk.json` and `jre.json`, plus `jdk-latest.json` and `jre-latest.json` containing the latest release per major version for each distro and JVM implementation. Each image type index also has a `.tsv` equivalent with a header line (`jdk.tsv`, `jre.tsv`, `jdk-latest.tsv`, `jre-latest.tsv`).
+- Image type files within each architecture: `jdk.json` and `jre.json`, plus `jdk-latest.json` and `jre-latest.json` containing one latest asset for each combination of JVM implementation, distro and file type, across all major versions. The `all/` indices compare GA and EA versions together; `ga/` and `ea/` contain only their respective release types. Assets with equal versions are selected by filename to make the result consistent. Each image type index also has a `.tsv` equivalent with a header line (`jdk.tsv`, `jre.tsv`, `jdk-latest.tsv`, `jre-latest.tsv`).
 3. **Distro-specific metadata** (`<distro-name>/`):
 - Individual `.json` files for each JDK release
 - `all.json` file combining all releases for that distro
