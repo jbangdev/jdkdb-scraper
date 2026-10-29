@@ -55,6 +55,9 @@ public class MetadataUtils {
 
 	private static final Pattern DURATION_PATTERN = Pattern.compile("^(\\d+)([dwmy])$");
 	private static final Pattern VERSION_PATTERN = Pattern.compile("^(?:1\\.)?(\\d+)");
+	private static final Comparator<JdkMetadata> INDEX_ORDER = Comparator.comparing(
+					JdkMetadata::getDistro, Comparator.nullsFirst(Comparator.naturalOrder()))
+			.thenComparing(JdkMetadata::getVersion, VersionComparator.INSTANCE.reversed());
 
 	// Use a mix-in to override the JsonPropertyOrder annotation
 	private static ObjectMapper writeMapper = JsonMapper.builder()
@@ -124,16 +127,19 @@ public class MetadataUtils {
 	}
 
 	/**
-	 * Write UTF-8 TSV rows with a header, preserving input order. Columns are release_type, os,
+	 * Write UTF-8 TSV rows with a header, sorted alphabetically by distro then by descending version.
+	 * Missing distros sort first; missing versions sort last within each distro.
+	 * Columns are release_type, os,
 	 * architecture, image_type, jvm_impl, vendor, distro, java_version, version, file_type, url, filename, size, sha256,
 	 * features. Null text fields are empty; null or empty features are written as {@code []}.
 	 * Backslashes, tabs, carriage returns and newlines in text fields are backslash-escaped.
 	 */
 	public static void saveMetadataTsv(Path metadataFile, List<JdkMetadata> metadataList) throws IOException {
+		List<JdkMetadata> sortedList = metadataList.stream().sorted(INDEX_ORDER).toList();
 		try (var writer = Files.newBufferedWriter(metadataFile)) {
 			writer.write("release_type\tos\tarchitecture\timage_type\tjvm_impl\tvendor\tdistro\tjava_version\t"
 					+ "version\tfile_type\turl\tfilename\tsize\tsha256\tfeatures\n");
-			for (JdkMetadata metadata : metadataList) {
+			for (JdkMetadata metadata : sortedList) {
 				String features =
 						metadata.getFeatures() == null ? "[]" : "[" + String.join(",", metadata.getFeatures()) + "]";
 				String[] fields = {
@@ -173,12 +179,9 @@ public class MetadataUtils {
 						.replace("\n", "\\n");
 	}
 
-	/** Save all metadata and create combined all.json file */
+	/** Save metadata as JSON, sorted alphabetically by distro then by descending version. */
 	public static void saveMetadata(Path metadataFile, List<JdkMetadata> metadataList) throws IOException {
-		// Sort by version first (using VersionComparator) and filename second
-		Comparator<JdkMetadata> comparator = Comparator.<JdkMetadata, String>comparing(
-						md -> md.getVersion(), VersionComparator.INSTANCE)
-				.thenComparing(md -> md.metadataFile().getFileName().toString());
+		Comparator<JdkMetadata> comparator = INDEX_ORDER;
 
 		// Only for debugging purposes
 		if (System.getProperty("index.sort", "numerical").equalsIgnoreCase("lexical")) {

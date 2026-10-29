@@ -53,6 +53,26 @@ class MetadataUtilsTest {
 	}
 
 	@Test
+	void testSaveMetadataTsvSortsByDistroThenDescendingVersion() throws Exception {
+		List<JdkMetadata> metadata = List.of(
+				new JdkMetadata().setDistro("zulu").setVersion("25"),
+				new JdkMetadata().setDistro("temurin").setVersion("21.0.9"),
+				new JdkMetadata().setDistro("temurin").setVersion(null),
+				new JdkMetadata().setDistro("temurin").setVersion("21.0.10"),
+				new JdkMetadata().setDistro(null).setVersion("17"),
+				new JdkMetadata().setDistro("temurin").setVersion("25"));
+		Path file = tempDir.resolve("sorted.tsv");
+
+		MetadataUtils.saveMetadataTsv(file, metadata);
+
+		assertThat(Files.readAllLines(file).stream().skip(1).map(row -> {
+					String[] fields = row.split("\t", -1);
+					return fields[6] + ":" + fields[8];
+				}))
+				.containsExactly(":17", "temurin:25", "temurin:21.0.10", "temurin:21.0.9", "temurin:", "zulu:25");
+	}
+
+	@Test
 	void testSaveMetadataTsvWithMissingFieldsAndEscapedText() throws Exception {
 		JdkMetadata first = new JdkMetadata().setFeatures(null).setVendor("é\\\t\r\n");
 		JdkMetadata second = new JdkMetadata().setJavaVersion("17");
@@ -239,7 +259,7 @@ class MetadataUtilsTest {
 	}
 
 	@Test
-	void testSaveMetadataSortsByVersionThenFilename() throws Exception {
+	void testSaveMetadataSortsByDistroThenDescendingVersion() throws Exception {
 		// Given - metadata with various versions and filenames
 		DownloadResult download1 = new DownloadResult(null, null, null, null, 100_000_000L);
 		JdkMetadata metadata1 = JdkMetadata.create()
@@ -317,28 +337,28 @@ class MetadataUtilsTest {
 		Path allJson = metadataDir.resolve("all.json");
 		MetadataUtils.saveMetadata(allJson, List.of(metadata3, metadata1, metadata5, metadata4, metadata2));
 
-		// Then - all.json should be sorted by version first, then filename
+		// Then - all.json should be sorted by distro first, then descending version
 		assertThat(allJson).exists();
 
 		String content = Files.readString(allJson);
 		JdkMetadata[] result = parseMetadatas(content);
 
-		// Verify sorted order: 8.0.202, 11.0.2, 11.0.10 (abc before zulu), 17.0.5
+		// Verify alphabetical distros and descending versions within oracle
 		assertThat(result).hasSize(5);
-		assertThat(result[0].getVersion()).isEqualTo("8.0.202");
-		assertThat(result[0].getFilename()).isEqualTo("oracle-jdk-8.0.202");
+		assertThat(result[0].getVersion()).isEqualTo("11.0.10");
+		assertThat(result[0].getFilename()).isEqualTo("abc-jdk-11.0.10");
 
 		assertThat(result[1].getVersion()).isEqualTo("11.0.2");
 		assertThat(result[1].getFilename()).isEqualTo("oracle-jdk-11.0.2");
 
-		assertThat(result[2].getVersion()).isEqualTo("11.0.10");
-		assertThat(result[2].getFilename()).isEqualTo("abc-jdk-11.0.10"); // abc comes before zulu
+		assertThat(result[2].getVersion()).isEqualTo("8.0.202");
+		assertThat(result[2].getFilename()).isEqualTo("oracle-jdk-8.0.202");
 
-		assertThat(result[3].getVersion()).isEqualTo("11.0.10");
-		assertThat(result[3].getFilename()).isEqualTo("zulu-jdk-11.0.10");
+		assertThat(result[3].getVersion()).isEqualTo("17.0.5");
+		assertThat(result[3].getFilename()).isEqualTo("temurin-jdk-17.0.5");
 
-		assertThat(result[4].getVersion()).isEqualTo("17.0.5");
-		assertThat(result[4].getFilename()).isEqualTo("temurin-jdk-17.0.5");
+		assertThat(result[4].getVersion()).isEqualTo("11.0.10");
+		assertThat(result[4].getFilename()).isEqualTo("zulu-jdk-11.0.10");
 	}
 
 	@Test
@@ -1385,10 +1405,10 @@ class MetadataUtilsTest {
 
 		// Should have 2 entries: Java 17 GA and Java 18 EA
 		assertThat(latestArray).hasSize(2);
-		assertThat(latestArray[0].getReleaseType()).isEqualTo("ga");
-		assertThat(latestArray[0].getVersion()).isEqualTo("17.0.8");
-		assertThat(latestArray[1].getReleaseType()).isEqualTo("ea");
-		assertThat(latestArray[1].getVersion()).isEqualTo("18.0.1");
+		assertThat(latestArray[0].getReleaseType()).isEqualTo("ea");
+		assertThat(latestArray[0].getVersion()).isEqualTo("18.0.1");
+		assertThat(latestArray[1].getReleaseType()).isEqualTo("ga");
+		assertThat(latestArray[1].getVersion()).isEqualTo("17.0.8");
 	}
 
 	@Test
